@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "221661861707",
+    "project_id": "trickortrip-71733",
+    "storage_bucket": "trickortrip-71733.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:221661861707:android:659314f2974e2a595a3ace",
+        "android_client_info": {
+          "package_name": "com.example.tot"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "221661861707-qt1qg93dulc1ukmdu62n4d0te699klcp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.tot",
+            "certificate_hash": "c796a270f5c9ca8cb1c5c3b78ef42142a6c327c6"
+          }
+        },
+        {
+          "client_id": "221661861707-83ukjvpvtnuek9b25f933nr9b9p1ouga.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUTRnBWEGNvFpgnB_sAYTbdZTIjsePAco"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "221661861707-83ukjvpvtnuek9b25f933nr9b9p1ouga.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
