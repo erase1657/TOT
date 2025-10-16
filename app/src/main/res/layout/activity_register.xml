@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingStart="35dp"
+    android:paddingEnd="35dp"
+    android:orientation="vertical"
+    tools:context=".Authentication.RegisterActivity"
+    >
+    <Button
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="@drawable/backbtn"
+        android:layout_marginTop="?attr/actionBarSize"
+        />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="40dp"
+        android:layout_marginBottom="40dp"
+        android:textSize="32dp"
+        android:text="회원가입"
+        android:textStyle="bold"
+        android:textColor="#575DFB"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="29dp"
+        android:orientation="vertical">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="이메일"
+            android:textStyle="bold"
+            android:textColor="@color/black"/>
+        <EditText
+            android:id="@+id/et_email"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="28dp"
+            android:background="@drawable/button_style2"
+            android:drawableLeft="@drawable/email"
+            android:paddingStart="14dp"
+            android:textAlignment="textStart"
+            android:maxLines="1"
+            android:hint="Ex: abc@example.com"
+            android:drawablePadding="10dp"
+            />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="비밀번호"
+            android:textStyle="bold"
+            android:textColor="@color/black"/>
+        <EditText
+            android:id="@+id/et_password"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="28dp"
+            android:background="@drawable/button_style2"
+            android:drawableLeft="@drawable/password"
+            android:paddingStart="14dp"
+            android:textAlignment="textStart"
+            android:maxLines="1"
+            android:inputType="textPassword"
+            android:hint="비밀번호를 설정하세요(8자 이상)"
+            android:drawablePadding="10dp"
+            />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="닉네임"
+            android:textStyle="bold"
+            android:textColor="@color/black"/>
+        <EditText
+            android:id="@+id/et_nickname"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="28dp"
+            android:background="@drawable/button_style2"
+            android:drawableLeft="@drawable/nickname"
+            android:paddingStart="14dp"
+            android:textAlignment="textStart"
+            android:maxLines="1"
+            android:hint="닉네임을 입력하세요"
+            android:drawablePadding="10dp"
+            />
+
+
+        <Button
+            android:id="@+id/btn_register"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/button_style2"
+            android:backgroundTint="#575DFB"
+            android:text="회원가입"
+            android:textColor="@color/white"
+            android:textStyle="bold"/>
+    </LinearLayout>
+
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+
+        >
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="이미 계정이 있나요?"
+            android:textSize="16dp"
+            android:textStyle="bold"
+            android:textColor="@color/black"/>
+        <Button
+            android:id="@+id/btn_login"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
+            android:text="로그인"
+            android:textSize="16dp"
+            android:textColor="#0000ff"
+            android:textStyle="bold"/>
+
+    </LinearLayout>
+</LinearLayout>
