@@ -3,13 +3,6 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/schedule"
-        android:icon="@drawable/schedule"
-        android:title="Activity"
-        app:cnb_iconColor="#575DFB"
-        />
-
-    <item
         android:id="@+id/home"
         android:icon="@drawable/home"
         android:title="Home"
@@ -17,9 +10,25 @@
         />
 
     <item
+        android:id="@+id/schedule"
+        android:icon="@drawable/schedule"
+        android:title="Schedule"
+        app:cnb_iconColor="#575DFB"
+        />
+
+
+
+    <item
         android:id="@+id/community"
         android:icon="@drawable/community"
-        android:title="Favorites"
+        android:title="Community"
+        app:cnb_iconColor="#575DFB"
+        />
+
+    <item
+        android:id="@+id/mypage"
+        android:icon="@drawable/mypage"
+        android:title="My Page"
         app:cnb_iconColor="#575DFB"
         />
 

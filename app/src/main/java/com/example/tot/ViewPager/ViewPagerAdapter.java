@@ -17,11 +17,13 @@ public class ViewPagerAdapter extends FragmentStateAdapter {
     public Fragment createFragment(int position) {
         switch (position) {
             case 0:
-                return new ScheduleFragment();
-            case 1:
                 return new HomeFragment();
+            case 1:
+                return new ScheduleFragment();
             case 2:
                 return new CommunityFragment();
+            case 3:
+                return new MyPageFragment();
             default:
                 return new HomeFragment();
         }
@@ -30,6 +32,6 @@ public class ViewPagerAdapter extends FragmentStateAdapter {
 
     @Override
     public int getItemCount() {
-        return 3;
+        return 4;
     }
 }
