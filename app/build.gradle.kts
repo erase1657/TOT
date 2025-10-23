@@ -33,6 +33,7 @@ android {
 }
 
 dependencies {
+    implementation("com.naver.maps:map-sdk:3.23.0") // 네이버 지도 SDK
     implementation("nl.bryanderidder:themed-toggle-button-group:1.4.1")
     implementation("com.github.ismaeldivita:chip-navigation-bar:1.4.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
