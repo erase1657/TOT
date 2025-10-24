@@ -1,10 +1,26 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.TOT" parent="Theme.AppCompat.Light.NoActionBar">
+    <style name="Base.Theme.TOT" parent="Theme.Material3.DayNight.NoActionBar">
     </style>
 
     <style name="Theme.TOT" parent="Base.Theme.TOT" />
     <style name="Theme.TOT.Splash" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">@drawable/splashlogo</item>
+    </style>
+
+    <style name="Theme.TOT.RoundedDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@color/white</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.App.Dialog.Rounded</item>
+    </style>
+
+    <style name="ShapeAppearance.App.Dialog.Rounded" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="ThemeOverlay.App.DatePicker" parent="ThemeOverlay.Material3.MaterialCalendar">
+        <item name="colorPrimary">@color/app_primary_color</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorOnSurface">@color/app_primary_color</item>
     </style>
 </resources>
