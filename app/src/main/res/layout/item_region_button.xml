@@ -3,9 +3,10 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
-    android:layout_height="30dp"
+    android:layout_height="35dp"
     android:layout_margin="3dp"
     app:layout_flexShrink="0"
     app:toggle_text="지역명"
     app:toggle_textPaddingHorizontal="20dp"
+    app:toggle_textPaddingVertical="8dp"
     app:toggle_textSize="14dp" />
