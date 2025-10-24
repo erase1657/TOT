@@ -66,8 +66,8 @@
                 android:layout_width="16dp"
                 android:layout_height="16dp"
                 android:layout_marginEnd="4dp"
-                android:src="@drawable/mypage"
-                android:tint="@color/gray" />
+                android:src="@drawable/location_point"
+                app:tint="@color/gray" />
 
             <TextView
                 android:id="@+id/text_room"

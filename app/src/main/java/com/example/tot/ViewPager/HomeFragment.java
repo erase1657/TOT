@@ -83,9 +83,9 @@ public class HomeFragment extends Fragment {
         );
 
         List<MemoryData> items = new ArrayList<>();
-        items.add(new MemoryData("회의", "2025.10.15", "Room 6-205", "12:00", "13:05", R.drawable.mypage));
-        items.add(new MemoryData("스터디", "2025.10.20", "Room 3-102", "15:00", "17:00", R.drawable.mypage));
-        items.add(new MemoryData("약속", "2025.10.22", "Room 7-301", "18:30", "20:00", R.drawable.mypage));
+        items.add(new MemoryData("회의", "2025.10.15", "Room 6-205", "12:00", "13:05", R.drawable.location_point));
+        items.add(new MemoryData("스터디", "2025.10.20", "Room 3-102", "15:00", "17:00", R.drawable.location_point));
+        items.add(new MemoryData("약속", "2025.10.22", "Room 7-301", "18:30", "20:00", R.drawable.location_point));
 
         MemoryAdapter memoryAdapter = new MemoryAdapter(items);
         memoryView.setAdapter(memoryAdapter);
