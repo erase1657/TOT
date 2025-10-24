@@ -1,36 +1,33 @@
 package com.example.tot.MemoryRecyclerView;
 
 public class MemoryData {
-    private int img_profile;
-    private String tv_region;
-    private String tv_place;
-    public MemoryData(int img_profile, String tv_region, String tv_place){
-        this.img_profile = img_profile;
-        this.tv_region = tv_region;
-        this.tv_place = tv_place;
+    private String title;
+    private String date;
+    private String room;
+    private String startTime;
+    private String endTime;
+    private int locationIconResId; // 위치 아이콘 리소스 (선택 사항)
+
+    public MemoryData(String title, String date, String room, String startTime, String endTime, int locationIconResId) {
+        this.title = title;
+        this.date = date;
+        this.room = room;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.locationIconResId = locationIconResId;
     }
 
-    public int getImg_profile() {
-        return img_profile;
-    }
+    public String getTitle() { return title; }
+    public String getDate() { return date; }
+    public String getRoom() { return room; }
+    public String getStartTime() { return startTime; }
+    public String getEndTime() { return endTime; }
+    public int getLocationIconResId() { return locationIconResId; }
 
-    public String getTv_region() {
-        return tv_region;
-    }
-
-    public String getTv_place() {
-        return tv_place;
-    }
-
-    public void setTv_place(String tv_place) {
-        this.tv_place = tv_place;
-    }
-
-    public void setTv_region(String tv_region) {
-        this.tv_region = tv_region;
-    }
-
-    public void setImg_profile(int img_profile) {
-        this.img_profile = img_profile;
-    }
+    public void setTitle(String title) { this.title = title; }
+    public void setDate(String date) { this.date = date; }
+    public void setRoom(String room) { this.room = room; }
+    public void setStartTime(String startTime) { this.startTime = startTime; }
+    public void setEndTime(String endTime) { this.endTime = endTime; }
+    public void setLocationIconResId(int locationIconResId) { this.locationIconResId = locationIconResId; }
 }
