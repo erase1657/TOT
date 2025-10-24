@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
@@ -10,7 +11,6 @@
         android:layout_marginTop="?attr/actionBarSize"
         android:orientation="horizontal">
 
-
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -18,8 +18,7 @@
             android:text="Home"
             android:textColor="@color/black"
             android:textStyle="bold"
-            android:textSize="20dp"/>
-
+            android:textSize="20sp" />
 
         <ImageView
             android:id="@+id/profileImage"
@@ -42,26 +41,74 @@
             android:orientation="vertical"
             android:layout_marginStart="19dp">
 
+            <!-- 다음 스케줄 -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/re_memory"
                 android:layout_width="match_parent"
                 android:layout_height="140dp"
                 android:overScrollMode="never"
-                android:layout_marginTop="8dp"/>
+                android:layout_marginTop="8dp" />
 
-            <nl.bryanderidder.themedtogglebuttongroup.ThemedToggleButtonGroup
+            <!-- 스케줄이 없을 때 -->
+            <LinearLayout
+                android:id="@+id/noScheduleSection"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="138dp"
+                android:layout_marginHorizontal="50dp"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:visibility="gone">
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="일정이 없습니다 😴"
+                    android:textColor="#999999"
+                    android:textSize="16sp"
+                    android:gravity="center" />
+            </LinearLayout>
 
-            </nl.bryanderidder.themedtogglebuttongroup.ThemedToggleButtonGroup>
+            <!-- 지역 필터 버튼 그룹 (가로 스크롤 가능) -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:scrollbars="none"
+                android:overScrollMode="never">
 
+                <nl.bryanderidder.themedtogglebuttongroup.ThemedToggleButtonGroup
+                    android:id="@+id/map_tags"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:toggle_selectableAmount="3"
+                    app:justifyContent="flex_start"
+                    app:flexWrap="nowrap"
+                    app:alignItems="center"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+
+                    <!-- 전체 버튼만 고정 -->
+                    <nl.bryanderidder.themedtogglebuttongroup.ThemedButton
+                        android:id="@+id/map_tag_all"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:layout_margin="3dp"
+                        app:layout_flexShrink="0"
+                        app:toggle_text="전체"
+                        app:toggle_textPaddingHorizontal="20dp"
+                        app:toggle_textSize="14dp" />
+                </nl.bryanderidder.themedtogglebuttongroup.ThemedToggleButtonGroup>
+            </HorizontalScrollView>
+
+            <!-- 게시글(앨범) 목록 -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/re_album"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false"/>
+                android:nestedScrollingEnabled="false" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
-
 </LinearLayout>
