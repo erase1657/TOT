@@ -16,7 +16,7 @@
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:text="Home"
-            android:textColor="@color/black"
+            android:textColor="#000000"
             android:textStyle="bold"
             android:textSize="20sp" />
 
@@ -45,9 +45,11 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/re_memory"
                 android:layout_width="match_parent"
-                android:layout_height="140dp"
+                android:layout_height="150dp"
                 android:overScrollMode="never"
-                android:layout_marginTop="8dp" />
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:clipToPadding="false" />
 
             <!-- 스케줄이 없을 때 -->
             <LinearLayout
@@ -56,6 +58,7 @@
                 android:layout_height="138dp"
                 android:layout_marginHorizontal="50dp"
                 android:layout_marginTop="12dp"
+                android:layout_marginBottom="16dp"
                 android:orientation="vertical"
                 android:gravity="center"
                 android:padding="16dp"
@@ -70,38 +73,45 @@
                     android:gravity="center" />
             </LinearLayout>
 
-            <!-- 지역 필터 버튼 그룹 (가로 스크롤 가능) -->
+            <!-- 지역 필터: 시/도 선택 -->
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"
+                android:layout_marginTop="4dp"
                 android:scrollbars="none"
                 android:overScrollMode="never">
 
-                <nl.bryanderidder.themedtogglebuttongroup.ThemedToggleButtonGroup
-                    android:id="@+id/map_tags"
+                <LinearLayout
+                    android:id="@+id/provinceButtonContainer"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    app:toggle_selectableAmount="3"
-                    app:justifyContent="flex_start"
-                    app:flexWrap="nowrap"
-                    app:alignItems="center"
+                    android:orientation="horizontal"
                     android:paddingStart="8dp"
                     android:paddingEnd="8dp">
+                    <!-- 시/도 버튼들이 동적으로 추가됨 -->
+                </LinearLayout>
+            </HorizontalScrollView>
 
-                    <!-- 전체 버튼만 고정 -->
-                    <nl.bryanderidder.themedtogglebuttongroup.ThemedButton
-                        android:id="@+id/map_tag_all"
-                        android:layout_width="wrap_content"
-                        android:layout_height="35dp"
-                        android:layout_margin="3dp"
-                        app:layout_flexShrink="0"
-                        app:toggle_textPaddingVertical="8dp"
-                        app:toggle_text="전체"
-                        app:toggle_textPaddingHorizontal="20dp"
-                        app:toggle_textSize="14dp" />
-                </nl.bryanderidder.themedtogglebuttongroup.ThemedToggleButtonGroup>
+            <!-- 지역 필터: 시군구 선택 -->
+            <HorizontalScrollView
+                android:id="@+id/cityScrollView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="12dp"
+                android:scrollbars="none"
+                android:overScrollMode="never"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/cityButtonContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+                    <!-- 시군구 버튼들이 동적으로 추가됨 -->
+                </LinearLayout>
             </HorizontalScrollView>
 
             <!-- 게시글(앨범) 목록 -->
@@ -109,7 +119,8 @@
                 android:id="@+id/re_album"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false" />
+                android:nestedScrollingEnabled="false"
+                android:layout_marginTop="4dp" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </LinearLayout>
