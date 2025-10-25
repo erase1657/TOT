@@ -50,7 +50,7 @@
 
         <meta-data
             android:name="com.naver.maps.map.NCP_KEY_ID"
-            android:value="" />
+            android:value="" /> <!-- 네이버 키값 넣는 곳 -->
 
     </application>
 
