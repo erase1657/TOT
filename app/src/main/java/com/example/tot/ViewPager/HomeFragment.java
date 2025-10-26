@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.LinearSnapHelper;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SnapHelper;
+import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.tot.AlbumRecyclerView.AlbumAdapter;
 import com.example.tot.AlbumRecyclerView.AlbumData;
@@ -25,6 +26,8 @@ import com.example.tot.R;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import de.hdodenhof.circleimageview.CircleImageView;
 
 public class HomeFragment extends Fragment {
 
@@ -45,6 +48,9 @@ public class HomeFragment extends Fragment {
     private AlbumAdapter albumAdapter;
     private List<AlbumData> allAlbumItems;  // 전체 앨범 데이터
 
+    // 프로필 이미지
+    private CircleImageView profileImage;
+
     public HomeFragment() {
         super(R.layout.fragment_home);
     }
@@ -59,6 +65,16 @@ public class HomeFragment extends Fragment {
         provinceButtonContainer = view.findViewById(R.id.provinceButtonContainer);
         cityButtonContainer = view.findViewById(R.id.cityButtonContainer);
         cityScrollView = view.findViewById(R.id.cityScrollView);
+        profileImage = view.findViewById(R.id.profileImage);
+
+        // 프로필 이미지 클릭 이벤트 (마이페이지로 이동)
+        profileImage.setOnClickListener(v -> {
+            // ViewPager를 통해 마이페이지로 이동
+            ViewPager2 viewPager = requireActivity().findViewById(R.id.viewpager);
+            if (viewPager != null) {
+                viewPager.setCurrentItem(3); // 마이페이지는 3번째 탭
+            }
+        });
 
         // 1. 시/도 버튼 생성 (인구 순으로 이미 정렬됨)
         setupProvinceButtons();
@@ -253,28 +269,6 @@ public class HomeFragment extends Fragment {
             // 결과 로그
             android.util.Log.d("HomeFragment", "필터링 결과: " + filteredItems.size() + "개 앨범");
         }
-    }
-
-    /**
-     * 서버에서 앨범 데이터 가져오기 (예시)
-     * 실제 구현 시 Retrofit 등의 HTTP 클라이언트 사용
-     */
-    private void fetchAlbumsFromServer(String provinceCode, String cityCode) {
-        // 예시: API 호출 구조
-        // ApiService.getAlbums(provinceCode, cityCode)
-        //     .enqueue(new Callback<List<AlbumData>>() {
-        //         @Override
-        //         public void onResponse(Call<List<AlbumData>> call, Response<List<AlbumData>> response) {
-        //             if (response.isSuccessful() && response.body() != null) {
-        //                 albumAdapter.updateData(response.body());
-        //             }
-        //         }
-        //
-        //         @Override
-        //         public void onFailure(Call<List<AlbumData>> call, Throwable t) {
-        //             Log.e("HomeFragment", "API 호출 실패", t);
-        //         }
-        //     });
     }
 
     /**
