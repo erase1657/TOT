@@ -23,4 +23,16 @@
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorOnSurface">@color/app_primary_color</item>
     </style>
+
+    <style name="RoundedBottomSheetDialog" parent="Theme.Design.Light.BottomSheetDialog">
+        <!-- 투명 배경 -->
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="bottomSheetStyle">@style/RoundedBottomSheetStyle</item>
+    </style>
+
+    <style name="RoundedBottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
+        <!-- 둥근 배경 drawable 지정 -->
+        <item name="android:background">@drawable/layout_style1</item>
+    </style>
 </resources>
