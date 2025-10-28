@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="140dp"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@color/white">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:id="@+id/tv_starttime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="17:01"
+            android:textStyle="bold"
+            android:textColor="@color/black"
+            android:textSize="15dp" />
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="3dp"/>
+        <TextView
+            android:id="@+id/tv_endtime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="17:01"
+            android:textStyle="bold"
+            android:textSize="15dp" />
+    </LinearLayout>
+    <Space
+        android:layout_width="18.5dp"
+        android:layout_height="0dp"/>
+
+    <View
+        android:layout_width="3dp"
+        android:layout_height="match_parent"
+        android:background="#FAF9F9"
+        android:layout_gravity="center_vertical"
+
+        />
+    <Space
+        android:layout_width="18dp"
+        android:layout_height="0dp"/>
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="116dp"
+        android:backgroundTint="#F6F6F5"
+        app:cardCornerRadius="17dp">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingTop="18dp"
+            android:paddingBottom="18dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:id="@+id/tv_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="제목"
+                    android:textColor="@color/black"
+                    android:textSize="17dp"
+                    android:textStyle="bold"/>
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"/>
+                <Button
+                    android:id="@+id/btn_modify"
+                    android:layout_width="27dp"
+                    android:layout_height="29dp"
+                    android:layout_alignParentEnd="true"
+                    android:background="@drawable/schedulemodybtn"/>
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/layout_place"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp">
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="15dp"
+                    android:background="@drawable/ic_place"
+                    android:layout_gravity="center"
+                    android:layout_marginEnd="11dp"/>
+                <TextView
+                    android:id="@+id/tv_place"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="장소 표시 예시"
+                    android:textColor="#646262"/>
+
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/layout_alarm"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp">
+                <ImageView
+                    android:layout_width="15dp"
+                    android:layout_height="15dp"
+                    android:background="@drawable/ic_alarm"
+                    android:layout_marginEnd="11dp"
+                    android:layout_gravity="center"/>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="알림"
+                    android:textColor="#646262"/>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+</LinearLayout>

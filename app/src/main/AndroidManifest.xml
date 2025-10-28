@@ -19,7 +19,7 @@
         </activity>
 
         <activity
-            android:name=".SplashActivity"
+            android:name=".Schedule.ScheduleSettingActivity"
             android:exported="true"
             android:theme="@style/Theme.TOT.Splash">
             <intent-filter>
