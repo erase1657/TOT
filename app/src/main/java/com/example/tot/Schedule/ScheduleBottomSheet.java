@@ -27,7 +27,7 @@ public class ScheduleBottomSheet {
     private final Context context;
     private OnScheduleSaveListener listener;
     private NumberPicker np_StartHour, np_StartMinute, np_EndHour, np_EndMinute;
-    private Switch sw_Alarm;
+    private com.github.angads25.toggle.widget.LabeledSwitch sw_Alarm;
     private EditText et_Title;
     private Button btn_Save;
     public ScheduleBottomSheet(Context context) {
@@ -73,7 +73,7 @@ public class ScheduleBottomSheet {
             int endHour = np_EndHour.getValue();
             int endMinute = np_EndMinute.getValue();
             String title = et_Title.getText().toString().trim();
-            boolean alarmEnabled = sw_Alarm.isChecked();
+            boolean alarmEnabled = sw_Alarm.isEnabled();
 
 
 
