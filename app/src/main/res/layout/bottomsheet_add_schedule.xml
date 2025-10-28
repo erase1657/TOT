@@ -180,7 +180,7 @@
             android:layout_height="0dp"
             android:layout_weight="1"/>
         <com.github.angads25.toggle.widget.LabeledSwitch
-            android:id="@+id/test_switch"
+            android:id="@+id/sw_alarm"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:colorOn = "#63ACFF"
