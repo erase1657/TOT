@@ -4,14 +4,14 @@
 
     <item
         android:id="@+id/home"
-        android:icon="@drawable/home"
+        android:icon="@drawable/ic_home"
         android:title="Home"
         app:cnb_iconColor="#575DFB"
         />
 
     <item
         android:id="@+id/schedule"
-        android:icon="@drawable/schedule"
+        android:icon="@drawable/ic_schedule"
         android:title="Schedule"
         app:cnb_iconColor="#575DFB"
         />
@@ -20,7 +20,7 @@
 
     <item
         android:id="@+id/community"
-        android:icon="@drawable/community"
+        android:icon="@drawable/ic_community"
         android:title="Community"
         app:cnb_iconColor="#575DFB"
         />

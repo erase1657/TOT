@@ -20,7 +20,7 @@
         <Button
             android:layout_width="29dp"
             android:layout_height="29dp"
-            android:background="@drawable/invitebtn"
+            android:background="@drawable/ic_add2"
             />
         <Space
             android:layout_width="0dp"
@@ -78,7 +78,7 @@
             android:layout_height="45dp"
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="10dp"
-            android:background="@drawable/addplanbtn"/>
+            android:background="@drawable/ic_add"/>
     </LinearLayout>
 
 </LinearLayout>

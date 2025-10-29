@@ -98,9 +98,10 @@
             android:layout_marginTop="4dp">
 
             <ImageView
-                android:layout_width="14dp"
+                android:layout_width="9dp"
                 android:layout_height="14dp"
-                android:src="@drawable/location_point"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_place"
                 android:tint="#000000" />
 
             <TextView
