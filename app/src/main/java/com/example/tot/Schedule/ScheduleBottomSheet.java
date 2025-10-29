@@ -8,7 +8,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.NumberPicker;
-import android.widget.Switch;
 import android.widget.Toast;
 
 import com.example.tot.R;
@@ -22,7 +21,7 @@ import java.util.Calendar;
 
 public class ScheduleBottomSheet {
     public interface OnScheduleSaveListener {
-        void onScheduleSaved(ScheduleItem item);
+        void onScheduleSaved(SchedulePlanItem item);
     }
     private final Context context;
     private OnScheduleSaveListener listener;
@@ -91,7 +90,7 @@ public class ScheduleBottomSheet {
             Timestamp endTimestamp = new Timestamp(calendar.getTime());
 
             GeoPoint location = new GeoPoint(0, 0); //예시 장소
-            ScheduleItem item = new ScheduleItem(title, startTimestamp, endTimestamp, location, "예시", true);
+            SchedulePlanItem item = new SchedulePlanItem(title, startTimestamp, endTimestamp, location, "예시", true);
             // 제목 입력 확인
             if (title.isEmpty()) {
                 Toast.makeText(context, "제목을 입력해주세요.", Toast.LENGTH_SHORT).show();

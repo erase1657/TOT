@@ -10,7 +10,6 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
-import com.example.tot.Schedule.ScheduleItem;
 import com.google.firebase.Timestamp;
 
 import java.text.SimpleDateFormat;
@@ -20,19 +19,19 @@ import java.util.Locale;
 
 public class ScheduleItemAdapter extends RecyclerView.Adapter<ScheduleItemAdapter.ViewHolder> {
 
-    private List<ScheduleItem> scheduleList = new ArrayList<>();
+    private List<SchedulePlanItem> scheduleList = new ArrayList<>();
     private OnItemClickListener listener;
 
     // 아이템 클릭 인터페이스
     public interface OnItemClickListener {
-        void onItemClick(ScheduleItem item);
+        void onItemClick(SchedulePlanItem item);
     }
 
     public ScheduleItemAdapter(OnItemClickListener listener) {
         this.listener = listener;
     }
 
-    public void submitList(List<ScheduleItem> list) {
+    public void submitList(List<SchedulePlanItem> list) {
         this.scheduleList = list;
         notifyDataSetChanged();
     }
@@ -41,13 +40,13 @@ public class ScheduleItemAdapter extends RecyclerView.Adapter<ScheduleItemAdapte
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_schedule, parent, false);
+                .inflate(R.layout.item_scheduleplan, parent, false);
         return new ViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        ScheduleItem item = scheduleList.get(position);
+        SchedulePlanItem item = scheduleList.get(position);
         holder.bind(item, listener);
     }
 
@@ -55,7 +54,7 @@ public class ScheduleItemAdapter extends RecyclerView.Adapter<ScheduleItemAdapte
     public int getItemCount() {
         return scheduleList.size();
     }
-    public List<ScheduleItem> getCurrentList() {
+    public List<SchedulePlanItem> getCurrentList() {
         return scheduleList;
     }
     static class ViewHolder extends RecyclerView.ViewHolder {
@@ -74,7 +73,7 @@ public class ScheduleItemAdapter extends RecyclerView.Adapter<ScheduleItemAdapte
             btn_Modify = itemView.findViewById(R.id.btn_modify);
         }
 
-        void bind(ScheduleItem item, OnItemClickListener listener) {
+        void bind(SchedulePlanItem item, OnItemClickListener listener) {
             tv_Title.setText(item.getTitle());
             tv_Place.setText(item.getPlaceName());
 

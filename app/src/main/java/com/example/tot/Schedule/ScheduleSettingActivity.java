@@ -3,7 +3,6 @@ package com.example.tot.Schedule;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -46,7 +45,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private Button btn_AddSchedule;
 
     private ScheduleItemAdapter adapter;
-    private List<ScheduleItem> scheduleList = new ArrayList<>();
+    private List<SchedulePlanItem> scheduleList = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,7 +98,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
 
             // ✅ 여기 추가: 바텀시트에 콜백 연결
             bottom.setOnScheduleSaveListener(item -> {
-                List<ScheduleItem> currentList = new ArrayList<>(adapter.getCurrentList());
+                List<SchedulePlanItem> currentList = new ArrayList<>(adapter.getCurrentList());
                 currentList.add(item);
                 adapter.submitList(currentList);
                 Toast.makeText(this, "일정이 추가되었습니다: " + item.getTitle(), Toast.LENGTH_SHORT).show();
@@ -121,9 +120,9 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                 .whereEqualTo("date", dateKey)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    List<ScheduleItem> list = new ArrayList<>();
+                    List<SchedulePlanItem> list = new ArrayList<>();
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                        ScheduleItem item = doc.toObject(ScheduleItem.class);
+                        SchedulePlanItem item = doc.toObject(SchedulePlanItem.class);
                         if (item != null) {
                             list.add(item);
                         }
