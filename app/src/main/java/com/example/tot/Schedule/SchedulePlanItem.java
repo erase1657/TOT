@@ -2,16 +2,16 @@ package com.example.tot.Schedule;
 
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.GeoPoint;
-public class  ScheduleItem {
+public class SchedulePlanItem {
     private String title;
     private Timestamp startTime; //스케줄 시간(시작), 몇시부터 할지
     private Timestamp endTime; //스케줄 시간(끝), 몇시까지 할지
     private GeoPoint place;
     private String placeName;
     private Boolean alarm;
-    public ScheduleItem() {}
+    public SchedulePlanItem() {}
 
-    public ScheduleItem(String title, Timestamp startTime, Timestamp endTime, GeoPoint place, String placeName, Boolean alarm) {
+    public SchedulePlanItem(String title, Timestamp startTime, Timestamp endTime, GeoPoint place, String placeName, Boolean alarm) {
         this.title = title;
         this.startTime = startTime;
         this.endTime = endTime;
