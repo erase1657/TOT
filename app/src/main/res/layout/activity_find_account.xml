@@ -12,7 +12,7 @@
     <Button
         android:layout_width="38dp"
         android:layout_height="38dp"
-        android:background="@drawable/backbtn"
+        android:background="@drawable/ic_back"
         android:layout_marginTop="?attr/actionBarSize"
         />
     <LinearLayout
@@ -45,7 +45,7 @@
         android:layout_height="56dp"
         android:layout_marginBottom="28dp"
         android:background="@drawable/button_style2"
-        android:drawableLeft="@drawable/email"
+        android:drawableLeft="@drawable/ic_email"
         android:paddingStart="14dp"
         android:textAlignment="textStart"
         android:maxLines="1"

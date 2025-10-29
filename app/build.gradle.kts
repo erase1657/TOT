@@ -38,13 +38,12 @@ dependencies {
     implementation("com.github.ismaeldivita:chip-navigation-bar:1.4.0") //하단 네브바
     implementation("androidx.core:core-splashscreen:1.0.1") // 스플래시 이미지
     implementation("com.github.angads25:toggle:1.1.0") // 스위치버튼
-
+    implementation("de.hdodenhof:circleimageview:3.1.0") // 동그란 프로필 이미지
     //파이어베이스 관련
     implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
-    implementation("de.hdodenhof:circleimageview:3.1.0") // 동그란 프로필 이미지
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
