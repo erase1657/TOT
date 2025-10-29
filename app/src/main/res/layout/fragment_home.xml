@@ -1,74 +1,130 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
+
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="?attr/actionBarSize"
-        android:orientation="horizontal"
-        >
-
+        android:orientation="horizontal">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:text="Home"
-            android:textColor="@color/black"
+            android:textColor="#000000"
             android:textStyle="bold"
-            android:textSize="20dp"/>
+            android:textSize="20sp" />
 
-
-        <ImageView
+        <de.hdodenhof.circleimageview.CircleImageView
             android:id="@+id/profileImage"
             android:layout_width="50dp"
             android:layout_height="50dp"
             android:layout_alignParentEnd="true"
-            android:background="@drawable/sample1"/>
+            android:layout_marginEnd="15dp"
+            android:src="@drawable/ic_profile_default"
+            app:civ_border_width="2dp"
+            app:civ_border_color="#E5E7EB"
+            android:clickable="true"
+            android:focusable="true" />
     </RelativeLayout>
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="19dp"
-        android:orientation="vertical">
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="8dp"
-            android:text="기록"
-            android:textColor="@color/black"
-            android:textStyle="bold"/>
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/re_memory"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
-    </LinearLayout>
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="19dp"
-        android:orientation="vertical">
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="8dp"
-            android:text="추천"
-            android:textColor="@color/black"
-            android:textStyle="bold"/>
-        <nl.bryanderidder.themedtogglebuttongroup.ThemedToggleButtonGroup
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
-        </nl.bryanderidder.themedtogglebuttongroup.ThemedToggleButtonGroup>
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/re_album"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"/>
-    </LinearLayout>
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginStart="19dp">
+
+            <!-- 다음 스케줄 -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/re_memory"
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:overScrollMode="never"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:clipToPadding="false" />
+
+            <!-- 스케줄이 없을 때 -->
+            <LinearLayout
+                android:id="@+id/noScheduleSection"
+                android:layout_width="match_parent"
+                android:layout_height="138dp"
+                android:layout_marginHorizontal="50dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="16dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="일정이 없습니다 😴"
+                    android:textColor="#999999"
+                    android:textSize="16sp"
+                    android:gravity="center" />
+            </LinearLayout>
+
+            <!-- 지역 필터: 시/도 선택 -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:scrollbars="none"
+                android:overScrollMode="never">
+
+                <LinearLayout
+                    android:id="@+id/provinceButtonContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+                    <!-- 시/도 버튼들이 동적으로 추가됨 -->
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- 지역 필터: 시군구 선택 -->
+            <HorizontalScrollView
+                android:id="@+id/cityScrollView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="12dp"
+                android:scrollbars="none"
+                android:overScrollMode="never"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/cityButtonContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+                    <!-- 시군구 버튼들이 동적으로 추가됨 -->
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- 게시글(앨범) 목록 -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/re_album"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 </LinearLayout>

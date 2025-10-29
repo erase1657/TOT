@@ -10,12 +10,6 @@
     android:orientation="vertical"
     tools:context=".Authentication.LoginActivity"
     >
-    <Button
-        android:layout_width="38dp"
-        android:layout_height="38dp"
-        android:background="@drawable/backbtn"
-        android:layout_marginTop="?attr/actionBarSize"
-        />
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -44,7 +38,7 @@
             android:layout_height="56dp"
             android:layout_marginBottom="28dp"
             android:background="@drawable/button_style2"
-            android:drawableLeft="@drawable/email"
+            android:drawableLeft="@drawable/ic_email"
             android:paddingStart="14dp"
             android:textAlignment="textStart"
             android:maxLines="1"
@@ -114,7 +108,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="11dp"
         android:background="@drawable/button_style1"
-        android:drawableLeft="@drawable/google"
+        android:drawableLeft="@drawable/ic_google"
         android:drawablePadding="10dp"
         android:paddingStart="72dp"
         android:text="구글계정으로 로그인하기"

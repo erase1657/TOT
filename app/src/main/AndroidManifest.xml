@@ -12,6 +12,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.TOT"
         tools:targetApi="31">
+
+        <activity
+            android:name=".MapActivity"
+            android:exported="true">
+        </activity>
+
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -21,6 +27,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
             android:name=".MainActivity"
             android:exported="false"/>
@@ -40,6 +47,11 @@
             android:name=".Authentication.LoginActivity"
             android:exported="false">
         </activity>
+
+        <meta-data
+            android:name="com.naver.maps.map.NCP_KEY_ID"
+            android:value=""/> <!-- 네이버 키값 넣는 곳 -->
+
     </application>
 
 </manifest>

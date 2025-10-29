@@ -9,17 +9,18 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.tot.MemoryRecyclerView.MemoryAdapter;
-import com.example.tot.MemoryRecyclerView.MemoryData;
 import com.example.tot.R;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+
 public class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.ViewHolder> {
     private List<AlbumData> items;
 
     public AlbumAdapter(List<AlbumData> items){
-        this.items = items;
+        this.items = items != null ? items : new ArrayList<>();
     }
+
     public static class ViewHolder extends RecyclerView.ViewHolder {
         ImageView userProfile;
         ImageView albumProfile;
@@ -32,6 +33,7 @@ public class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.ViewHolder> 
             userName = itemView.findViewById(R.id.tv_username);
         }
     }
+
     @NonNull
     @Override
     public AlbumAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -53,5 +55,15 @@ public class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.ViewHolder> 
         return items.size();
     }
 
-
+    /**
+     * 앨범 데이터 업데이트 메서드 (지역 필터링 시 사용)
+     * @param newItems 새로운 앨범 리스트
+     */
+    public void updateData(List<AlbumData> newItems) {
+        this.items.clear();
+        if (newItems != null) {
+            this.items.addAll(newItems);
+        }
+        notifyDataSetChanged();
+    }
 }
