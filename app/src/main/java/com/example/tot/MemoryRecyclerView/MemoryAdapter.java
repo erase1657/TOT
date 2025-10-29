@@ -22,14 +22,14 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.ViewHolder
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView title, date, room, startTime, endTime;
+        TextView title, date, location, startTime, endTime;
         ImageView locationIcon;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             title = itemView.findViewById(R.id.text_title);
             date = itemView.findViewById(R.id.text_date);
-            room = itemView.findViewById(R.id.text_room);
+            location = itemView.findViewById(R.id.text_location);
             startTime = itemView.findViewById(R.id.text_start_time);
             endTime = itemView.findViewById(R.id.text_end_time);
             locationIcon = itemView.findViewById(R.id.image_location_point);
@@ -49,7 +49,7 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.ViewHolder
         MemoryData item = items.get(position);
         holder.title.setText(item.getTitle());
         holder.date.setText(item.getDate());
-        holder.room.setText(item.getRoom());
+        holder.location.setText(item.getRoom());
         holder.startTime.setText(item.getStartTime());
         holder.endTime.setText(item.getEndTime());
 
