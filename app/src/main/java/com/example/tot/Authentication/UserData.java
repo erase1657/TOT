@@ -5,7 +5,16 @@ public class UserData {
     private String Uid;
     private String profile;
     private String NickName;
+    private String statusMessage;  // 상태메시지 추가
+    private String location;       // 위치 추가
 
+    // 기본 생성자
+    public UserData() {
+        this.statusMessage = "";  // 기본값 공백
+        this.location = "";       // 기본값 공백
+    }
+
+    // Getter & Setter
     public String getEmail() {
         return Email;
     }
@@ -36,5 +45,21 @@ public class UserData {
 
     public void setNickName(String nickName) {
         NickName = nickName;
+    }
+
+    public String getStatusMessage() {
+        return statusMessage != null ? statusMessage : "";
+    }
+
+    public void setStatusMessage(String statusMessage) {
+        this.statusMessage = statusMessage;
+    }
+
+    public String getLocation() {
+        return location != null ? location : "";
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
     }
 }
