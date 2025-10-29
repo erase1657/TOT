@@ -44,6 +44,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("de.hdodenhof:circleimageview:3.1.0") // 동그란 프로필 이미지
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
