@@ -2,4 +2,9 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="memory_card_bg">#E5E6FF</color>
+    <color name="gray">#646262</color>
+    <color name="dialog_background_blue">#575DFB</color>
+
+    <color name="app_primary_color">#575DFB</color>
 </resources>

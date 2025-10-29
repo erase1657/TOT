@@ -30,12 +30,15 @@ public class MainActivity extends AppCompatActivity {
         chipNav.setOnItemSelectedListener(new ChipNavigationBar.OnItemSelectedListener() {
             @Override
             public void onItemSelected(int id) {
-                if (id == R.id.schedule) {
+                if (id == R.id.home) {
                     viewPager.setCurrentItem(0);
-                } else if (id == R.id.home) {
+                } else if (id == R.id.schedule) {
                     viewPager.setCurrentItem(1);
                 } else if (id == R.id.community) {
                     viewPager.setCurrentItem(2);
+                }
+                else if (id == R.id.mypage) {
+                    viewPager.setCurrentItem(3);
                 }
             }
         });
@@ -46,13 +49,16 @@ public class MainActivity extends AppCompatActivity {
                 super.onPageSelected(position);
                 switch (position) {
                     case 0:
-                        chipNav.setItemSelected(R.id.schedule, true);
+                        chipNav.setItemSelected(R.id.home, true);
                         break;
                     case 1:
-                        chipNav.setItemSelected(R.id.home, true);
+                        chipNav.setItemSelected(R.id.schedule, true);
                         break;
                     case 2:
                         chipNav.setItemSelected(R.id.community, true);
+                        break;
+                    case 3:
+                        chipNav.setItemSelected(R.id.mypage, true);
                         break;
                 }
             }
