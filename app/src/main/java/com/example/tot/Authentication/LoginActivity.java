@@ -21,7 +21,7 @@ public class LoginActivity extends AppCompatActivity {
     private Button GoRegisterBtn, findPasswordBtn, LoginBtn, GoogleBtn;
     private EditText EmailEt, PasswordEt;
     private FirebaseAuth Auth;
-    private GoogleAuthManager authManager;
+    private GoogleAuthManager googleAuthManager;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -39,42 +39,28 @@ public class LoginActivity extends AppCompatActivity {
 
         String serverClientId = getString(R.string.default_web_client_id);
 
-        authManager = GoogleAuthManager.create(getApplicationContext(), serverClientId)
-                .setFilterByAuthorizedAccounts(false); // 필요 시 false (모든 구글 계정 선택 허용)
 
-        authManager.setCallback(new GoogleAuthManager.AuthCallback() {
+        googleAuthManager = new GoogleAuthManager(this, serverClientId);
+        googleAuthManager.setCallback(new GoogleAuthManager.AuthCallback() {
             @Override
             public void onSignInSuccess(@NonNull FirebaseUser user) {
-                runOnUiThread(() -> {
-                    Toast.makeText(LoginActivity.this,
-                            "구글 로그인 성공: " + user.getEmail(), Toast.LENGTH_SHORT).show();
-                });
+                Toast.makeText(LoginActivity.this, "✅ 로그인 성공: " + user.getEmail(), Toast.LENGTH_SHORT).show();
                 startActivity(new Intent(LoginActivity.this, MainActivity.class));
                 finish();
             }
 
             @Override
             public void onSignInError(@NonNull Exception e) {
-                runOnUiThread(() -> {
-                    Toast.makeText(LoginActivity.this,
-                            "구글 로그인 실패: " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
-                });          }
+                Toast.makeText(LoginActivity.this, "❌ 로그인 실패: " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
+            }
 
             @Override
             public void onSignOut() {
-                runOnUiThread(() -> {
-                    Toast.makeText(LoginActivity.this,
-                            "로그아웃되었습니다.", Toast.LENGTH_SHORT).show();
-                });
+                Toast.makeText(LoginActivity.this, "로그아웃 완료", Toast.LENGTH_SHORT).show();
             }
         });
 
-        // 앱 시작 시 현재 사용자 체크(옵션)
-        authManager.checkCurrentUser();
-
-        // 예: 버튼으로 로그인 실행
-        GoogleBtn.setOnClickListener(v -> authManager.signIn(LoginActivity.this));
-
+        GoogleBtn.setOnClickListener(v -> googleAuthManager.signIn());
         GoRegisterBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {

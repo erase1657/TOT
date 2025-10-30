@@ -17,6 +17,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.tot.Authentication.GoogleAuthManager;
 import com.example.tot.Authentication.LoginActivity;
 import com.example.tot.R;
 import com.example.tot.ScheduleRecyclerView.ScheduleData;
@@ -243,7 +244,8 @@ public class MyPageFragment extends Fragment {
     private void performLogout() {
         // Firebase 로그아웃
         mAuth.signOut();
-
+        // ✅ Google Credential 로그아웃 (One Tap / CredentialManager 세션 초기화)
+        String serverClientId = getString(R.string.default_web_client_id);
         Toast.makeText(getContext(), "로그아웃되었습니다", Toast.LENGTH_SHORT).show();
 
         // 로그인 화면으로 이동
