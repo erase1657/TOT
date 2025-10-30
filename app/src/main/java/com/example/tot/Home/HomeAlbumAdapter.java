@@ -1,4 +1,4 @@
-package com.example.tot.AlbumRecyclerView;
+package com.example.tot.Home;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,10 +14,10 @@ import com.example.tot.R;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.ViewHolder> {
-    private List<AlbumData> items;
+public class HomeAlbumAdapter extends RecyclerView.Adapter<HomeAlbumAdapter.ViewHolder> {
+    private List<HomeAlbumData> items;
 
-    public AlbumAdapter(List<AlbumData> items){
+    public HomeAlbumAdapter(List<HomeAlbumData> items){
         this.items = items != null ? items : new ArrayList<>();
     }
 
@@ -36,15 +36,15 @@ public class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.ViewHolder> 
 
     @NonNull
     @Override
-    public AlbumAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public HomeAlbumAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_album, parent, false);
-        return new AlbumAdapter.ViewHolder(view);
+        return new HomeAlbumAdapter.ViewHolder(view);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull AlbumAdapter.ViewHolder holder, int position) {
-        AlbumData item = items.get(position);
+    public void onBindViewHolder(@NonNull HomeAlbumAdapter.ViewHolder holder, int position) {
+        HomeAlbumData item = items.get(position);
         holder.userProfile.setImageResource(item.getUserProfile());
         holder.albumProfile.setImageResource(item.getAlbumProfile());
         holder.userName.setText(item.getUserName());
@@ -59,7 +59,7 @@ public class AlbumAdapter extends RecyclerView.Adapter<AlbumAdapter.ViewHolder> 
      * 앨범 데이터 업데이트 메서드 (지역 필터링 시 사용)
      * @param newItems 새로운 앨범 리스트
      */
-    public void updateData(List<AlbumData> newItems) {
+    public void updateData(List<HomeAlbumData> newItems) {
         this.items.clear();
         if (newItems != null) {
             this.items.addAll(newItems);

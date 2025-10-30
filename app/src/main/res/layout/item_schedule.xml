@@ -37,7 +37,7 @@
                 android:id="@+id/tv_schedule_location"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="익산"
+                android:text="스케줄"
                 android:textColor="#FFFFFF"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -47,7 +47,7 @@
                 android:shadowRadius="3" />
 
             <TextView
-                android:id="@+id/tv_schedule_dates"
+                android:id="@+id/tv_date"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
@@ -60,7 +60,7 @@
                 android:shadowRadius="3" />
 
             <TextView
-                android:id="@+id/tv_schedule_year_month"
+                android:id="@+id/tv_date_range"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"

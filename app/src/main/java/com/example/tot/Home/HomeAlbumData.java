@@ -1,6 +1,6 @@
-package com.example.tot.AlbumRecyclerView;
+package com.example.tot.Home;
 
-public class AlbumData {
+public class HomeAlbumData {
     private String UserName;
     private int UserProfile;
     private int AlbumProfile;
@@ -8,7 +8,7 @@ public class AlbumData {
     private String CityCode;      // 시군구 코드 (서버 연동용)
 
     // 기존 생성자 (하위 호환성 유지)
-    public AlbumData(String UserName, int UserProfile, int AlbumProfile){
+    public HomeAlbumData(String UserName, int UserProfile, int AlbumProfile){
         this.UserName = UserName;
         this.UserProfile = UserProfile;
         this.AlbumProfile = AlbumProfile;
@@ -17,7 +17,7 @@ public class AlbumData {
     }
 
     // 지역 정보 포함 생성자 (서버 연동 시 사용)
-    public AlbumData(String UserName, int UserProfile, int AlbumProfile, String ProvinceCode, String CityCode){
+    public HomeAlbumData(String UserName, int UserProfile, int AlbumProfile, String ProvinceCode, String CityCode){
         this.UserName = UserName;
         this.UserProfile = UserProfile;
         this.AlbumProfile = AlbumProfile;

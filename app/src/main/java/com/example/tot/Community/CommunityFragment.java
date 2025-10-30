@@ -1,4 +1,4 @@
-package com.example.tot.ViewPager;
+package com.example.tot.Community;
 
 import androidx.fragment.app.Fragment;
 

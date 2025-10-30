@@ -1,4 +1,4 @@
-package com.example.tot.ViewPager;
+package com.example.tot.Home;
 
 import java.util.ArrayList;
 import java.util.Collections;

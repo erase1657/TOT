@@ -148,7 +148,7 @@ public class GoogleAuthManager {
     /** ✅ Firestore 문서 존재하지 않을 경우만 생성 */
     private void createUserIfNotExists(@NonNull FirebaseUser user) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("users")
+        db.collection("user")
                 .document(user.getUid())
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
@@ -181,7 +181,7 @@ public class GoogleAuthManager {
                 Timestamp.now()
         );
 
-        db.collection("users")
+        db.collection("user")
                 .document(user.getUid())
                 .set(dto)
                 .addOnSuccessListener(aVoid -> {

@@ -1,6 +1,6 @@
-package com.example.tot.MemoryRecyclerView;
+package com.example.tot.Home;
 
-public class MemoryData {
+public class HomeScheduleDTO {
     private String title;
     private String date;
     private String room;
@@ -8,7 +8,7 @@ public class MemoryData {
     private String endTime;
     private int locationIconResId; // 위치 아이콘 리소스 (선택 사항)
 
-    public MemoryData(String title, String date, String room, String startTime, String endTime, int locationIconResId) {
+    public HomeScheduleDTO(String title, String date, String room, String startTime, String endTime, int locationIconResId) {
         this.title = title;
         this.date = date;
         this.room = room;

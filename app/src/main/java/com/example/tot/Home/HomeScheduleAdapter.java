@@ -1,4 +1,4 @@
-package com.example.tot.MemoryRecyclerView;
+package com.example.tot.Home;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -13,11 +13,11 @@ import com.example.tot.R;
 
 import java.util.List;
 
-public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.ViewHolder> {
+public class HomeScheduleAdapter extends RecyclerView.Adapter<HomeScheduleAdapter.ViewHolder> {
 
-    private List<MemoryData> items;
+    private List<HomeScheduleDTO> items;
 
-    public MemoryAdapter(List<MemoryData> items) {
+    public HomeScheduleAdapter(List<HomeScheduleDTO> items) {
         this.items = items;
     }
 
@@ -38,15 +38,15 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.ViewHolder
 
     @NonNull
     @Override
-    public MemoryAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public HomeScheduleAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_memory, parent, false);
+                .inflate(R.layout.item_schedule_home, parent, false);
         return new ViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        MemoryData item = items.get(position);
+        HomeScheduleDTO item = items.get(position);
         holder.title.setText(item.getTitle());
         holder.date.setText(item.getDate());
         holder.location.setText(item.getRoom());

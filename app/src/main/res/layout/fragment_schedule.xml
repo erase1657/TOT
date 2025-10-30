@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ViewPager.ScheduleFragment">
+    tools:context=".Schedule.ScheduleFragment">
 
     <!-- 상단 타이틀 -->
     <TextView
@@ -20,52 +21,54 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- 스케줄이 없을 때 표시되는 메시지 -->
-    <LinearLayout
-        android:id="@+id/layout_no_schedule"
-        android:layout_width="match_parent"
+    <!-- RecyclerView + EmptyLayout 함께 관리 -->
+    <FrameLayout
+        android:id="@+id/frame_schedule_container"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/tv_schedule_title"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="스케줄이 없습니다 📅"
-            android:textColor="#999999"
-            android:textSize="16sp"
-            android:gravity="center" />
+        <!-- RecyclerView -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_schedules"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="80dp"
+            android:overScrollMode="never" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="우측 하단의 버튼을 눌러\n새로운 여행을 계획해보세요!"
-            android:textColor="#CCCCCC"
-            android:textSize="14sp"
-            android:gravity="center" />
-    </LinearLayout>
+        <!-- 스케줄이 없을 때 표시 -->
+        <LinearLayout
+            android:id="@+id/layout_no_schedule"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
 
-    <!-- 스케줄 RecyclerView (2열 그리드) -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_schedules"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="16dp"
-        android:clipToPadding="false"
-        android:paddingBottom="80dp"
-        android:overScrollMode="never"
-        app:layout_constraintTop_toBottomOf="@id/tv_schedule_title"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="스케줄이 없습니다 📅"
+                android:textColor="#999999"
+                android:textSize="16sp"
+                android:gravity="center" />
 
-    <!-- 스케줄 추가 버튼 (고정 위치) -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="우측 하단의 버튼을 눌러\n새로운 여행을 계획해보세요!"
+                android:textColor="#CCCCCC"
+                android:textSize="14sp"
+                android:gravity="center" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- 추가 버튼 -->
     <ImageButton
         android:id="@+id/btn_add_schedule"
         android:layout_width="56dp"

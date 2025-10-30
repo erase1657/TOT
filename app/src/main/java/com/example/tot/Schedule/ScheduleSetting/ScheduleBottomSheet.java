@@ -1,4 +1,4 @@
-package com.example.tot.Schedule;
+package com.example.tot.Schedule.ScheduleSetting;
 
 import android.content.Context;
 import android.content.res.Resources;
@@ -21,7 +21,7 @@ import java.util.Calendar;
 
 public class ScheduleBottomSheet {
     public interface OnScheduleSaveListener {
-        void onScheduleSaved(SchedulePlanItem item);
+        void onScheduleSaved(ScheduleItemDTO item);
     }
     private final Context context;
     private OnScheduleSaveListener listener;
@@ -90,7 +90,7 @@ public class ScheduleBottomSheet {
             Timestamp endTimestamp = new Timestamp(calendar.getTime());
 
             GeoPoint location = new GeoPoint(0, 0); //예시 장소
-            SchedulePlanItem item = new SchedulePlanItem(title, startTimestamp, endTimestamp, location, "예시", true);
+            ScheduleItemDTO item = new ScheduleItemDTO(title, startTimestamp, endTimestamp, location, "예시", true);
             // 제목 입력 확인
             if (title.isEmpty()) {
                 Toast.makeText(context, "제목을 입력해주세요.", Toast.LENGTH_SHORT).show();

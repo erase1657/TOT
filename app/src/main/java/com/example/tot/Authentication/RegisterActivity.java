@@ -79,7 +79,7 @@ public class RegisterActivity extends AppCompatActivity {
                             );
 
                             FirebaseFirestore db = FirebaseFirestore.getInstance();
-                            db.collection(("users"))
+                            db.collection(("user"))
                                     .document(user.getUid())
                                     .set(dto)
                                     .addOnSuccessListener(aVoid -> {

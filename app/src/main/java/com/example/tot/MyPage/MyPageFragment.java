@@ -1,4 +1,4 @@
-package com.example.tot.ViewPager;
+package com.example.tot.MyPage;
 
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -17,10 +17,9 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.tot.Authentication.GoogleAuthManager;
 import com.example.tot.Authentication.LoginActivity;
 import com.example.tot.R;
-import com.example.tot.ScheduleRecyclerView.ScheduleData;
+import com.example.tot.Schedule.ScheduleDTO;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -45,7 +44,7 @@ public class MyPageFragment extends Fragment {
     private LinearLayout layoutNoTravel;
 
     private MyPageScheduleAdapter scheduleAdapter;
-    private List<ScheduleData> scheduleList;
+    private List<ScheduleDTO> scheduleList;
 
     // Firebase Auth
     private FirebaseAuth mAuth;
@@ -144,32 +143,32 @@ public class MyPageFragment extends Fragment {
 
         scheduleList = new ArrayList<>();
 
-        scheduleList.add(new ScheduleData(
+       /* scheduleList.add(new ScheduleDTO(
                 "schedule_001", "익산", "23-27", "2020년 8월",
                 R.drawable.sample3, "2020-08-23", "2020-08-27"
         ));
 
-        scheduleList.add(new ScheduleData(
+        scheduleList.add(new ScheduleDTO(
                 "schedule_002", "광주", "14-25", "2022년 9월",
                 R.drawable.sample4, "2022-09-14", "2022-09-25"
         ));
 
-        scheduleList.add(new ScheduleData(
+        scheduleList.add(new ScheduleDTO(
                 "schedule_003", "춘천", "14-23", "2023년 3월",
                 R.drawable.sample2, "2023-03-14", "2023-03-23"
         ));
 
-        scheduleList.add(new ScheduleData(
+        scheduleList.add(new ScheduleDTO(
                 "schedule_004", "부산", "1-5", "2023년 7월",
                 R.drawable.sample3, "2023-07-01", "2023-07-05"
         ));
 
-        scheduleList.add(new ScheduleData(
+        scheduleList.add(new ScheduleDTO(
                 "schedule_005", "제주", "10-15", "2024년 4월",
                 R.drawable.sample4, "2024-04-10", "2024-04-15"
         ));
 
-        scheduleList.add(new ScheduleData(
+        scheduleList.add(new ScheduleDTO(
                 "schedule_006", "서울, 전주 외 2곳", "20-25", "2024년 12월",
                 R.drawable.sample2, "2024-12-20", "2024-12-25"
         ));
@@ -179,7 +178,7 @@ public class MyPageFragment extends Fragment {
                     schedule.getLocation() + " 여행 상세보기",
                     Toast.LENGTH_SHORT).show();
         });
-
+*/
         rvMyTravels.setAdapter(scheduleAdapter);
         updateEmptyState();
     }
