@@ -1,4 +1,4 @@
-package com.example.tot; // 본인의 패키지 이름으로 변경하세요
+package com.example.tot.Map; // 본인의 패키지 이름으로 변경하세요
 
 import android.os.Bundle;
 
@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentManager;
 
+import com.example.tot.R;
 import com.naver.maps.map.MapFragment;
 import com.naver.maps.map.NaverMap;
 import com.naver.maps.map.OnMapReadyCallback;

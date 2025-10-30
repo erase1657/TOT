@@ -1,4 +1,4 @@
-package com.example.tot.Schedule;
+package com.example.tot.Schedule.ScheduleSetting;
 
 import android.graphics.Color;
 import android.os.Build;

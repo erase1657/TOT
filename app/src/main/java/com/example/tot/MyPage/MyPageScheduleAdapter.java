@@ -1,4 +1,4 @@
-package com.example.tot.ViewPager;
+package com.example.tot.MyPage;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,20 +10,20 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
-import com.example.tot.ScheduleRecyclerView.ScheduleData;
+import com.example.tot.Schedule.ScheduleDTO;
 
 import java.util.List;
 
 public class MyPageScheduleAdapter extends RecyclerView.Adapter<MyPageScheduleAdapter.ViewHolder> {
 
-    private List<ScheduleData> scheduleList;
+    private List<ScheduleDTO> scheduleList;
     private OnScheduleClickListener listener;
 
     public interface OnScheduleClickListener {
-        void onScheduleClick(ScheduleData schedule, int position);
+        void onScheduleClick(ScheduleDTO schedule, int position);
     }
 
-    public MyPageScheduleAdapter(List<ScheduleData> scheduleList, OnScheduleClickListener listener) {
+    public MyPageScheduleAdapter(List<ScheduleDTO> scheduleList, OnScheduleClickListener listener) {
         this.scheduleList = scheduleList;
         this.listener = listener;
     }
@@ -38,7 +38,7 @@ public class MyPageScheduleAdapter extends RecyclerView.Adapter<MyPageScheduleAd
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        ScheduleData schedule = scheduleList.get(position);
+        ScheduleDTO schedule = scheduleList.get(position);
         holder.bind(schedule, position);
     }
 
@@ -50,7 +50,7 @@ public class MyPageScheduleAdapter extends RecyclerView.Adapter<MyPageScheduleAd
     /**
      * 데이터 업데이트
      */
-    public void updateData(List<ScheduleData> newScheduleList) {
+    public void updateData(List<ScheduleDTO> newScheduleList) {
         this.scheduleList = newScheduleList;
         notifyDataSetChanged();
     }
@@ -69,8 +69,8 @@ public class MyPageScheduleAdapter extends RecyclerView.Adapter<MyPageScheduleAd
             tvYearMonth = itemView.findViewById(R.id.tv_schedule_year_month);
         }
 
-        public void bind(ScheduleData schedule, int position) {
-            // 지역명 설정
+        public void bind(ScheduleDTO schedule, int position) {
+           /* // 지역명 설정
             tvLocationNames.setText(schedule.getLocation());
 
             // 배경 이미지 설정
@@ -79,7 +79,7 @@ public class MyPageScheduleAdapter extends RecyclerView.Adapter<MyPageScheduleAd
             // 날짜 설정
             tvDates.setText(schedule.getDateRange());
             tvYearMonth.setText(schedule.getYearMonth());
-
+*/
             // 클릭 이벤트
             itemView.setOnClickListener(v -> {
                 if (listener != null) {

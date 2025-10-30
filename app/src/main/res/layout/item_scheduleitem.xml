@@ -80,7 +80,7 @@
                     android:layout_width="27dp"
                     android:layout_height="29dp"
                     android:layout_alignParentEnd="true"
-                    android:background="@drawable/ic_dot"/>
+                    android:background="@drawable/ic_setting_dot"/>
             </LinearLayout>
             <LinearLayout
                 android:id="@+id/layout_place"
