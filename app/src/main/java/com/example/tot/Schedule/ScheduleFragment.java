@@ -1,5 +1,6 @@
 package com.example.tot.Schedule;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -20,6 +21,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
+import com.example.tot.Schedule.ScheduleSetting.ScheduleSettingActivity;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
@@ -97,6 +99,11 @@ public class ScheduleFragment extends Fragment {
 
         scheduleAdapter = new ScheduleAdapter(scheduleList, (schedule, position) -> {
             // TODO: 상세 화면 이동
+            Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
+            intent.putExtra("scheduleId", schedule.getScheduleId());
+            intent.putExtra("startDate", schedule.getStartDate().toDate().getTime());
+            intent.putExtra("endDate", schedule.getEndDate().toDate().getTime());
+            startActivity(intent);
         });
 
         recyclerView.setAdapter(scheduleAdapter);
@@ -130,6 +137,7 @@ public class ScheduleFragment extends Fragment {
             addNewSchedule();
             dialog.dismiss();
             Toast.makeText(getContext(), "스케줄이 생성되었습니다", Toast.LENGTH_SHORT).show();
+
         });
 
         btnPrev.setOnClickListener(v -> dialog.dismiss());
@@ -197,7 +205,14 @@ public class ScheduleFragment extends Fragment {
 
         db.collection("user").document(uid)
                 .collection("schedule").document(scheduleId)
-                .set(schedule, SetOptions.merge());
+                .set(schedule, SetOptions.merge())
+                .addOnSuccessListener(aVoid -> {
+                    Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
+                    intent.putExtra("scheduleId", scheduleId);
+                    intent.putExtra("startDate", startDate.toDate().getTime());
+                    intent.putExtra("endDate", endDate.toDate().getTime());
+                    startActivity(intent);
+                });
 
         scheduleList.add(0, schedule);
         scheduleAdapter.notifyItemInserted(0);

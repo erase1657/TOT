@@ -32,6 +32,9 @@
             android:name=".MainActivity"
             android:exported="false"/>
         <activity
+            android:name=".Schedule.ScheduleSetting.ScheduleSettingActivity"
+            android:exported="false"/>
+        <activity
             android:name=".Authentication.FindAccountActivity"
             android:exported="false" />
         <activity
