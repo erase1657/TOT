@@ -1,5 +1,6 @@
 package com.example.tot.Schedule.ScheduleSetting;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
 import android.view.LayoutInflater;
@@ -14,44 +15,69 @@ import com.example.tot.R;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
 
+import java.util.ArrayList;
 import java.util.Calendar;
-
+import java.util.List;
 
 public class ScheduleBottomSheet {
+
     public interface OnScheduleSaveListener {
         void onScheduleSaved(ScheduleItemDTO item);
     }
+
     private final Context context;
     private OnScheduleSaveListener listener;
     private NumberPicker np_StartHour, np_StartMinute, np_EndHour, np_EndMinute;
     private com.github.angads25.toggle.widget.LabeledSwitch sw_Alarm;
     private EditText et_Title;
     private Button btn_Save;
+
+    // 수정 모드 관련 변수
+    private boolean isEditMode = false;
+    private String editingDocId = null;
+    private ScheduleItemDTO editingItem = null;
+
     public ScheduleBottomSheet(Context context) {
         this.context = context;
     }
+
     public void setOnScheduleSaveListener(OnScheduleSaveListener listener) {
         this.listener = listener;
     }
 
-    public void show(){
-        BottomSheetDialog dialog = new BottomSheetDialog(context,  R.style.RoundedBottomSheetDialog);
+    /** 새 일정 추가용 */
+    public void show() {
+        showInternal(null, null);
+    }
+
+    /** 기존 일정 수정용 */
+    public void showWithData(ScheduleItemDTO item, String docId) {
+        showInternal(item, docId);
+    }
+
+    /** 내부 공용 로직 */
+    private void showInternal(ScheduleItemDTO item, String docId) {
+        BottomSheetDialog dialog = new BottomSheetDialog(context, R.style.RoundedBottomSheetDialog);
         View view = LayoutInflater.from(context).inflate(R.layout.bottomsheet_add_schedule, null);
         dialog.setContentView(view);
+
+        // 바텀시트 전체 펼치기
         view.post(() -> {
             FrameLayout bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
             if (bottomSheet != null) {
                 BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
-                behavior.setState(BottomSheetBehavior.STATE_EXPANDED); // 완전히 펼치기
-                behavior.setSkipCollapsed(true); // 접힌 상태를 아예 건너뜀
-                behavior.setPeekHeight(Resources.getSystem().getDisplayMetrics().heightPixels); // 전체 높이로 peekHeight 설정
+                behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                behavior.setSkipCollapsed(true);
+                behavior.setPeekHeight(Resources.getSystem().getDisplayMetrics().heightPixels);
             }
         });
+
         dialog.show();
 
-        // 바텀시트 다이얼로그 구성 요소
+        // 구성요소 초기화
         et_Title = view.findViewById(R.id.et_title);
         np_StartHour = view.findViewById(R.id.np_start_hour);
         np_StartMinute = view.findViewById(R.id.np_start_minute);
@@ -65,64 +91,119 @@ public class ScheduleBottomSheet {
         setupNumberPicker(np_EndHour, 0, 23);
         setupNumberPicker(np_EndMinute, 0, 59);
 
-        // 4️⃣ 저장 버튼 클릭 로직
+        // 🔹 수정모드 진입 시 기존 데이터 세팅
+        if (item != null) {
+            isEditMode = true;
+            editingDocId = docId;
+            editingItem = item;
+
+            et_Title.setText(item.getTitle());
+            sw_Alarm.setOn(item.getAlarm());
+
+            Calendar cal = Calendar.getInstance();
+            Timestamp start = item.getStartTime();
+            cal.setTime(start.toDate());
+            np_StartHour.setValue(cal.get(Calendar.HOUR_OF_DAY));
+            np_StartMinute.setValue(cal.get(Calendar.MINUTE));
+
+            Timestamp end = item.getEndTime();
+            cal.setTime(end.toDate());
+            np_EndHour.setValue(cal.get(Calendar.HOUR_OF_DAY));
+            np_EndMinute.setValue(cal.get(Calendar.MINUTE));
+        }
+
+        // 저장버튼 클릭
         btn_Save.setOnClickListener(v -> {
+            String title = et_Title.getText().toString().trim();
             int startHour = np_StartHour.getValue();
             int startMinute = np_StartMinute.getValue();
             int endHour = np_EndHour.getValue();
             int endMinute = np_EndMinute.getValue();
-            String title = et_Title.getText().toString().trim();
-            boolean alarmEnabled = sw_Alarm.isEnabled();
+            boolean alarmIsOn = sw_Alarm.isOn();
 
-
-
-            Calendar calendar = Calendar.getInstance();
-
-            calendar.set(Calendar.HOUR_OF_DAY, startHour);
-            calendar.set(Calendar.MINUTE, startMinute);
-            calendar.set(Calendar.SECOND, 0);
-            calendar.set(Calendar.MILLISECOND, 0);
-            Timestamp startTimestamp = new Timestamp(calendar.getTime());
-
-
-            calendar.set(Calendar.HOUR_OF_DAY, endHour);
-            calendar.set(Calendar.MINUTE, endMinute);
-            Timestamp endTimestamp = new Timestamp(calendar.getTime());
-
-            GeoPoint location = new GeoPoint(0, 0); //예시 장소
-            ScheduleItemDTO item = new ScheduleItemDTO(title, startTimestamp, endTimestamp, location, "예시", true);
-            // 제목 입력 확인
             if (title.isEmpty()) {
                 Toast.makeText(context, "제목을 입력해주세요.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // 시간 유효성 검사
+            Calendar cal = Calendar.getInstance();
+            cal.set(Calendar.HOUR_OF_DAY, startHour);
+            cal.set(Calendar.MINUTE, startMinute);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            Timestamp startTimestamp = new Timestamp(cal.getTime());
+
+            cal.set(Calendar.HOUR_OF_DAY, endHour);
+            cal.set(Calendar.MINUTE, endMinute);
+            Timestamp endTimestamp = new Timestamp(cal.getTime());
+
             if ((endHour < startHour) || (endHour == startHour && endMinute <= startMinute)) {
                 Toast.makeText(context, "종료 시간이 시작 시간보다 빠릅니다.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // 결과 표시 (→ 추후 DB 저장 또는 상위 Activity에 전달 가능)
-            String result = String.format(
-                    "제목: %s\n시간: %02d:%02d ~ %02d:%02d\n알람: %s",
-                    title,
-                    startHour, startMinute,
-                    endHour, endMinute,
-                    alarmEnabled ? "ON" : "OFF"
-            );
+            // ✅ 겹치는 일정 검사 (수정됨)
+            if (context instanceof ScheduleSettingActivity) {
+                ScheduleSettingActivity activity = (ScheduleSettingActivity) context;
+                List<ScheduleItemDTO> existingItems = activity.getCachedItemsForDate(activity.getSelectedDate());
+                List<String> existingDocIds = activity.getCachedDocIdsForDate(activity.getSelectedDate()); // 🔹 추가됨
 
-            Toast.makeText(context, result, Toast.LENGTH_LONG).show();
-            if (listener != null) {
-                listener.onScheduleSaved(item);
+                for (int i = 0; i < existingItems.size(); i++) {
+                    ScheduleItemDTO existing = existingItems.get(i);
+                    String existingDocId = (existingDocIds != null && i < existingDocIds.size())
+                            ? existingDocIds.get(i) : null;
+
+                    // 🔹 자기 자신은 겹침 검사에서 제외
+                    if (isEditMode && editingDocId != null && editingDocId.equals(existingDocId)) continue; // ✅ 수정됨
+
+                    Timestamp existStart = existing.getStartTime();
+                    Timestamp existEnd = existing.getEndTime();
+
+                    boolean overlap = startTimestamp.compareTo(existEnd) < 0 && endTimestamp.compareTo(existStart) > 0;
+                    if (overlap) {
+                        Toast.makeText(context, "⚠️ 기존 일정과 시간이 겹칩니다.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                }
             }
-            dialog.dismiss();
+
+            GeoPoint location = new GeoPoint(0, 0);
+            ScheduleItemDTO newItem = new ScheduleItemDTO(title, startTimestamp, endTimestamp, location, "예시", alarmIsOn);
+
+            // ✅ 수정모드일 경우 Firestore 업데이트
+            if (isEditMode && editingDocId != null && context instanceof ScheduleSettingActivity) {
+                ScheduleSettingActivity act = (ScheduleSettingActivity) context;
+                FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+                db.collection("user")
+                        .document(act.getUserUid()) // 🔹 getUserUid() 사용 (getter 방식)
+                        .collection("schedule")
+                        .document(act.getScheduleId()) // 🔹 getScheduleId() 사용 (getter 방식)
+                        .collection("scheduleDate")
+                        .document(act.getSelectedDate())
+                        .collection("scheduleItem")
+                        .document(editingDocId)
+                        .set(newItem)
+                        .addOnSuccessListener(aVoid -> {
+                            Toast.makeText(context, "일정이 수정되었습니다.", Toast.LENGTH_SHORT).show();
+                            dialog.dismiss();
+                        })
+                        .addOnFailureListener(e ->
+                                Toast.makeText(context, "수정 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                        );
+            } else {
+                // 새 일정 추가
+                if (listener != null) listener.onScheduleSaved(newItem);
+                dialog.dismiss();
+            }
         });
     }
+
+
     private void setupNumberPicker(NumberPicker picker, int min, int max) {
         picker.setMinValue(min);
         picker.setMaxValue(max);
-        picker.setFormatter(i -> String.format("%02d", i)); // 항상 2자리로 표시
+        picker.setFormatter(i -> String.format("%02d", i));
         picker.setWrapSelectorWheel(true);
     }
 }

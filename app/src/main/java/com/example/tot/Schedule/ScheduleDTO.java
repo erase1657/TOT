@@ -3,7 +3,7 @@ package com.example.tot.Schedule;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 
-public class ScheduleDTO {
+public class ScheduleDTO{
     private String scheduleId;
     private String locationName;
     private Timestamp startDate;

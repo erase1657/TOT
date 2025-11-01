@@ -1,6 +1,5 @@
 package com.example.tot.Schedule.ScheduleSetting;
 
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
@@ -11,141 +10,235 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
-import java.time.LocalDate;
-import java.time.ZoneId;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
- * 상단 날짜 리스트 + 하단 일정 리스트 연동 예제
+ * 여행 일정 설정 화면
+ * 상단: 날짜 리스트 (RecyclerView)
+ * 하단: 각 날짜별 일정 리스트 (실시간 반영 + 캐시)
  */
 public class ScheduleSettingActivity extends AppCompatActivity {
 
-    // ✅ Firestore 관련
     private FirebaseFirestore db;
-    private String userUid;
-    private String scheduleId = "exampleScheduleId"; // 실제로는 intent로 전달받는 값
-
-    // ✅ UI 컴포넌트
-    private RecyclerView rvDateList;
-    private RecyclerView rvScheduleList;
-
-    // ✅ 어댑터
+    private String userUid, scheduleId, selectedDate;
+    private Timestamp startDate, endDate;
+    private RecyclerView rvDate, rvScheduleItem;
     private DateAdapter dateAdapter;
     private ScheduleItemAdapter scheduleItemAdapter;
+    private List<String> dateList = new ArrayList<>();
 
-    // ✅ 데이터 변수
-    private List<LocalDate> dateList = new ArrayList<>();
-    private LocalDate selectedDate;
+    // ✅ 기존 일정 데이터 캐시
+    private final Map<String, List<ScheduleItemDTO>> localCache = new HashMap<>();
+
+    // ✅ 각 날짜별 문서 ID 캐시 (겹침 검사에서 자기 자신 제외용)
+    private final Map<String, List<String>> localCacheDocIds = new HashMap<>(); // ✅ 추가됨
 
     private Button btn_AddSchedule;
-
-    private ScheduleItemAdapter adapter;
-    private List<ScheduleItemDTO> scheduleList = new ArrayList<>();
+    private ListenerRegistration currentListener; // 실시간 리스너
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_schedule);
-      ;
-        // 1️⃣ Firestore 초기화
+
         db = FirebaseFirestore.getInstance();
         userUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-        // 2️⃣ RecyclerView 참조
-        rvDateList = findViewById(R.id.rv_datelist);
-        rvScheduleList = findViewById(R.id.rv_schedulelist);
+        scheduleId = getIntent().getStringExtra("scheduleId");
+        long startMillis = getIntent().getLongExtra("startDate", 0);
+        long endMillis = getIntent().getLongExtra("endDate", 0);
 
+        if (scheduleId == null || startMillis == 0 || endMillis == 0) {
+            Toast.makeText(this, "스케줄 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        startDate = new Timestamp(new Date(startMillis));
+        endDate = new Timestamp(new Date(endMillis));
+
+        rvDate = findViewById(R.id.rv_datelist);
+        rvScheduleItem = findViewById(R.id.rv_schedulelist);
         btn_AddSchedule = findViewById(R.id.btn_add_schedule);
 
-        // 3️⃣ 날짜 리스트 생성 (예: 오늘 기준 7일)
-        generateDateList();
+        setRvDate();
+        setRvScheduleItem();
+        generateScheduleDates(startDate, endDate);
 
-        // 4️⃣ 상단 날짜 어댑터 설정
-        dateAdapter = new DateAdapter(dateList, date -> {
-            selectedDate = date;
-            loadScheduleForDate(date); // 날짜 클릭 시 일정 불러오기
-        });
-        rvDateList.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
-        rvDateList.setAdapter(dateAdapter);
-
-        // 5️⃣ 하단 일정 어댑터 설정
-        scheduleItemAdapter = new ScheduleItemAdapter(item -> {
-            // TODO: 클릭 시 일정 수정 다이얼로그 띄우기 등
-
-        });
-        rvScheduleList.setLayoutManager(new LinearLayoutManager(this));
-        rvScheduleList.setAdapter(scheduleItemAdapter);
-        RecyclerView recyclerView = findViewById(R.id.rv_schedulelist);
-        adapter = new ScheduleItemAdapter(item -> {
-            // 아이템 클릭 시 동작 (예: 수정)
-            Toast.makeText(this, "클릭됨: " + item.getTitle(), Toast.LENGTH_SHORT).show();
-        });
-
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setAdapter(adapter);
-        // 6️⃣ 초기 선택 날짜 = 첫 날짜
-        selectedDate = dateList.get(0);
-        dateAdapter.setSelectedDate(selectedDate);
-        loadScheduleForDate(selectedDate);
-
+        // ✅ 일정 추가 버튼
         btn_AddSchedule.setOnClickListener(v -> {
             ScheduleBottomSheet bottom = new ScheduleBottomSheet(ScheduleSettingActivity.this);
 
-            // ✅ 여기 추가: 바텀시트에 콜백 연결
             bottom.setOnScheduleSaveListener(item -> {
-                List<ScheduleItemDTO> currentList = new ArrayList<>(adapter.getCurrentList());
-                currentList.add(item);
-                adapter.submitList(currentList);
-                Toast.makeText(this, "일정이 추가되었습니다: " + item.getTitle(), Toast.LENGTH_SHORT).show();
+                if (selectedDate == null) {
+                    Toast.makeText(this, "날짜가 선택되지 않았습니다.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                db.collection("user")
+                        .document(userUid)
+                        .collection("schedule")
+                        .document(scheduleId)
+                        .collection("scheduleDate")
+                        .document(selectedDate)
+                        .collection("scheduleItem")
+                        .add(item)
+                        .addOnSuccessListener(docRef -> {
+                            Toast.makeText(this, "일정이 추가되었습니다.", Toast.LENGTH_SHORT).show();
+                        })
+                        .addOnFailureListener(e ->
+                                Toast.makeText(this, "일정 추가 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show());
             });
 
             bottom.show();
         });
     }
 
-    /**
-     * Firestore에서 선택된 날짜의 일정 데이터를 불러옵니다.
-     */
-    private void loadScheduleForDate(LocalDate date) {
-        String dateKey = date.toString(); // ex) "2025-10-25"
+    private void setRvDate() {
+        dateAdapter = new DateAdapter(dateList, date -> {
+            selectedDate = date;
+            dateAdapter.setSelectedDate(date);
+            listenScheduleItems(date);
+        });
 
-        db.collection("schedule")
-                .document(scheduleId)
-                .collection("scheduleItem")
-                .whereEqualTo("date", dateKey)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    List<ScheduleItemDTO> list = new ArrayList<>();
-                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                        ScheduleItemDTO item = doc.toObject(ScheduleItemDTO.class);
-                        if (item != null) {
-                            list.add(item);
-                        }
-                    }
-                    scheduleItemAdapter.submitList(list);
-                    Log.d("Firestore", "불러온 일정 개수: " + list.size());
-                })
-                .addOnFailureListener(e ->
-                        Log.e("Firestore", "일정 불러오기 실패", e));
+        rvDate.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        rvDate.setAdapter(dateAdapter);
+    }
+
+    private void setRvScheduleItem() {
+        scheduleItemAdapter = new ScheduleItemAdapter((item, docID) -> {
+            ScheduleBottomSheet bottom = new ScheduleBottomSheet(ScheduleSettingActivity.this);
+            bottom.showWithData(item, docID); // ✅ 수정 모드로 열기
+            Toast.makeText(this, "클릭됨: " + item.getTitle(), Toast.LENGTH_SHORT).show();
+        });
+        rvScheduleItem.setLayoutManager(new LinearLayoutManager(this));
+        rvScheduleItem.setAdapter(scheduleItemAdapter);
     }
 
     /**
-     * 오늘 기준 7일 날짜 리스트 생성
+     * ✅ 실시간 반영 (Firestore snapshot listener)
      */
-    private void generateDateList() {
-        LocalDate today = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            today = LocalDate.now(ZoneId.systemDefault());
+    private void listenScheduleItems(String dateKey) {
+        if (currentListener != null) currentListener.remove();
+
+        currentListener = db.collection("user")
+                .document(userUid)
+                .collection("schedule")
+                .document(scheduleId)
+                .collection("scheduleDate")
+                .document(dateKey)
+                .collection("scheduleItem")
+                .addSnapshotListener((snapshot, e) -> {
+                    if (e != null || snapshot == null) {
+                        Log.e("Firestore", "❌ 실시간 데이터 수신 실패", e);
+                        return;
+                    }
+
+                    List<ScheduleItemDTO> list = new ArrayList<>();
+                    List<String> docIds = new ArrayList<>(); // ✅ 문서 ID 리스트 추가됨
+
+                    for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                        ScheduleItemDTO item = doc.toObject(ScheduleItemDTO.class);
+                        if (item != null) {
+                            list.add(item);
+                            docIds.add(doc.getId()); // ✅ 문서 ID 함께 저장
+                        }
+                    }
+
+                    // 🔹 시작시간 기준 정렬
+                    list.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
+
+                    // 🔹 캐시에 저장
+                    localCache.put(dateKey, list);
+                    localCacheDocIds.put(dateKey, docIds); // ✅ 문서 ID 캐시 추가됨
+
+                    // 🔹 어댑터에 데이터 반영
+                    scheduleItemAdapter.submitList(new ArrayList<>(list), docIds);
+                    Log.d("Firestore", "⚡ 실시간 반영 완료: " + dateKey + " (" + list.size() + "개)");
+                });
+    }
+
+    /**
+     * ✅ 여행기간 기반 날짜 문서 자동 생성
+     */
+    private void generateScheduleDates(Timestamp start, Timestamp end) {
+        long diffMillis = end.toDate().getTime() - start.toDate().getTime();
+        int days = (int) TimeUnit.MILLISECONDS.toDays(diffMillis) + 1;
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        Date current = start.toDate();
+
+        for (int i = 0; i < days; i++) {
+            Date date = new Date(current.getTime() + TimeUnit.DAYS.toMillis(i));
+            String dateString = sdf.format(date);
+            dateList.add(dateString);
+
+            Map<String, Object> scheduleDate = new HashMap<>();
+            scheduleDate.put("dayIndex", i + 1);
+            scheduleDate.put("date", dateString);
+
+            db.collection("user")
+                    .document(userUid)
+                    .collection("schedule")
+                    .document(scheduleId)
+                    .collection("scheduleDate")
+                    .document(dateString)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        if (!doc.exists()) {
+                            doc.getReference().set(scheduleDate)
+                                    .addOnSuccessListener(aVoid -> Log.d("Firestore", "✅ 날짜 문서 생성됨: " + dateString))
+                                    .addOnFailureListener(e -> Log.e("Firestore", "❌ 날짜 문서 생성 실패", e));
+                        }
+                    });
         }
-        for (int i = 0; i < 10; i++) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                dateList.add(today.plusDays(i));
-            }
+
+        if (!dateList.isEmpty()) {
+            selectedDate = dateList.get(0);
+            dateAdapter.setSelectedDate(selectedDate);
+            listenScheduleItems(selectedDate);
+            dateAdapter.notifyDataSetChanged();
         }
+    }
+
+    /** ✅ 날짜별 일정 캐시 반환 */
+    public List<ScheduleItemDTO> getCachedItemsForDate(String dateKey) {
+        return localCache.getOrDefault(dateKey, new ArrayList<>());
+    }
+
+    /** ✅ 날짜별 문서 ID 캐시 반환 (겹침 검사용) */
+    public List<String> getCachedDocIdsForDate(String dateKey) { // ✅ 추가됨
+        return localCacheDocIds.getOrDefault(dateKey, new ArrayList<>());
+    }
+
+    public String getSelectedDate() {
+        return selectedDate;
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (currentListener != null) currentListener.remove();
+    }
+
+    public String getUserUid() {
+        return userUid;
+    }
+
+    public String getScheduleId() {
+        return scheduleId;
     }
 }

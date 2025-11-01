@@ -64,7 +64,8 @@ public class ScheduleItemDTO {
         return alarm;
     }
 
-    public void setAlarm(String alarm) {
+    public void setAlarm(Boolean alarm) {
         this.alarm = Boolean.valueOf(alarm);
     }
+
 }
