@@ -2,7 +2,10 @@ package com.example.tot.Schedule.ScheduleSetting;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MenuItem;
+import android.view.View;
 import android.widget.Button;
+import android.widget.PopupMenu;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -44,15 +47,15 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private final Map<String, List<ScheduleItemDTO>> localCache = new HashMap<>();
 
     // ✅ 각 날짜별 문서 ID 캐시 (겹침 검사에서 자기 자신 제외용)
-    private final Map<String, List<String>> localCacheDocIds = new HashMap<>(); // ✅ 추가됨
+    private final Map<String, List<String>> localCacheDocIds = new HashMap<>();
 
-    private Button btn_AddSchedule;
+    private Button btn_AddSchedule, btn_Menu;
     private ListenerRegistration currentListener; // 실시간 리스너
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_schedule);
+        setContentView(R.layout.activity_schedule_setting);
 
         db = FirebaseFirestore.getInstance();
         userUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
@@ -73,11 +76,39 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         rvDate = findViewById(R.id.rv_datelist);
         rvScheduleItem = findViewById(R.id.rv_schedulelist);
         btn_AddSchedule = findViewById(R.id.btn_add_schedule);
+        btn_Menu = findViewById(R.id.btn_menu);
 
         setRvDate();
         setRvScheduleItem();
         generateScheduleDates(startDate, endDate);
 
+        btn_Menu.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                PopupMenu menu = new PopupMenu(ScheduleSettingActivity.this, v);
+                menu.getMenuInflater().inflate(R.menu.schedule_menu, menu.getMenu());
+
+                menu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+                    @Override
+                    public boolean onMenuItemClick(MenuItem item) {
+                        int id = item.getItemId();
+
+                        if (id == R.id.menu_map) {
+                            Toast.makeText(ScheduleSettingActivity.this, "지도 클릭됨", Toast.LENGTH_SHORT).show();
+                            return true;
+                        } else if (id == R.id.menu_album) {
+                            Toast.makeText(ScheduleSettingActivity.this, "앨범 클릭됨", Toast.LENGTH_SHORT).show();
+                            return true;
+                        } else if (id == R.id.menu_delete) {
+                            Toast.makeText(ScheduleSettingActivity.this, "스케줄 삭제 클릭됨", Toast.LENGTH_SHORT).show();
+                            return true;
+                        }
+                        return false;
+                    }
+                });
+                menu.show();
+            }
+        });
         // ✅ 일정 추가 버튼
         btn_AddSchedule.setOnClickListener(v -> {
             ScheduleBottomSheet bottom = new ScheduleBottomSheet(ScheduleSettingActivity.this);
