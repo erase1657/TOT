@@ -1,4 +1,4 @@
-package com.example.tot.Schedule;
+package com.example.tot.Schedule.ScheduleSetting;
 
 import android.graphics.Color;
 import android.os.Build;
@@ -17,19 +17,17 @@ import java.time.LocalDate;
 import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
-
 public class DateAdapter extends RecyclerView.Adapter<DateAdapter.ViewHolder> {
 
-    private List<LocalDate> dateList;
-    private LocalDate selectedDate;
+    private List<String> dateList;
+    private String selectedDate;
     private OnDateClickListener listener;
 
-    // 날짜 클릭 콜백
     public interface OnDateClickListener {
-        void onDateClick(LocalDate date);
+        void onDateClick(String date);
     }
 
-    public DateAdapter(List<LocalDate> dateList, OnDateClickListener listener) {
+    public DateAdapter(List<String> dateList, OnDateClickListener listener) {
         this.dateList = dateList;
         this.listener = listener;
     }
@@ -44,35 +42,36 @@ public class DateAdapter extends RecyclerView.Adapter<DateAdapter.ViewHolder> {
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        LocalDate date = dateList.get(position);
-
-        // 요일과 일 표시
-        String dayText = null;
+        String dateString = dateList.get(position); // yyyy-MM-dd
+        LocalDate date = null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            dayText = String.valueOf(date.getDayOfMonth());
-        }
-        String weekText = null;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            weekText = date.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.KOREAN);
+            date = LocalDate.parse(dateString);
         }
 
-        holder.tvDay.setText(dayText);
-        holder.tvWeek.setText(weekText);
+        if (date != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                holder.tvDay.setText(String.valueOf(date.getDayOfMonth()));
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                holder.tvWeek.setText(
+                        date.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.KOREAN)
+                );
+            }
+        }
 
-        // 선택 여부에 따라 색상 변경
-        if (date.equals(selectedDate)) {
-            holder.cardView.setCardBackgroundColor(Color.parseColor("#575DFB")); ;
-            holder.tvDay.setTextColor(Color.parseColor("#ffffff"));
-            holder.tvWeek.setTextColor(Color.parseColor("#ffffff"));
+        if (dateString.equals(selectedDate)) {
+            holder.cardView.setCardBackgroundColor(Color.parseColor("#575DFB"));
+            holder.tvDay.setTextColor(Color.WHITE);
+            holder.tvWeek.setTextColor(Color.WHITE);
         } else {
-            holder.cardView.setCardBackgroundColor(Color.parseColor("#ffffff"));
-            holder.tvDay.setTextColor(Color.parseColor("#000000"));
+            holder.cardView.setCardBackgroundColor(Color.WHITE);
+            holder.tvDay.setTextColor(Color.BLACK);
             holder.tvWeek.setTextColor(Color.parseColor("#BCC1CD"));
         }
 
         holder.itemView.setOnClickListener(v -> {
-            selectedDate = date;
-            if (listener != null) listener.onDateClick(date);
+            selectedDate = dateString;
+            if (listener != null) listener.onDateClick(dateString);
             notifyDataSetChanged();
         });
     }
@@ -82,7 +81,7 @@ public class DateAdapter extends RecyclerView.Adapter<DateAdapter.ViewHolder> {
         return dateList.size();
     }
 
-    public void setSelectedDate(LocalDate date) {
+    public void setSelectedDate(String date) {
         selectedDate = date;
         notifyDataSetChanged();
     }
@@ -90,6 +89,7 @@ public class DateAdapter extends RecyclerView.Adapter<DateAdapter.ViewHolder> {
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvDay, tvWeek;
         CardView cardView;
+
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             tvDay = itemView.findViewById(R.id.tv_day);

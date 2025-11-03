@@ -1,4 +1,4 @@
-package com.example.tot.ScheduleRecyclerView;
+package com.example.tot.Schedule;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,24 +11,28 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHolder> {
 
-    private List<ScheduleData> scheduleList;
+    private List<ScheduleDTO> scheduleList;
     private OnScheduleClickListener clickListener;
 
     // 클릭 리스너 인터페이스
     public interface OnScheduleClickListener {
-        void onScheduleClick(ScheduleData schedule, int position);
+        void onScheduleClick(ScheduleDTO schedule, int position);
     }
 
-    public ScheduleAdapter(List<ScheduleData> scheduleList) {
+    public ScheduleAdapter(List<ScheduleDTO> scheduleList) {
         this.scheduleList = scheduleList != null ? scheduleList : new ArrayList<>();
     }
 
-    public ScheduleAdapter(List<ScheduleData> scheduleList, OnScheduleClickListener clickListener) {
+    public ScheduleAdapter(List<ScheduleDTO> scheduleList, OnScheduleClickListener clickListener) {
         this.scheduleList = scheduleList != null ? scheduleList : new ArrayList<>();
         this.clickListener = clickListener;
     }
@@ -43,12 +47,24 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        ScheduleData schedule = scheduleList.get(position);
+        ScheduleDTO schedule = scheduleList.get(position);
+        Date startDate = schedule.getStartDate().toDate();
+        Date endDate = schedule.getEndDate().toDate();
 
-        holder.tvLocation.setText(schedule.getLocation());
-        holder.tvDateRange.setText(schedule.getDateRange());
-        holder.tvYearMonth.setText(schedule.getYearMonth());
-        holder.imgBackground.setImageResource(schedule.getBackgroundImage());
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/M/d", Locale.KOREA);
+
+        String start = sdf.format(startDate);
+        String end = sdf.format(endDate);
+        String date = start + " ~ " + end;
+
+        long diffInMillis = endDate.getTime() - startDate.getTime();
+        long nights = TimeUnit.MILLISECONDS.toDays(diffInMillis); // 2박
+        long days = nights + 1;
+
+        holder.tvDate.setText(String.format("%s~%s", start, end)); // 2020/1/3~2020/1/5
+        holder.tvDateRange.setText(String.format("%d박%d일", nights, days)); // 2박3일
+        holder.tvDate.setText(date);
+        //TODO:홀더에 백그라운드 이미지도 설정하게 만들어야함.
 
         // 클릭 이벤트 설정
         if (clickListener != null) {
@@ -66,7 +82,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
     /**
      * 스케줄 데이터 업데이트 메서드
      */
-    public void updateData(List<ScheduleData> newScheduleList) {
+    public void updateData(List<ScheduleDTO> newScheduleList) {
         this.scheduleList.clear();
         if (newScheduleList != null) {
             this.scheduleList.addAll(newScheduleList);
@@ -77,7 +93,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
     /**
      * 스케줄 추가 메서드
      */
-    public void addSchedule(ScheduleData schedule) {
+    public void addSchedule(ScheduleDTO schedule) {
         this.scheduleList.add(schedule);
         notifyItemInserted(scheduleList.size() - 1);
     }
@@ -96,14 +112,14 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
         ImageView imgBackground;
         TextView tvLocation;
         TextView tvDateRange;
-        TextView tvYearMonth;
+        TextView tvDate;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             imgBackground = itemView.findViewById(R.id.img_schedule_background);
             tvLocation = itemView.findViewById(R.id.tv_schedule_location);
-            tvDateRange = itemView.findViewById(R.id.tv_schedule_dates);
-            tvYearMonth = itemView.findViewById(R.id.tv_schedule_year_month);
+            tvDateRange = itemView.findViewById(R.id.tv_date_range);
+            tvDate = itemView.findViewById(R.id.tv_date);
         }
     }
 }
