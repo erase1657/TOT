@@ -1,6 +1,9 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.TOT" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/app_primary_color</item>
+        <item name="colorPrimaryVariant">@color/app_primary_color</item>
+        <item name="colorOnPrimary">@color/white</item>
     </style>
 
     <style name="Theme.TOT" parent="Base.Theme.TOT" />
