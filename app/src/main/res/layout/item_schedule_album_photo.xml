@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:gravity="center_vertical">
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/img_photo"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:scaleType="centerCrop"
+        android:src="@drawable/sample3"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium" />
+
+    <RelativeLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:layout_marginStart="16dp"
+        android:background="@drawable/button_style3"
+        android:padding="12dp">
+
+        <EditText
+            android:id="@+id/et_comment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="코멘트를 남겨주세요"
+            android:background="@null"
+            android:textSize="14sp"
+            android:layout_alignParentTop="true"
+            android:layout_toStartOf="@id/btn_edit_comment"
+            android:layout_marginEnd="8dp"/>
+
+        <ImageView
+            android:id="@+id/btn_edit_comment"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:src="@drawable/ic_edit"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            app:tint="#666666"/>
+    </RelativeLayout>
+</LinearLayout>

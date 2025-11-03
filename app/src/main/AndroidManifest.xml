@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -20,12 +25,8 @@
 
         <activity
             android:name=".SplashActivity"
-            android:exported="true"
+            android:exported="false"
             android:theme="@style/Theme.TOT.Splash">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
         </activity>
 
         <activity
@@ -47,10 +48,21 @@
             android:name=".Authentication.LoginActivity"
             android:exported="false">
         </activity>
+        <activity
+            android:name=".ScheduleAlbumActivity"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
         <meta-data
             android:name="com.naver.maps.map.NCP_KEY_ID"
             android:value=""/> <!-- 네이버 키값 넣는 곳 -->
+
+
 
     </application>
 

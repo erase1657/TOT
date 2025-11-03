@@ -1,3 +1,5 @@
+// 경로: app/src/main/java/com/example/tot/ScheduleRecyclerView/ScheduleData.java
+
 package com.example.tot.ScheduleRecyclerView;
 
 public class ScheduleData {
@@ -9,7 +11,14 @@ public class ScheduleData {
     private String fullStartDate;     // 전체 시작 날짜 (예: "2020-08-23")
     private String fullEndDate;       // 전체 종료 날짜 (예: "2020-08-27")
 
-    // 기본 생성자
+    // ✅ 1. '이름표' 공간 추가 (Firestore 규칙 연동용)
+    private String ownerUid;
+
+    // 기본 생성자 (Firestore가 필수적으로 요구합니다)
+    public ScheduleData() {
+    }
+
+    // 기존 생성자 1
     public ScheduleData(String scheduleId, String location, String dateRange,
                         String yearMonth, int backgroundImage) {
         this.scheduleId = scheduleId;
@@ -19,7 +28,7 @@ public class ScheduleData {
         this.backgroundImage = backgroundImage;
     }
 
-    // 전체 날짜 정보 포함 생성자
+    // 기존 생성자 2
     public ScheduleData(String scheduleId, String location, String dateRange,
                         String yearMonth, int backgroundImage,
                         String fullStartDate, String fullEndDate) {
@@ -32,61 +41,25 @@ public class ScheduleData {
         this.fullEndDate = fullEndDate;
     }
 
-    // Getter 메서드
-    public String getScheduleId() {
-        return scheduleId;
-    }
+    // --- Getter 메서드 ---
+    public String getScheduleId() { return scheduleId; }
+    public String getLocation() { return location; }
+    public String getDateRange() { return dateRange; }
+    public String getYearMonth() { return yearMonth; }
+    public int getBackgroundImage() { return backgroundImage; }
+    public String getFullStartDate() { return fullStartDate; }
+    public String getFullEndDate() { return fullEndDate; }
 
-    public String getLocation() {
-        return location;
-    }
+    // ✅ 2. '이름표' Getter/Setter 추가
+    public String getOwnerUid() { return ownerUid; }
+    public void setOwnerUid(String ownerUid) { this.ownerUid = ownerUid; }
 
-    public String getDateRange() {
-        return dateRange;
-    }
-
-    public String getYearMonth() {
-        return yearMonth;
-    }
-
-    public int getBackgroundImage() {
-        return backgroundImage;
-    }
-
-    public String getFullStartDate() {
-        return fullStartDate;
-    }
-
-    public String getFullEndDate() {
-        return fullEndDate;
-    }
-
-    // Setter 메서드
-    public void setScheduleId(String scheduleId) {
-        this.scheduleId = scheduleId;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    public void setDateRange(String dateRange) {
-        this.dateRange = dateRange;
-    }
-
-    public void setYearMonth(String yearMonth) {
-        this.yearMonth = yearMonth;
-    }
-
-    public void setBackgroundImage(int backgroundImage) {
-        this.backgroundImage = backgroundImage;
-    }
-
-    public void setFullStartDate(String fullStartDate) {
-        this.fullStartDate = fullStartDate;
-    }
-
-    public void setFullEndDate(String fullEndDate) {
-        this.fullEndDate = fullEndDate;
-    }
+    // --- Setter 메서드 ---
+    public void setScheduleId(String scheduleId) { this.scheduleId = scheduleId; }
+    public void setLocation(String location) { this.location = location; }
+    public void setDateRange(String dateRange) { this.dateRange = dateRange; }
+    public void setYearMonth(String yearMonth) { this.yearMonth = yearMonth; }
+    public void setBackgroundImage(int backgroundImage) { this.backgroundImage = backgroundImage; }
+    public void setFullStartDate(String fullStartDate) { this.fullStartDate = fullStartDate; }
+    public void setFullEndDate(String fullEndDate) { this.fullEndDate = fullEndDate; }
 }
