@@ -1,11 +1,9 @@
-package com.example.tot.ViewPager;
+package com.example.tot.Home;
 
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
@@ -18,10 +16,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SnapHelper;
 import androidx.viewpager2.widget.ViewPager2;
 
-import com.example.tot.AlbumRecyclerView.AlbumAdapter;
-import com.example.tot.AlbumRecyclerView.AlbumData;
-import com.example.tot.MemoryRecyclerView.MemoryAdapter;
-import com.example.tot.MemoryRecyclerView.MemoryData;
 import com.example.tot.R;
 
 import java.util.ArrayList;
@@ -45,8 +39,8 @@ public class HomeFragment extends Fragment {
     private Button currentSelectedCityButton;
 
     // RecyclerView 어댑터 (필터링 시 업데이트용)
-    private AlbumAdapter albumAdapter;
-    private List<AlbumData> allAlbumItems;  // 전체 앨범 데이터
+    private HomeAlbumAdapter homeAlbumAdapter;
+    private List<HomeAlbumData> allAlbumItems;  // 전체 앨범 데이터
 
     // 프로필 이미지
     private CircleImageView profileImage;
@@ -240,22 +234,22 @@ public class HomeFragment extends Fragment {
         // fetchAlbumsFromServer(selectedProvinceCode, selectedCityCode);
 
         // 현재는 더미 데이터로 필터링 (로컬 필터링 예시)
-        if (albumAdapter != null && allAlbumItems != null) {
-            List<AlbumData> filteredItems = new ArrayList<>();
+        if (homeAlbumAdapter != null && allAlbumItems != null) {
+            List<HomeAlbumData> filteredItems = new ArrayList<>();
 
             if (selectedProvinceCode.equals("ALL")) {
                 // 전체 선택 시 모든 앨범 표시
                 filteredItems.addAll(allAlbumItems);
             } else if (selectedCityCode.isEmpty()) {
                 // 시/도만 선택된 경우
-                for (AlbumData item : allAlbumItems) {
+                for (HomeAlbumData item : allAlbumItems) {
                     if (item.getProvinceCode().equals(selectedProvinceCode)) {
                         filteredItems.add(item);
                     }
                 }
             } else {
                 // 시/도와 시군구 모두 선택된 경우
-                for (AlbumData item : allAlbumItems) {
+                for (HomeAlbumData item : allAlbumItems) {
                     if (item.getProvinceCode().equals(selectedProvinceCode)
                             && item.getCityCode().equals(selectedCityCode)) {
                         filteredItems.add(item);
@@ -264,7 +258,7 @@ public class HomeFragment extends Fragment {
             }
 
             // 어댑터 업데이트
-            albumAdapter.updateData(filteredItems);
+            homeAlbumAdapter.updateData(filteredItems);
 
             // 결과 로그
             android.util.Log.d("HomeFragment", "필터링 결과: " + filteredItems.size() + "개 앨범");
@@ -279,13 +273,13 @@ public class HomeFragment extends Fragment {
                 new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false)
         );
 
-        List<MemoryData> items = new ArrayList<>();
-        items.add(new MemoryData("회의", "2025.10.15", "Room 6-205", "12:00", "13:05", R.drawable.location_point));
-        items.add(new MemoryData("스터디", "2025.10.20", "Room 3-102", "15:00", "17:00", R.drawable.location_point));
-        items.add(new MemoryData("약속", "2025.10.22", "Room 7-301", "18:30", "20:00", R.drawable.location_point));
+        List<HomeScheduleDTO> items = new ArrayList<>();
+        items.add(new HomeScheduleDTO("회의", "2025.10.15", "Room 6-205", "12:00", "13:05", R.drawable.ic_location_point));
+        items.add(new HomeScheduleDTO("스터디", "2025.10.20", "Room 3-102", "15:00", "17:00", R.drawable.ic_location_point));
+        items.add(new HomeScheduleDTO("약속", "2025.10.22", "Room 7-301", "18:30", "20:00", R.drawable.ic_location_point));
 
-        MemoryAdapter memoryAdapter = new MemoryAdapter(items);
-        memoryView.setAdapter(memoryAdapter);
+        HomeScheduleAdapter homeScheduleAdapter = new HomeScheduleAdapter(items);
+        memoryView.setAdapter(homeScheduleAdapter);
 
         SnapHelper snapHelper = new LinearSnapHelper();
         snapHelper.attachToRecyclerView(memoryView);
@@ -302,12 +296,12 @@ public class HomeFragment extends Fragment {
         // 전체 앨범 데이터 초기화 (더미 데이터 - 지역 정보 포함)
         allAlbumItems = new ArrayList<>();
         // 지역 정보 포함: new AlbumData(이름, 프로필, 앨범, 시/도코드, 시군구코드)
-        allAlbumItems.add(new AlbumData("테스트 이름1", R.drawable.sample1, R.drawable.sample3, "11", "11680")); // 서울 강남구
-        allAlbumItems.add(new AlbumData("테스트 이름2", R.drawable.sample1, R.drawable.sample3, "26", "26350")); // 부산 해운대구
-        allAlbumItems.add(new AlbumData("테스트 이름3", R.drawable.sample1, R.drawable.sample3, "11", "11200")); // 서울 성동구
+        allAlbumItems.add(new HomeAlbumData("테스트 이름1", R.drawable.sample1, R.drawable.sample3, "11", "11680")); // 서울 강남구
+        allAlbumItems.add(new HomeAlbumData("테스트 이름2", R.drawable.sample1, R.drawable.sample3, "26", "26350")); // 부산 해운대구
+        allAlbumItems.add(new HomeAlbumData("테스트 이름3", R.drawable.sample1, R.drawable.sample3, "11", "11200")); // 서울 성동구
 
-        albumAdapter = new AlbumAdapter(new ArrayList<>(allAlbumItems));
-        albumView.setAdapter(albumAdapter);
+        homeAlbumAdapter = new HomeAlbumAdapter(new ArrayList<>(allAlbumItems));
+        albumView.setAdapter(homeAlbumAdapter);
     }
 
     /**

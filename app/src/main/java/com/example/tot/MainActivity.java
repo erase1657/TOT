@@ -7,7 +7,8 @@ import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.viewpager2.widget.ViewPager2;
 
-import com.example.tot.ViewPager.ViewPagerAdapter;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.ismaeldivita.chipnavigation.ChipNavigationBar;
 
 public class MainActivity extends AppCompatActivity {
@@ -19,7 +20,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
-
+       ;
         viewPager = findViewById(R.id.viewpager);
         chipNav = findViewById(R.id.navbar);
 
@@ -65,5 +66,6 @@ public class MainActivity extends AppCompatActivity {
         });
         chipNav.setItemSelected(R.id.home, true);
     }
+
     
 }

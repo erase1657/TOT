@@ -7,12 +7,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 
-import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+
 
 import com.example.tot.Authentication.LoginActivity;
 import com.google.firebase.auth.FirebaseAuth;
