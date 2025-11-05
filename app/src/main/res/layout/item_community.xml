@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#FFFFFFFF">
+
+    <!-- 프로필 영역 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="12dp">
+
+        <de.hdodenhof.circleimageview.CircleImageView
+            android:id="@+id/img_profile"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:src="@drawable/ic_profile_default"
+            app:civ_border_width="0dp" />
+
+        <TextView
+            android:id="@+id/txt_user_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="박민주"
+            android:textColor="#FF000000"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- 게시글 제목 -->
+    <TextView
+        android:id="@+id/txt_post_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="내 눈동자에 치얼스"
+        android:textColor="#FF000000"
+        android:textSize="16sp"
+        android:layout_marginBottom="12dp"/>
+
+    <!-- 게시글 이미지 -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="240dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        android:layout_marginBottom="12dp">
+
+        <ImageView
+            android:id="@+id/img_post_photo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/sample3" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- 좋아요 / 댓글 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="16dp">
+
+        <ImageView
+            android:id="@+id/img_heart"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_heart"
+            android:layout_marginEnd="6dp"/>
+
+        <TextView
+            android:id="@+id/txt_heart_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="10.9만"
+            android:textColor="#FF000000"
+            android:textSize="15sp"
+            android:layout_marginEnd="20dp"/>
+
+        <ImageView
+            android:id="@+id/img_comment"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_comment"
+            android:layout_marginEnd="6dp"/>
+
+        <TextView
+            android:id="@+id/txt_comment_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="22개"
+            android:textColor="#FF000000"
+            android:textSize="15sp"/>
+    </LinearLayout>
+
+    <!-- 구분선 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#FFE0E0E0"/>
+</LinearLayout>
