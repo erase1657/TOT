@@ -57,7 +57,8 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
-            android:src="@drawable/sample3" />
+            android:src="@drawable/sample3"
+            android:contentDescription="게시글 이미지" />
     </androidx.cardview.widget.CardView>
 
     <!-- 좋아요 / 댓글 -->
@@ -73,7 +74,10 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_heart"
-            android:layout_marginEnd="6dp"/>
+            android:layout_marginEnd="6dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="좋아요 버튼"/>
 
         <TextView
             android:id="@+id/txt_heart_count"
@@ -89,7 +93,8 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_comment"
-            android:layout_marginEnd="6dp"/>
+            android:layout_marginEnd="6dp"
+            android:contentDescription="댓글 아이콘"/>
 
         <TextView
             android:id="@+id/txt_comment_count"

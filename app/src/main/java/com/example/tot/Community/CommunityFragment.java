@@ -411,7 +411,7 @@ public class CommunityFragment extends Fragment {
                     titles[i % titles.length],
                     images[i % images.length],
                     heartCount,
-                    (int) (Math.random() * 100),  // 댓글 수
+                    (int) (Math.random() * 100),
                     regions[i % regions.length],
                     now - (i * 1000000),
                     i % 3 == 0  // 친구 여부
