@@ -29,7 +29,7 @@ public class CommunityFragment extends Fragment {
     private RecyclerView recyclerView;
     private CommunityAdapter adapter;
     private List<CommunityPostDTO> allPosts;           // 전체 게시글
-    private List<CommunityPostDTO> filteredPosts;      // 필터링된 게시글
+    private List<CommunityPostDTO> filteredPosts;      // 필터링된 게시글.
     private EditText edtSearch;
     private Button btnPopular, btnAll, btnFriends;
     private ImageButton btnWrite;
