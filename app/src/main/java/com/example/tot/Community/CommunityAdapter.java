@@ -114,18 +114,43 @@ public class CommunityAdapter extends RecyclerView.Adapter<CommunityAdapter.View
             // 게시글 이미지
             imgPostPhoto.setImageResource(post.getPostImage());
 
-            // 좋아요 수 (10.9만, 1.2천 등 형식)
+            // 좋아요 아이콘 및 수
+            updateHeartIcon(post.isLiked());
             txtHeartCount.setText(formatCount(post.getHeartCount()));
 
-            // 댓글 수 (22개 형식)
+            // 댓글 수
             txtCommentCount.setText(post.getCommentCount() + "개");
 
-            // 클릭 이벤트
-            itemView.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onPostClick(post, position);
+            // 하트 클릭 이벤트
+            imgHeart.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    post.toggleLike();
+                    updateHeartIcon(post.isLiked());
+                    txtHeartCount.setText(formatCount(post.getHeartCount()));
                 }
             });
+
+            // 게시글 클릭 이벤트
+            itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (listener != null) {
+                        listener.onPostClick(post, position);
+                    }
+                }
+            });
+        }
+
+        /**
+         * 하트 아이콘 업데이트
+         */
+        private void updateHeartIcon(boolean isLiked) {
+            if (isLiked) {
+                imgHeart.setImageResource(R.drawable.ic_heart_c);
+            } else {
+                imgHeart.setImageResource(R.drawable.ic_heart);
+            }
         }
 
         /**

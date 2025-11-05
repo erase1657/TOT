@@ -8,6 +8,7 @@ import android.text.TextWatcher;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -17,7 +18,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,7 +32,7 @@ public class CommunityFragment extends Fragment {
     private List<CommunityPostDTO> filteredPosts;      // 필터링된 게시글
     private EditText edtSearch;
     private Button btnPopular, btnAll, btnFriends;
-    private FloatingActionButton btnWrite;
+    private ImageButton btnWrite;
 
     // 필터 상태
     private FilterMode currentFilter = FilterMode.ALL;
@@ -100,11 +100,14 @@ public class CommunityFragment extends Fragment {
         recyclerView.setLayoutManager(layoutManager);
 
         filteredPosts = new ArrayList<>();
-        adapter = new CommunityAdapter(filteredPosts, (post, position) -> {
-            Toast.makeText(getContext(),
-                    post.getTitle() + " 상세보기",
-                    Toast.LENGTH_SHORT).show();
-            // TODO: 게시글 상세 화면으로 이동
+        adapter = new CommunityAdapter(filteredPosts, new CommunityAdapter.OnPostClickListener() {
+            @Override
+            public void onPostClick(CommunityPostDTO post, int position) {
+                Toast.makeText(getContext(),
+                        post.getTitle() + " 상세보기",
+                        Toast.LENGTH_SHORT).show();
+                // TODO: 게시글 상세 화면으로 이동
+            }
         });
 
         recyclerView.setAdapter(adapter);
@@ -138,25 +141,34 @@ public class CommunityFragment extends Fragment {
      * 필터 버튼 설정
      */
     private void setupFilterButtons() {
-        btnPopular.setOnClickListener(v -> {
-            currentFilter = FilterMode.POPULAR;
-            updateFilterButtonStates();
-            resetPagination();
-            applyFilter();
+        btnPopular.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                currentFilter = FilterMode.POPULAR;
+                updateFilterButtonStates();
+                resetPagination();
+                applyFilter();
+            }
         });
 
-        btnAll.setOnClickListener(v -> {
-            currentFilter = FilterMode.ALL;
-            updateFilterButtonStates();
-            resetPagination();
-            applyFilter();
+        btnAll.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                currentFilter = FilterMode.ALL;
+                updateFilterButtonStates();
+                resetPagination();
+                applyFilter();
+            }
         });
 
-        btnFriends.setOnClickListener(v -> {
-            currentFilter = FilterMode.FRIENDS;
-            updateFilterButtonStates();
-            resetPagination();
-            applyFilter();
+        btnFriends.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                currentFilter = FilterMode.FRIENDS;
+                updateFilterButtonStates();
+                resetPagination();
+                applyFilter();
+            }
         });
     }
 
@@ -292,22 +304,25 @@ public class CommunityFragment extends Fragment {
         isLoading = true;
 
         // 로딩 시뮬레이션 (실제로는 서버에서 데이터 가져옴)
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            currentPage++;
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                currentPage++;
 
-            // 현재 필터링된 전체 리스트 가져오기
-            List<CommunityPostDTO> filtered = getCurrentFilteredList();
+                // 현재 필터링된 전체 리스트 가져오기
+                List<CommunityPostDTO> filtered = getCurrentFilteredList();
 
-            // 다음 페이지 데이터
-            List<CommunityPostDTO> nextPage = getPagedPosts(filtered, currentPage);
+                // 다음 페이지 데이터
+                List<CommunityPostDTO> nextPage = getPagedPosts(filtered, currentPage);
 
-            if (nextPage.isEmpty()) {
-                isLastPage = true;
-            } else {
-                adapter.addData(nextPage);
+                if (nextPage.isEmpty()) {
+                    isLastPage = true;
+                } else {
+                    adapter.addData(nextPage);
+                }
+
+                isLoading = false;
             }
-
-            isLoading = false;
         }, 500); // 0.5초 딜레이
     }
 
@@ -349,9 +364,19 @@ public class CommunityFragment extends Fragment {
 
         // 정렬
         if (currentFilter == FilterMode.POPULAR) {
-            Collections.sort(filtered, (o1, o2) -> Integer.compare(o2.getHeartCount(), o1.getHeartCount()));
+            Collections.sort(filtered, new Comparator<CommunityPostDTO>() {
+                @Override
+                public int compare(CommunityPostDTO o1, CommunityPostDTO o2) {
+                    return Integer.compare(o2.getHeartCount(), o1.getHeartCount());
+                }
+            });
         } else {
-            Collections.sort(filtered, (o1, o2) -> Long.compare(o2.getCreatedAt(), o1.getCreatedAt()));
+            Collections.sort(filtered, new Comparator<CommunityPostDTO>() {
+                @Override
+                public int compare(CommunityPostDTO o1, CommunityPostDTO o2) {
+                    return Long.compare(o2.getCreatedAt(), o1.getCreatedAt());
+                }
+            });
         }
 
         return filtered;
@@ -391,6 +416,8 @@ public class CommunityFragment extends Fragment {
         int[] profiles = {R.drawable.sample1, R.drawable.sample2, R.drawable.sample3, R.drawable.sample4};
         int[] images = {R.drawable.sample1, R.drawable.sample2, R.drawable.sample3, R.drawable.sample4};
         String[] regions = {"서울", "부산", "제주", "전주", "강릉", "여수", "경주", "속초", "대구", "광주"};
+        String[] provinceCodes = {"11", "26", "49", "46", "42", "45", "47", "42", "27", "29"};
+        String[] cityCodes = {"11680", "26350", "50110", "45110", "42150", "45110", "47130", "42210", "27200", "29200"};
 
         for (int i = 0; i < 30; i++) {
             // 좋아요 수를 다양하게 (일부는 만 단위, 일부는 천 단위)
@@ -411,8 +438,10 @@ public class CommunityFragment extends Fragment {
                     titles[i % titles.length],
                     images[i % images.length],
                     heartCount,
-                    (int) (Math.random() * 100),
+                    (int) (Math.random() * 100),  // 댓글 수
                     regions[i % regions.length],
+                    provinceCodes[i % provinceCodes.length],
+                    cityCodes[i % cityCodes.length],
                     now - (i * 1000000),
                     i % 3 == 0  // 친구 여부
             ));
