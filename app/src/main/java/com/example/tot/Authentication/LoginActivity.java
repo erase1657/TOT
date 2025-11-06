@@ -48,7 +48,7 @@ public class LoginActivity extends AppCompatActivity {
                 startActivity(new Intent(LoginActivity.this, MainActivity.class));
                 finish();
             }
-
+            //TODO: 구글 로그인 오류 해결
             @Override
             public void onSignInError(@NonNull Exception e) {
                 Toast.makeText(LoginActivity.this, "❌ 로그인 실패: " + e.getLocalizedMessage(), Toast.LENGTH_LONG).show();
