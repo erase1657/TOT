@@ -54,7 +54,7 @@
             android:exported="false">
         </activity>
         <activity
-            android:name=".ScheduleAlbumActivity"
+            android:name=".Album.ScheduleAlbumActivity"
             android:exported="false">
         </activity>
 

@@ -1,4 +1,4 @@
-package com.example.tot; // 본인의 패키지
+package com.example.tot.Album; // 본인의 패키지
 
 import com.google.firebase.firestore.DocumentId;
 import com.google.firebase.firestore.ServerTimestamp;

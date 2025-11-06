@@ -1,4 +1,4 @@
-package com.example.tot; // 본인의 패키지 이름
+package com.example.tot.Album; // 본인의 패키지 이름
 
 import android.Manifest;
 import android.content.pm.PackageManager;
@@ -27,6 +27,7 @@ import androidx.recyclerview.widget.LinearLayoutManager; // (중요) import 확�
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.example.tot.R;
 import com.google.android.material.imageview.ShapeableImageView;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;

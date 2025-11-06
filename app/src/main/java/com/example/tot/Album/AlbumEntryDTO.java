@@ -1,6 +1,6 @@
 // 경로: app/src/main/java/com/example/tot/AlbumEntryDTO.java (새 파일)
 
-package com.example.tot;
+package com.example.tot.Album;
 
 import com.google.firebase.firestore.DocumentId;
 import com.google.firebase.firestore.ServerTimestamp;
