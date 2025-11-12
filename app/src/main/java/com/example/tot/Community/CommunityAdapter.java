@@ -40,8 +40,10 @@ public class CommunityAdapter extends RecyclerView.Adapter<CommunityAdapter.View
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        CommunityPostDTO post = posts.get(position);
-        holder.bind(post, position);
+        if (position < posts.size()) {
+            CommunityPostDTO post = posts.get(position);
+            holder.bind(post, position);
+        }
     }
 
     @Override
@@ -102,17 +104,28 @@ public class CommunityAdapter extends RecyclerView.Adapter<CommunityAdapter.View
         }
 
         public void bind(CommunityPostDTO post, int position) {
+            if (post == null) return;
+
             // 프로필 이미지
-            imgProfile.setImageResource(post.getUserProfileImage());
+            if (post.getUserProfileImage() != 0) {
+                imgProfile.setImageResource(post.getUserProfileImage());
+            } else {
+                imgProfile.setImageResource(R.drawable.ic_profile_default);
+            }
 
             // 사용자 이름
-            txtUserName.setText(post.getUserName());
+            txtUserName.setText(post.getUserName() != null ? post.getUserName() : "익명");
 
             // 게시글 제목
-            txtPostTitle.setText(post.getTitle());
+            txtPostTitle.setText(post.getTitle() != null ? post.getTitle() : "");
 
             // 게시글 이미지
-            imgPostPhoto.setImageResource(post.getPostImage());
+            if (post.getPostImage() != 0) {
+                imgPostPhoto.setImageResource(post.getPostImage());
+                imgPostPhoto.setVisibility(View.VISIBLE);
+            } else {
+                imgPostPhoto.setVisibility(View.GONE);
+            }
 
             // 좋아요 아이콘 및 수
             updateHeartIcon(post.isLiked());
@@ -136,7 +149,7 @@ public class CommunityAdapter extends RecyclerView.Adapter<CommunityAdapter.View
                 @Override
                 public void onClick(View v) {
                     if (listener != null) {
-                        listener.onPostClick(post, position);
+                        listener.onPostClick(post, getAdapterPosition());
                     }
                 }
             });

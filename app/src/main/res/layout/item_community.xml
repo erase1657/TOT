@@ -6,7 +6,9 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="16dp"
-    android:background="#FFFFFFFF">
+    android:background="#FFFFFFFF"
+    android:clickable="true"
+    android:focusable="true">
 
     <!-- 프로필 영역 -->
     <LinearLayout
@@ -14,12 +16,12 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingBottom="12dp">
+        android:paddingBottom="10dp">
 
         <de.hdodenhof.circleimageview.CircleImageView
             android:id="@+id/img_profile"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:src="@drawable/ic_profile_default"
             app:civ_border_width="0dp" />
 
@@ -27,22 +29,27 @@
             android:id="@+id/txt_user_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="10dp"
             android:text="박민주"
             android:textColor="#FF000000"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:ellipsize="end"
+            android:maxLines="1" />
     </LinearLayout>
 
     <!-- 게시글 제목 -->
     <TextView
         android:id="@+id/txt_post_title"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="내 눈동자에 치얼스"
         android:textColor="#FF000000"
-        android:textSize="16sp"
-        android:layout_marginBottom="12dp"/>
+        android:textSize="15sp"
+        android:layout_marginBottom="10dp"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:lineSpacingExtra="2dp"/>
 
     <!-- 게시글 이미지 -->
     <androidx.cardview.widget.CardView
@@ -50,7 +57,7 @@
         android:layout_height="240dp"
         app:cardCornerRadius="16dp"
         app:cardElevation="0dp"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="10dp">
 
         <ImageView
             android:id="@+id/img_post_photo"
@@ -63,7 +70,7 @@
 
     <!-- 좋아요 / 댓글 -->
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
@@ -74,7 +81,7 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_heart"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="4dp"
             android:clickable="true"
             android:focusable="true"
             android:contentDescription="좋아요 버튼"/>
@@ -85,7 +92,7 @@
             android:layout_height="wrap_content"
             android:text="10.9만"
             android:textColor="#FF000000"
-            android:textSize="15sp"
+            android:textSize="14sp"
             android:layout_marginEnd="20dp"/>
 
         <ImageView
@@ -93,7 +100,7 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_comment"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="4dp"
             android:contentDescription="댓글 아이콘"/>
 
         <TextView
@@ -102,7 +109,7 @@
             android:layout_height="wrap_content"
             android:text="22개"
             android:textColor="#FF000000"
-            android:textSize="15sp"/>
+            android:textSize="14sp"/>
     </LinearLayout>
 
     <!-- 구분선 -->

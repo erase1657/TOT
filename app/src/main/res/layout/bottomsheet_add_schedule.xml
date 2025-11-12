@@ -9,7 +9,8 @@
     android:paddingEnd="29dp"
     android:paddingTop="33dp"
     android:paddingBottom="33dp"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="#FFFFFF">
     <EditText
         android:id="@+id/et_title"
         android:layout_width="match_parent"

@@ -4,9 +4,13 @@
         <item name="colorPrimary">@color/app_primary_color</item>
         <item name="colorPrimaryVariant">@color/app_primary_color</item>
         <item name="colorOnPrimary">@color/white</item>
+        <!-- 배경색을 흰색으로 변경 (연보라 제거) -->
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:colorBackground">@color/white</item>
     </style>
 
     <style name="Theme.TOT" parent="Base.Theme.TOT" />
+
     <style name="Theme.TOT.Splash" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">@drawable/splashlogo</item>
     </style>
@@ -28,14 +32,12 @@
     </style>
 
     <style name="RoundedBottomSheetDialog" parent="Theme.Design.Light.BottomSheetDialog">
-        <!-- 투명 배경 -->
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:backgroundDimEnabled">true</item>
         <item name="bottomSheetStyle">@style/RoundedBottomSheetStyle</item>
     </style>
 
     <style name="RoundedBottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
-        <!-- 둥근 배경 drawable 지정 -->
         <item name="android:background">@drawable/layout_style1</item>
     </style>
 </resources>
