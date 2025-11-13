@@ -117,7 +117,7 @@
                     <!-- 시군구 버튼들이 동적으로 추가됨 -->
                 </LinearLayout>
             </HorizontalScrollView>
-
+            <!--TODO: 앨범 간격 설정'-->
             <!-- 게시글(앨범) 목록 -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/re_album"

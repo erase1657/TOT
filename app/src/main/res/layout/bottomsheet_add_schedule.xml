@@ -196,6 +196,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="60dp">
+        <!--TODO: 위치 아이콘 크기 설정-->
         <ImageView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
