@@ -123,6 +123,13 @@ public class CommunityViewModel {
     }
 
     /**
+     * 전체 게시글 반환 (홈화면 지역 필터용)
+     */
+    public List<CommunityPostDTO> getAllPosts() {
+        return new ArrayList<>(allPosts);
+    }
+
+    /**
      * 필터 변경
      */
     public void setFilter(FilterMode filter) {
