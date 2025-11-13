@@ -1,7 +1,16 @@
+import java.util.Properties
+import java.io.FileInputStream
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.google.gms.google.services)
 }
+val localProps = Properties()
+val localFile = rootProject.file("local.properties")
+if (localFile.exists()) {
+    localProps.load(FileInputStream(localFile))
+}
+
+val kakaoKey: String = localProps.getProperty("KAKAO_NATIVE_KEY")?.let { it } ?: "YOUR_KAKAO_KEY_HERE"
 
 android {
     namespace = "com.example.tot"
@@ -14,7 +23,12 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        buildConfigField("String", "KAKAO_NATIVE_KEY", "\"$kakaoKey\"")
+        manifestPlaceholders["KAKAO_NATIVE_KEY"] = kakaoKey
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {
@@ -32,7 +46,9 @@ android {
     }
 }
 
+
 dependencies {
+    implementation("com.kakao.sdk:v2-share:2.22.0")  // 공유 메시지 전송
     implementation("com.naver.maps:map-sdk:3.23.0") // 네이버 지도 SDK
     implementation("nl.bryanderidder:themed-toggle-button-group:1.4.1") //토글 버튼 리스트
     implementation("com.github.ismaeldivita:chip-navigation-bar:1.4.0") //하단 네브바
