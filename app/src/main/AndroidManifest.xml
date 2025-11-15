@@ -47,6 +47,9 @@
             android:name=".ViewPagerAdapter"
             android:exported="false" />
         <activity
+            android:name=".Notification.NotificationActivity"
+            android:exported="false" />
+        <activity
             android:name=".Authentication.RegisterActivity"
             android:exported="false" />
 
