@@ -51,7 +51,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
         Date startDate = schedule.getStartDate().toDate();
         Date endDate = schedule.getEndDate().toDate();
 
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/M/d", Locale.KOREA);
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd", Locale.KOREA);
 
         String start = sdf.format(startDate);
         String end = sdf.format(endDate);

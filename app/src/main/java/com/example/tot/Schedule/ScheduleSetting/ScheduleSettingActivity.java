@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
+import com.example.tot.Schedule.ScheduleSetting.Invite.InviteDialog;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -49,7 +50,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     // ✅ 각 날짜별 문서 ID 캐시 (겹침 검사에서 자기 자신 제외용)
     private final Map<String, List<String>> localCacheDocIds = new HashMap<>();
 
-    private Button btn_AddSchedule, btn_Menu;
+    private Button btn_AddSchedule, btn_Menu, btn_Invite;
     private ListenerRegistration currentListener; // 실시간 리스너
 
     @Override
@@ -77,6 +78,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         rvScheduleItem = findViewById(R.id.rv_schedulelist);
         btn_AddSchedule = findViewById(R.id.btn_add_schedule);
         btn_Menu = findViewById(R.id.btn_menu);
+        btn_Invite = findViewById(R.id.btn_invite);
 
         setRvDate();
         setRvScheduleItem();
@@ -108,6 +110,10 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                 });
                 menu.show();
             }
+        });
+        btn_Invite.setOnClickListener(v -> {
+            InviteDialog dialog = new InviteDialog(ScheduleSettingActivity.this);
+            dialog.show();
         });
         // ✅ 일정 추가 버튼
         btn_AddSchedule.setOnClickListener(v -> {
@@ -272,4 +278,5 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     public String getScheduleId() {
         return scheduleId;
     }
+    public FirebaseFirestore getFirestore() {return db;}
 }

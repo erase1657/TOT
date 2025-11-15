@@ -3,11 +3,12 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
     <application
+        android:name=".TOTApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -62,7 +63,12 @@
             android:name="com.naver.maps.map.NCP_KEY_ID"
             android:value=""/> <!-- 네이버 키값 넣는 곳 -->
 
-
+        <meta-data
+            android:name="com.kakao.sdk.AppKey"
+            android:value="${KAKAO_NATIVE_KEY}" />
+        <meta-data
+            android:name="com.kakao.sdk.LogEnabled"
+            android:value="true" />
 
     </application>
 
