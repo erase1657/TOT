@@ -181,11 +181,12 @@
             android:textStyle="bold"
             android:layout_marginEnd="8dp" />
 
+        <!-- ic_setting_dot-->
         <ImageView
             android:id="@+id/btn_sort"
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:src="@drawable/ic_setting_dot"
+            android:src="@drawable/ic_sort"
             android:contentDescription="정렬"
             android:clickable="true"
             android:focusable="true"
