@@ -54,6 +54,12 @@
             android:exported="false" />
 
         <activity
+            android:name=".Follow.FollowActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".Authentication.LoginActivity"
             android:exported="false">
         </activity>

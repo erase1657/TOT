@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp"
+    android:background="?attr/selectableItemBackground">
+
+    <!-- 프로필 이미지 -->
+    <de.hdodenhof.circleimageview.CircleImageView
+        android:id="@+id/img_profile"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:src="@drawable/ic_profile_default"
+        app:civ_border_width="2dp"
+        app:civ_border_color="#FFE5E7EB"
+        android:clickable="true"
+        android:focusable="true" />
+
+    <!-- 정보 영역 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginStart="12dp">
+
+        <!-- 이름 + Follow back -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_user_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="이름"
+                android:textColor="#FF000000"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_follow_back"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="• Follow back"
+                android:textColor="#FF999999"
+                android:textSize="12sp"
+                android:layout_marginStart="6dp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- 별명 표시 + 수정 아이콘 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="2dp">
+
+            <TextView
+                android:id="@+id/tv_nickname"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="별명"
+                android:textColor="#FF666666"
+                android:textSize="14sp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:visibility="visible" />
+
+            <!-- ✅ 수정 아이콘 -->
+            <ImageView
+                android:id="@+id/btn_edit_nickname"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_edit"
+                android:layout_marginStart="4dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:visibility="gone"
+                android:contentDescription="별명 수정" />
+        </LinearLayout>
+
+        <!-- 별명 수정 입력란 -->
+        <LinearLayout
+            android:id="@+id/layout_nickname_edit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="2dp"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/edt_nickname"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="별명 입력"
+                android:textColor="#FF000000"
+                android:textSize="14sp"
+                android:background="@null"
+                android:padding="0dp"
+                android:maxLines="1"
+                android:imeOptions="actionDone"
+                android:inputType="text" />
+
+            <TextView
+                android:id="@+id/btn_save_nickname"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="저장"
+                android:textColor="#FF575DFB"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 팔로우 버튼 (라운드 처리는 코드에서) -->
+    <TextView
+        android:id="@+id/btn_follow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="맞 팔로우"
+        android:textColor="#FFFFFFFF"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:layout_marginStart="8dp" />
+
+    <!-- 점 세개 메뉴 버튼 -->
+    <ImageView
+        android:id="@+id/btn_menu"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_setting_dot"
+        android:contentDescription="더보기"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:layout_marginStart="8dp"
+        android:visibility="gone" />
+</LinearLayout>
