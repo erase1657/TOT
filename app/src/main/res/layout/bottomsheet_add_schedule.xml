@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -10,208 +9,215 @@
     android:paddingTop="33dp"
     android:paddingBottom="33dp"
     android:orientation="vertical"
-    android:background="#FFFFFF">
+    android:background="@drawable/layout_style1"
+    >
+
+    <!-- 제목 입력 -->
     <EditText
         android:id="@+id/et_title"
         android:layout_width="match_parent"
-        android:layout_height="46dp"
+        android:layout_height="50dp"
         android:background="@drawable/button_style1"
         android:backgroundTint="#7C7C7C"
-        android:paddingStart="10dp"
-        android:text="제목"
-        android:textColor="@color/white"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:hint="제목"
+        android:textColorHint="#CCCCCC"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
         android:textStyle="bold"/>
+
+    <!-- 시간 설정 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="60dp"
-        android:orientation="horizontal">
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
+        android:layout_marginTop="45dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
-            >
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/ic_clock"/>
-            <Space
-                android:layout_width="30dp"
-                android:layout_height="0dp"/>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="시간"
-                android:textColor="#7B7B7B"
-                android:textSize="17dp"
-                android:textStyle="bold"/>
-
-        </LinearLayout>
-        <Space
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_weight="1"/>
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            >
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-                <TextView
-                    android:id="@+id/start_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:paddingStart="4dp"
-                    android:text="시작 시간"
-                    />
-
-                <LinearLayout
-                    android:id="@+id/start_time_container"
-                    android:layout_width="85dp"
-                    android:layout_height="40dp"
-                    android:background="@drawable/button_style3"
-                    android:gravity="center"
-                   >
-
-                    <NumberPicker
-                        android:id="@+id/np_start_hour"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:scaleX="0.8"
-                        android:scaleY="0.8" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=":" />
-
-                    <NumberPicker
-                        android:id="@+id/np_start_minute"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:scaleX="0.8"
-                        android:scaleY="0.8" />
-
-
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:orientation="vertical">
-                <TextView
-                    android:id="@+id/end_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:paddingStart="4dp"
-                    android:text="종료 시간"
-                    />
-
-                <LinearLayout
-                    android:id="@+id/end_time_container"
-                    android:layout_width="85dp"
-                    android:layout_height="40dp"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:background="@drawable/button_style3"
-                   >
-
-                    <NumberPicker
-                        android:id="@+id/np_end_hour"
-                        android:layout_width="0dp"
-                        android:layout_weight="1"
-                        android:layout_height="wrap_content"
-                        android:scaleX="0.8"
-                        android:scaleY="0.8" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=":" />
-
-                    <NumberPicker
-                        android:id="@+id/np_end_minute"
-                        android:layout_width="0dp"
-                        android:layout_weight="1"
-                        android:layout_height="wrap_content"
-                        android:scaleX="0.8"
-                        android:scaleY="0.8" />
-
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-
-
-        </LinearLayout>
-
-    </LinearLayout>
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:layout_marginTop="60dp">
-
+        <!-- 아이콘 + 라벨 -->
         <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/ic_alarm" />
-        <Space
-            android:layout_width="30dp"
-            android:layout_height="0dp"/>
+            android:layout_width="18dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_clock"
+            android:scaleType="fitCenter"/>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="알람"
+            android:layout_marginStart="16dp"
+            android:text="시간"
             android:textColor="#7B7B7B"
-            android:textSize="17dp"
+            android:textSize="17sp"
             android:textStyle="bold"/>
+
         <Space
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_weight="1"/>
+
+        <!-- 시작 시간 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:id="@+id/start_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="시작 시간"
+                android:textSize="12sp"
+                android:textColor="#999999"
+                android:layout_marginBottom="6dp"/>
+
+            <LinearLayout
+                android:id="@+id/start_time_container"
+                android:layout_width="100dp"
+                android:layout_height="50dp"
+                android:background="@drawable/button_style3"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <NumberPicker
+                    android:id="@+id/np_start_hour"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleX="0.75"
+                    android:scaleY="0.75"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=":"
+                    android:textSize="16sp"
+                    android:textColor="#000000"/>
+
+                <NumberPicker
+                    android:id="@+id/np_start_minute"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleX="0.75"
+                    android:scaleY="0.75"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 종료 시간 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:id="@+id/end_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="종료 시간"
+                android:textSize="12sp"
+                android:textColor="#999999"
+                android:layout_marginBottom="6dp"/>
+
+            <LinearLayout
+                android:id="@+id/end_time_container"
+                android:layout_width="100dp"
+                android:layout_height="50dp"
+                android:background="@drawable/button_style3"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <NumberPicker
+                    android:id="@+id/np_end_hour"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleX="0.75"
+                    android:scaleY="0.75"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=":"
+                    android:textSize="16sp"
+                    android:textColor="#000000"/>
+
+                <NumberPicker
+                    android:id="@+id/np_end_minute"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:scaleX="0.75"
+                    android:scaleY="0.75"/>
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 알람 설정 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="40dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_alarm"
+            android:scaleType="fitCenter"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="알람"
+            android:textColor="#7B7B7B"
+            android:textSize="17sp"
+            android:textStyle="bold"/>
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
+
         <com.github.angads25.toggle.widget.LabeledSwitch
             android:id="@+id/sw_alarm"
-            android:layout_width="55dp"
-            android:layout_height="wrap_content"
-            app:colorOn = "#63ACFF"
-            app:colorDisabled ="#473E3E"
+            android:layout_width="50dp"
+            android:layout_height="28dp"
+            app:colorOn="#63ACFF"
+            app:colorDisabled="#CCCCCC"
             app:colorBorder="#63ACFF"
             app:textOn=""
             app:textOff=""/>
-
-
     </LinearLayout>
+
+    <!-- 장소 설정 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="60dp">
-        <!--TODO: 위치 아이콘 크기 설정-->
+        android:layout_marginTop="40dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
         <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/ic_place"/>
-        <Space
-            android:layout_width="30dp"
-            android:layout_height="0dp"/>
+            android:layout_width="18dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_location_point"
+            android:scaleType="fitCenter"/>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
             android:text="장소"
             android:textColor="#7B7B7B"
-            android:textSize="17dp"
+            android:textSize="17sp"
             android:textStyle="bold"/>
+
         <Space
             android:layout_width="0dp"
             android:layout_height="0dp"
@@ -220,26 +226,29 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="10dp"
+            android:layout_marginEnd="8dp"
             android:text="추가"
             android:textStyle="bold"
-            android:textSize="17dp"
+            android:textSize="15sp"
             android:textColor="#7B7B7B"/>
+
         <Button
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:background="@drawable/ic_plus"/>
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:background="@drawable/ic_plus"
+            android:gravity="center"/>
     </LinearLayout>
+
+    <!-- 저장 버튼 -->
     <Button
         android:id="@+id/btn_save"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="180dp"
+        android:layout_height="54dp"
+        android:layout_marginTop="160dp"
         android:background="@drawable/button_style1"
         android:backgroundTint="#575DFB"
         android:text="저장"
         android:textStyle="bold"
-        android:textColor="@color/white"/>
+        android:textSize="17sp"
+        android:textColor="#FFFFFF"/>
 </LinearLayout>

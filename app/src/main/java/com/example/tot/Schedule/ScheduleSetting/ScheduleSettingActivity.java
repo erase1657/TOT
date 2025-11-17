@@ -5,6 +5,7 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.PopupMenu;
 import android.widget.Toast;
 
@@ -29,11 +30,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-/**
- * 여행 일정 설정 화면
- * 상단: 날짜 리스트 (RecyclerView)
- * 하단: 각 날짜별 일정 리스트 (실시간 반영 + 캐시)
- */
 public class ScheduleSettingActivity extends AppCompatActivity {
 
     private FirebaseFirestore db;
@@ -44,14 +40,12 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private ScheduleItemAdapter scheduleItemAdapter;
     private List<String> dateList = new ArrayList<>();
 
-    // ✅ 기존 일정 데이터 캐시
     private final Map<String, List<ScheduleItemDTO>> localCache = new HashMap<>();
-
-    // ✅ 각 날짜별 문서 ID 캐시 (겹침 검사에서 자기 자신 제외용)
     private final Map<String, List<String>> localCacheDocIds = new HashMap<>();
 
-    private Button btn_AddSchedule, btn_Menu, btn_Invite;
-    private ListenerRegistration currentListener; // 실시간 리스너
+    private ImageButton btn_AddSchedule;
+    private Button btn_Menu, btn_Invite;
+    private ListenerRegistration currentListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -111,11 +105,12 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                 menu.show();
             }
         });
+
         btn_Invite.setOnClickListener(v -> {
             InviteDialog dialog = new InviteDialog(ScheduleSettingActivity.this);
             dialog.show();
         });
-        // ✅ 일정 추가 버튼
+
         btn_AddSchedule.setOnClickListener(v -> {
             ScheduleBottomSheet bottom = new ScheduleBottomSheet(ScheduleSettingActivity.this);
 
@@ -158,16 +153,13 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private void setRvScheduleItem() {
         scheduleItemAdapter = new ScheduleItemAdapter((item, docID) -> {
             ScheduleBottomSheet bottom = new ScheduleBottomSheet(ScheduleSettingActivity.this);
-            bottom.showWithData(item, docID); // ✅ 수정 모드로 열기
+            bottom.showWithData(item, docID);
             Toast.makeText(this, "클릭됨: " + item.getTitle(), Toast.LENGTH_SHORT).show();
         });
         rvScheduleItem.setLayoutManager(new LinearLayoutManager(this));
         rvScheduleItem.setAdapter(scheduleItemAdapter);
     }
 
-    /**
-     * ✅ 실시간 반영 (Firestore snapshot listener)
-     */
     private void listenScheduleItems(String dateKey) {
         if (currentListener != null) currentListener.remove();
 
@@ -185,32 +177,26 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                     }
 
                     List<ScheduleItemDTO> list = new ArrayList<>();
-                    List<String> docIds = new ArrayList<>(); // ✅ 문서 ID 리스트 추가됨
+                    List<String> docIds = new ArrayList<>();
 
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
                         ScheduleItemDTO item = doc.toObject(ScheduleItemDTO.class);
                         if (item != null) {
                             list.add(item);
-                            docIds.add(doc.getId()); // ✅ 문서 ID 함께 저장
+                            docIds.add(doc.getId());
                         }
                     }
 
-                    // 🔹 시작시간 기준 정렬
                     list.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
 
-                    // 🔹 캐시에 저장
                     localCache.put(dateKey, list);
-                    localCacheDocIds.put(dateKey, docIds); // ✅ 문서 ID 캐시 추가됨
+                    localCacheDocIds.put(dateKey, docIds);
 
-                    // 🔹 어댑터에 데이터 반영
                     scheduleItemAdapter.submitList(new ArrayList<>(list), docIds);
                     Log.d("Firestore", "⚡ 실시간 반영 완료: " + dateKey + " (" + list.size() + "개)");
                 });
     }
 
-    /**
-     * ✅ 여행기간 기반 날짜 문서 자동 생성
-     */
     private void generateScheduleDates(Timestamp start, Timestamp end) {
         long diffMillis = end.toDate().getTime() - start.toDate().getTime();
         int days = (int) TimeUnit.MILLISECONDS.toDays(diffMillis) + 1;
@@ -251,13 +237,11 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         }
     }
 
-    /** ✅ 날짜별 일정 캐시 반환 */
     public List<ScheduleItemDTO> getCachedItemsForDate(String dateKey) {
         return localCache.getOrDefault(dateKey, new ArrayList<>());
     }
 
-    /** ✅ 날짜별 문서 ID 캐시 반환 (겹침 검사용) */
-    public List<String> getCachedDocIdsForDate(String dateKey) { // ✅ 추가됨
+    public List<String> getCachedDocIdsForDate(String dateKey) {
         return localCacheDocIds.getOrDefault(dateKey, new ArrayList<>());
     }
 
@@ -278,5 +262,8 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     public String getScheduleId() {
         return scheduleId;
     }
-    public FirebaseFirestore getFirestore() {return db;}
+
+    public FirebaseFirestore getFirestore() {
+        return db;
+    }
 }
