@@ -37,7 +37,7 @@ public class NotificationActivity extends AppCompatActivity {
     private List<NotificationDTO> todayNotifications = new ArrayList<>();
     private List<NotificationDTO> recentNotifications = new ArrayList<>();
 
-    // ✅ Firestore
+    // Firestore
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
 
@@ -136,7 +136,7 @@ public class NotificationActivity extends AppCompatActivity {
     }
 
     /**
-     * ✅ 맞팔로우 버튼 클릭 처리 (Firestore 연동)
+     * ✅ 맞팔로우 버튼 클릭 처리 (Firestore 연동 - 양방향 처리)
      */
     private void handleFollowBack(NotificationDTO notification) {
         if (mAuth.getCurrentUser() == null) {
@@ -160,8 +160,10 @@ public class NotificationActivity extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(doc -> {
                     if (doc.exists()) {
-                        Toast.makeText(this, "이미 팔로우 중입니다", Toast.LENGTH_SHORT).show();
+                        // 이미 팔로우 중인 경우 → 언팔로우
+                        performUnfollow(myUid, targetUserId, notification);
                     } else {
+                        // 팔로우하지 않은 경우 → 팔로우
                         performFollowBack(myUid, targetUserId, notification);
                     }
                 })
@@ -172,19 +174,20 @@ public class NotificationActivity extends AppCompatActivity {
     }
 
     /**
-     * ✅ 맞팔로우 실행
+     * ✅ 맞팔로우 실행 (양방향 처리)
      */
     private void performFollowBack(String myUid, String targetUserId, NotificationDTO notification) {
         Map<String, Object> followData = new HashMap<>();
         followData.put("followedAt", System.currentTimeMillis());
 
+        // ✅ 1. 내 following에 추가
         db.collection("user")
                 .document(myUid)
                 .collection("following")
                 .document(targetUserId)
                 .set(followData)
                 .addOnSuccessListener(aVoid -> {
-                    // ✅ 상대방의 팔로워 컬렉션에도 추가
+                    // ✅ 2. 상대방 follower에 추가
                     db.collection("user")
                             .document(targetUserId)
                             .collection("follower")
@@ -205,6 +208,41 @@ public class NotificationActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "팔로우 실패", e);
                     Toast.makeText(this, "팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * ✅ 언팔로우 실행 (양방향 처리)
+     */
+    private void performUnfollow(String myUid, String targetUserId, NotificationDTO notification) {
+        // ✅ 1. 내 following에서 삭제
+        db.collection("user")
+                .document(myUid)
+                .collection("following")
+                .document(targetUserId)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    // ✅ 2. 상대방 follower에서 삭제
+                    db.collection("user")
+                            .document(targetUserId)
+                            .collection("follower")
+                            .document(myUid)
+                            .delete()
+                            .addOnSuccessListener(aVoid2 -> {
+                                Toast.makeText(this, notification.getUserName() + " 님을 언팔로우했습니다", Toast.LENGTH_SHORT).show();
+
+                                // ✅ 알림 읽음 처리
+                                notification.setRead(true);
+                                todayAdapter.notifyDataSetChanged();
+                                recentAdapter.notifyDataSetChanged();
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "상대방 follower 삭제 실패", e);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "언팔로우 실패", e);
+                    Toast.makeText(this, "언팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
                 });
     }
 

@@ -32,7 +32,9 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
@@ -75,10 +77,10 @@ public class MyPageFragment extends Fragment {
     private String originalStatus;
     private String originalLocation;
 
-    // ✅ 팔로워/팔로잉 수 (Firestore에서 로드)
+    // 팔로워/팔로잉 수 (Firestore에서 로드)
     private int followerCount = 0;
     private int followingCount = 0;
-    private boolean isCountsLoaded = false; // 로딩 완료 플래그
+    private boolean isCountsLoaded = false;
 
     private ActivityResultLauncher<Intent> followActivityLauncher;
 
@@ -130,7 +132,7 @@ public class MyPageFragment extends Fragment {
         initViews(view);
         determineProfileMode();
 
-        // ✅ 순서 변경: 팔로우 카운트를 먼저 로드한 후 프로필 로드
+        // 팔로우 카운트를 먼저 로드한 후 프로필 로드
         loadFollowCounts(() -> {
             loadProfileData();
         });
@@ -313,7 +315,6 @@ public class MyPageFragment extends Fragment {
         originalStatus = tvStatusMessage.getText().toString();
         originalLocation = tvLocation.getText().toString();
 
-        // ✅ 게시물 수는 추후 구현 (현재는 0)
         tvPostsCount.setText("0");
     }
 
@@ -487,35 +488,45 @@ public class MyPageFragment extends Fragment {
         }
     }
 
+    /**
+     * ✅ 팔로우 실행 (양방향 처리)
+     */
     private void performFollow() {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null || targetUserId == null) return;
 
         String myUid = currentUser.getUid();
 
+        Map<String, Object> followData = new HashMap<>();
+        followData.put("followedAt", System.currentTimeMillis());
+
+        // ✅ 1. 내 following에 추가
         db.collection("user")
                 .document(myUid)
                 .collection("following")
                 .document(targetUserId)
-                .set(new Object())
+                .set(followData)
                 .addOnSuccessListener(aVoid -> {
-                    isFollowing = true;
-
-                    // ✅ 상대방 팔로워 컬렉션에도 추가
+                    // ✅ 2. 상대방 follower에 추가
                     db.collection("user")
                             .document(targetUserId)
                             .collection("follower")
                             .document(myUid)
-                            .set(new Object());
+                            .set(followData)
+                            .addOnSuccessListener(aVoid2 -> {
+                                isFollowing = true;
+                                updateFollowUI();
 
-                    updateFollowUI();
+                                // 팔로워 수 즉시 증가
+                                followerCount++;
+                                updateFollowCounts();
 
-                    // ✅ 팔로워 수 즉시 증가
-                    followerCount++;
-                    updateFollowCounts();
-
-                    String message = isFollower ? "맞팔로우했습니다" : "팔로우했습니다";
-                    Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+                                String message = isFollower ? "맞팔로우했습니다" : "팔로우했습니다";
+                                Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ 상대방 follower 추가 실패", e);
+                            });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ 팔로우 실패", e);
@@ -523,6 +534,9 @@ public class MyPageFragment extends Fragment {
                 });
     }
 
+    /**
+     * ✅ 언팔로우 실행 (양방향 처리)
+     */
     private void performUnfollow() {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null || targetUserId == null) return;
@@ -533,28 +547,32 @@ public class MyPageFragment extends Fragment {
                 .setTitle("언팔로우")
                 .setMessage("정말 언팔로우하시겠습니까?")
                 .setPositiveButton("예", (dialog, which) -> {
+                    // ✅ 1. 내 following에서 삭제
                     db.collection("user")
                             .document(myUid)
                             .collection("following")
                             .document(targetUserId)
                             .delete()
                             .addOnSuccessListener(aVoid -> {
-                                isFollowing = false;
-
-                                // ✅ 상대방 팔로워 컬렉션에서도 삭제
+                                // ✅ 2. 상대방 follower에서 삭제
                                 db.collection("user")
                                         .document(targetUserId)
                                         .collection("follower")
                                         .document(myUid)
-                                        .delete();
+                                        .delete()
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            isFollowing = false;
+                                            updateFollowUI();
 
-                                updateFollowUI();
+                                            // 팔로워 수 즉시 감소
+                                            if (followerCount > 0) followerCount--;
+                                            updateFollowCounts();
 
-                                // ✅ 팔로워 수 즉시 감소
-                                if (followerCount > 0) followerCount--;
-                                updateFollowCounts();
-
-                                Toast.makeText(getContext(), "언팔로우했습니다", Toast.LENGTH_SHORT).show();
+                                            Toast.makeText(getContext(), "언팔로우했습니다", Toast.LENGTH_SHORT).show();
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "❌ 상대방 follower 삭제 실패", e);
+                                        });
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "❌ 언팔로우 실패", e);

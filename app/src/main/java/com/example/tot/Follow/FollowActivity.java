@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
-import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -26,8 +25,9 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class FollowActivity extends AppCompatActivity implements FollowAdapter.FollowListener {
 
@@ -61,7 +61,7 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
     private String searchQuery = "";
     private SortMode currentSortMode = SortMode.DEFAULT;
 
-    // ✅ Firestore
+    // Firestore
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
 
@@ -90,7 +90,7 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
         setupClickListeners();
         setupSearch();
 
-        // ✅ Firestore에서 실제 데이터 로드
+        // Firestore에서 실제 데이터 로드
         loadFollowersFromFirestore();
         loadFollowingFromFirestore();
 
@@ -159,8 +159,8 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                                         user.setStatusMessage(userDoc.getString("comment"));
                                         user.setFollowedAt(doc.getLong("followedAt") != null ? doc.getLong("followedAt") : System.currentTimeMillis());
 
-                                        // 내가 이 사용자를 팔로우하고 있는지 확인
-                                        checkIfFollowing(user);
+                                        // ✅ 내가 이 사용자를 팔로우하고 있는지 확인 + 별명 로드
+                                        checkIfFollowingAndLoadNickname(user);
                                     }
                                 });
                     }
@@ -187,6 +187,9 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         String followingId = doc.getId();
 
+                        // ✅ 별명 로드 (following 문서에서)
+                        String customNickname = doc.getString("customNickname");
+
                         // 팔로잉 사용자 정보 가져오기
                         db.collection("user")
                                 .document(followingId)
@@ -198,6 +201,7 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                                         user.setUserName(userDoc.getString("nickname"));
                                         user.setStatusMessage(userDoc.getString("comment"));
                                         user.setFollowing(true); // 이미 팔로잉 중
+                                        user.setNickname(customNickname); // ✅ 별명 설정
                                         user.setFollowedAt(doc.getLong("followedAt") != null ? doc.getLong("followedAt") : System.currentTimeMillis());
 
                                         // 이 사용자가 나를 팔로우하고 있는지 확인
@@ -213,9 +217,9 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
     }
 
     /**
-     * ✅ 내가 이 사용자를 팔로우하고 있는지 확인
+     * ✅ 내가 이 사용자를 팔로우하고 있는지 확인 + 별명 로드
      */
-    private void checkIfFollowing(FollowUserDTO user) {
+    private void checkIfFollowingAndLoadNickname(FollowUserDTO user) {
         if (targetUserId == null) return;
 
         db.collection("user")
@@ -226,6 +230,12 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                 .addOnSuccessListener(doc -> {
                     user.setFollowing(doc.exists());
                     user.setFollower(true); // 팔로워 목록에서 가져왔으므로 true
+
+                    // ✅ 별명 로드
+                    if (doc.exists()) {
+                        String customNickname = doc.getString("customNickname");
+                        user.setNickname(customNickname);
+                    }
 
                     if (!allFollowers.contains(user)) {
                         allFollowers.add(user);
@@ -395,25 +405,43 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
         }
     }
 
+    /**
+     * ✅ 팔로우 실행 (양방향 처리)
+     */
     private void performFollow(FollowUserDTO user, int position) {
         if (targetUserId == null) return;
 
+        Map<String, Object> followData = new HashMap<>();
+        followData.put("followedAt", System.currentTimeMillis());
+
+        // ✅ 1. 내 following에 추가
         db.collection("user")
                 .document(targetUserId)
                 .collection("following")
                 .document(user.getUserId())
-                .set(new Object())
+                .set(followData)
                 .addOnSuccessListener(aVoid -> {
-                    user.setFollowing(true);
-                    user.setFollowedAt(System.currentTimeMillis());
+                    // ✅ 2. 상대방 follower에 추가
+                    db.collection("user")
+                            .document(user.getUserId())
+                            .collection("follower")
+                            .document(targetUserId)
+                            .set(followData)
+                            .addOnSuccessListener(aVoid2 -> {
+                                user.setFollowing(true);
+                                user.setFollowedAt(System.currentTimeMillis());
 
-                    if (!allFollowing.contains(user)) {
-                        allFollowing.add(user);
-                    }
+                                if (!allFollowing.contains(user)) {
+                                    allFollowing.add(user);
+                                }
 
-                    Toast.makeText(this, user.getUserName() + " 팔로우", Toast.LENGTH_SHORT).show();
-                    updateFollowCounts();
-                    adapter.notifyItemChanged(position);
+                                Toast.makeText(this, user.getUserName() + " 팔로우", Toast.LENGTH_SHORT).show();
+                                updateFollowCounts();
+                                adapter.notifyItemChanged(position);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "상대방 follower 추가 실패", e);
+                            });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "팔로우 실패", e);
@@ -421,6 +449,9 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                 });
     }
 
+    /**
+     * ✅ 언팔로우 실행 (양방향 처리)
+     */
     private void performUnfollow(FollowUserDTO user, int position) {
         new AlertDialog.Builder(this)
                 .setTitle("언팔로우")
@@ -428,18 +459,30 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                 .setPositiveButton("예", (dialog, which) -> {
                     if (targetUserId == null) return;
 
+                    // ✅ 1. 내 following에서 삭제
                     db.collection("user")
                             .document(targetUserId)
                             .collection("following")
                             .document(user.getUserId())
                             .delete()
                             .addOnSuccessListener(aVoid -> {
-                                user.setFollowing(false);
-                                allFollowing.remove(user);
+                                // ✅ 2. 상대방 follower에서 삭제
+                                db.collection("user")
+                                        .document(user.getUserId())
+                                        .collection("follower")
+                                        .document(targetUserId)
+                                        .delete()
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            user.setFollowing(false);
+                                            allFollowing.remove(user);
 
-                                Toast.makeText(this, user.getUserName() + " 팔로우 취소", Toast.LENGTH_SHORT).show();
-                                updateFollowCounts();
-                                adapter.notifyItemChanged(position);
+                                            Toast.makeText(this, user.getUserName() + " 팔로우 취소", Toast.LENGTH_SHORT).show();
+                                            updateFollowCounts();
+                                            adapter.notifyItemChanged(position);
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "상대방 follower 삭제 실패", e);
+                                        });
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "언팔로우 실패", e);
@@ -458,16 +501,28 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                 .setPositiveButton("삭제", (dialog, which) -> {
                     if (targetUserId == null) return;
 
+                    // ✅ 1. 내 follower에서 삭제
                     db.collection("user")
                             .document(targetUserId)
                             .collection("follower")
                             .document(user.getUserId())
                             .delete()
                             .addOnSuccessListener(aVoid -> {
-                                allFollowers.remove(user);
-                                Toast.makeText(this, user.getUserName() + " 팔로워 삭제됨", Toast.LENGTH_SHORT).show();
-                                updateFollowCounts();
-                                applyFilter();
+                                // ✅ 2. 상대방 following에서 삭제
+                                db.collection("user")
+                                        .document(user.getUserId())
+                                        .collection("following")
+                                        .document(targetUserId)
+                                        .delete()
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            allFollowers.remove(user);
+                                            Toast.makeText(this, user.getUserName() + " 팔로워 삭제됨", Toast.LENGTH_SHORT).show();
+                                            updateFollowCounts();
+                                            applyFilter();
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "상대방 following 삭제 실패", e);
+                                        });
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "팔로워 삭제 실패", e);
@@ -478,10 +533,27 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                 .show();
     }
 
+    /**
+     * ✅ 별명 변경 (Firestore following 문서에 저장)
+     */
     @Override
     public void onNicknameChanged(FollowUserDTO user, String newNickname, int position) {
-        Toast.makeText(this, "별명 저장: " + newNickname, Toast.LENGTH_SHORT).show();
-        // TODO: Firestore에 별명 저장 (별명은 로컬 또는 별도 컬렉션에 저장)
+        if (targetUserId == null) return;
+
+        db.collection("user")
+                .document(targetUserId)
+                .collection("following")
+                .document(user.getUserId())
+                .update("customNickname", newNickname.isEmpty() ? null : newNickname)
+                .addOnSuccessListener(aVoid -> {
+                    user.setNickname(newNickname);
+                    Toast.makeText(this, "별명이 저장되었습니다", Toast.LENGTH_SHORT).show();
+                    adapter.notifyItemChanged(position);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "별명 저장 실패", e);
+                    Toast.makeText(this, "별명 저장 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void updateFollowCounts() {
