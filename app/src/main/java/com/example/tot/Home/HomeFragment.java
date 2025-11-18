@@ -14,6 +14,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -60,7 +61,7 @@ public class HomeFragment extends Fragment {
     }
 
     @Override
-    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
         initViews(view);
@@ -89,14 +90,20 @@ public class HomeFragment extends Fragment {
         viewModel = new CommunityViewModel(new CommunityViewModel.DataCallback() {
             @Override
             public void onDataChanged(List<CommunityPostDTO> posts) {
-                if (communityAdapter != null) communityAdapter.updateData(posts);
+                if (communityAdapter != null) {
+                    // ✅ 홈화면에서는 사용자 검색 결과 없이 게시글만 표시
+                    communityAdapter.updateDataWithUsers(posts, new ArrayList<>(), false, false);
+                }
             }
 
             @Override
             public void onDataAdded(List<CommunityPostDTO> posts) {
-                if (communityAdapter != null) communityAdapter.addData(posts);
+                if (communityAdapter != null) {
+                    communityAdapter.addData(posts);
+                }
             }
         });
+        // ✅ 홈화면에서는 인기순 필터 적용
         viewModel.setFilter(CommunityViewModel.FilterMode.POPULAR);
     }
 
@@ -149,6 +156,8 @@ public class HomeFragment extends Fragment {
         }
     }
 
+    // HomeFragment.java의 loadDummyNotifications() 메서드만 수정
+
     private void loadDummyNotifications() {
         List<NotificationDTO> todayNotifs = new ArrayList<>();
 
@@ -160,7 +169,8 @@ public class HomeFragment extends Fragment {
                 "9분전",
                 false,
                 2,
-                R.drawable.ic_schedule
+                R.drawable.ic_schedule,
+                "dummy_user_1" // ✅ userId 추가
         ));
 
         // 2. 팔로우 알림
@@ -169,7 +179,8 @@ public class HomeFragment extends Fragment {
                 "위찬우",
                 "14분전",
                 false,
-                R.drawable.ic_user_add
+                R.drawable.ic_user_add,
+                "dummy_user_2" // ✅ userId 추가 (실제로는 Firestore userId 사용)
         ));
 
         // 3. 댓글 알림
@@ -180,7 +191,8 @@ public class HomeFragment extends Fragment {
                 "19분전",
                 false,
                 2,
-                R.drawable.ic_comment
+                R.drawable.ic_comment,
+                "dummy_user_3" // ✅ userId 추가
         ));
 
         List<NotificationDTO> recentNotifs = new ArrayList<>();
@@ -193,7 +205,8 @@ public class HomeFragment extends Fragment {
                 "9일",
                 true,
                 0,
-                R.drawable.ic_schedule
+                R.drawable.ic_schedule,
+                "dummy_user_4" // ✅ userId 추가
         ));
 
         // 5. 팔로우 알림
@@ -202,7 +215,8 @@ public class HomeFragment extends Fragment {
                 "이민섭",
                 "14일",
                 true,
-                R.drawable.ic_user_add
+                R.drawable.ic_user_add,
+                "dummy_user_5" // ✅ userId 추가
         ));
 
         notificationManager.setTodayNotifications(todayNotifs);
@@ -318,27 +332,38 @@ public class HomeFragment extends Fragment {
         currentSelectedCityButton = selectedButton;
     }
 
-    /** 지역별 게시글 필터 */
+    /** ✅ 지역별 게시글 필터 (인기순 적용) */
     private void filterAlbums() {
         if (viewModel == null) return;
 
         List<CommunityPostDTO> allPosts = viewModel.getAllPosts();
         List<CommunityPostDTO> filtered = new ArrayList<>();
 
+        // 1단계: 지역 필터링
         if (selectedProvinceCode.equals("ALL")) {
             filtered.addAll(allPosts);
         } else if (selectedCityCode.isEmpty()) {
-            for (CommunityPostDTO post : allPosts)
-                if (post.getProvinceCode().equals(selectedProvinceCode))
+            for (CommunityPostDTO post : allPosts) {
+                if (post.getProvinceCode().equals(selectedProvinceCode)) {
                     filtered.add(post);
+                }
+            }
         } else {
-            for (CommunityPostDTO post : allPosts)
+            for (CommunityPostDTO post : allPosts) {
                 if (post.getProvinceCode().equals(selectedProvinceCode)
-                        && post.getCityCode().equals(selectedCityCode))
+                        && post.getCityCode().equals(selectedCityCode)) {
                     filtered.add(post);
+                }
+            }
         }
 
-        if (communityAdapter != null) communityAdapter.updateData(filtered);
+        // 2단계: 인기순 정렬 (좋아요 수 내림차순)
+        filtered.sort((o1, o2) -> Integer.compare(o2.getHeartCount(), o1.getHeartCount()));
+
+        // 3단계: 어댑터 업데이트 (사용자 검색 결과 없이)
+        if (communityAdapter != null) {
+            communityAdapter.updateDataWithUsers(filtered, new ArrayList<>(), false, false);
+        }
     }
 
     /** 메모리 RecyclerView */
@@ -358,16 +383,27 @@ public class HomeFragment extends Fragment {
         snapHelper.attachToRecyclerView(memoryView);
     }
 
-    /** 커뮤니티 스타일 RecyclerView */
+    /** ✅ 커뮤니티 스타일 RecyclerView (수정됨) */
     private void setupCommunityStyleRecyclerView(RecyclerView albumView) {
         albumView.setLayoutManager(
                 new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false));
 
         List<CommunityPostDTO> initialData = new ArrayList<>();
-        communityAdapter = new CommunityAdapter(initialData, (post, position) -> {
-            if (post != null)
-                Toast.makeText(getContext(), post.getTitle() + " 상세보기", Toast.LENGTH_SHORT).show();
-        });
+
+        // ✅ CommunityAdapter 생성자 수정 (OnMoreUsersClickListener 추가)
+        communityAdapter = new CommunityAdapter(
+                initialData,
+                (post, position) -> {
+                    if (post != null) {
+                        Toast.makeText(getContext(), post.getTitle() + " 상세보기", Toast.LENGTH_SHORT).show();
+                    }
+                },
+                () -> {
+                    // ✅ 홈화면에서는 더보기 버튼이 표시되지 않으므로 빈 구현
+                    // 혹시 표시되더라도 아무 동작 안 함
+                }
+        );
+
         albumView.setAdapter(communityAdapter);
     }
 

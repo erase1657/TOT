@@ -1,6 +1,7 @@
 package com.example.tot.Notification;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -11,11 +12,17 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class NotificationActivity extends AppCompatActivity {
+
+    private static final String TAG = "NotificationActivity";
 
     private ImageView btnBack;
     private LinearLayout todaySection;
@@ -30,10 +37,17 @@ public class NotificationActivity extends AppCompatActivity {
     private List<NotificationDTO> todayNotifications = new ArrayList<>();
     private List<NotificationDTO> recentNotifications = new ArrayList<>();
 
+    // ✅ Firestore
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_notification);
+
+        db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
 
         initViews();
         setupRecyclerViews();
@@ -53,7 +67,6 @@ public class NotificationActivity extends AppCompatActivity {
     }
 
     private void setupRecyclerViews() {
-        // 오늘 알림 RecyclerView
         recyclerToday.setLayoutManager(new LinearLayoutManager(this));
         todayAdapter = new NotificationAdapter(todayNotifications, new NotificationAdapter.OnNotificationClickListener() {
             @Override
@@ -68,7 +81,6 @@ public class NotificationActivity extends AppCompatActivity {
         });
         recyclerToday.setAdapter(todayAdapter);
 
-        // 최근 30일 알림 RecyclerView
         recyclerRecent.setLayoutManager(new LinearLayoutManager(this));
         recentAdapter = new NotificationAdapter(recentNotifications, new NotificationAdapter.OnNotificationClickListener() {
             @Override
@@ -85,7 +97,6 @@ public class NotificationActivity extends AppCompatActivity {
     }
 
     private void loadNotifications() {
-        // NotificationManager에서 데이터 가져오기
         NotificationManager manager = NotificationManager.getInstance();
         todayNotifications.addAll(manager.getTodayNotifications());
         recentNotifications.addAll(manager.getRecentNotifications());
@@ -107,31 +118,94 @@ public class NotificationActivity extends AppCompatActivity {
     }
 
     private void handleNotificationClick(NotificationDTO notification) {
-        // 알림을 읽음 처리
         notification.setRead(true);
         todayAdapter.notifyDataSetChanged();
         recentAdapter.notifyDataSetChanged();
 
-        // 알림 타입별 처리
         switch (notification.getType()) {
             case SCHEDULE_INVITE:
                 Toast.makeText(this, "일정 상세 화면으로 이동", Toast.LENGTH_SHORT).show();
-                // TODO: 일정 상세 화면으로 이동
                 break;
             case FOLLOW:
                 Toast.makeText(this, notification.getUserName() + " 님의 프로필로 이동", Toast.LENGTH_SHORT).show();
-                // TODO: 프로필 화면으로 이동
                 break;
             case COMMENT:
                 Toast.makeText(this, "게시물 상세 화면으로 이동", Toast.LENGTH_SHORT).show();
-                // TODO: 게시물 상세 화면으로 이동
                 break;
         }
     }
 
+    /**
+     * ✅ 맞팔로우 버튼 클릭 처리 (Firestore 연동)
+     */
     private void handleFollowBack(NotificationDTO notification) {
-        Toast.makeText(this, notification.getUserName() + " 님을 팔로우했습니다", Toast.LENGTH_SHORT).show();
-        // TODO: 팔로우 API 호출
+        if (mAuth.getCurrentUser() == null) {
+            Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String myUid = mAuth.getCurrentUser().getUid();
+        String targetUserId = notification.getUserId();
+
+        if (targetUserId == null || targetUserId.isEmpty()) {
+            Toast.makeText(this, "사용자 정보를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // ✅ 이미 팔로우 중인지 확인
+        db.collection("user")
+                .document(myUid)
+                .collection("following")
+                .document(targetUserId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        Toast.makeText(this, "이미 팔로우 중입니다", Toast.LENGTH_SHORT).show();
+                    } else {
+                        performFollowBack(myUid, targetUserId, notification);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "팔로우 상태 확인 실패", e);
+                    Toast.makeText(this, "오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * ✅ 맞팔로우 실행
+     */
+    private void performFollowBack(String myUid, String targetUserId, NotificationDTO notification) {
+        Map<String, Object> followData = new HashMap<>();
+        followData.put("followedAt", System.currentTimeMillis());
+
+        db.collection("user")
+                .document(myUid)
+                .collection("following")
+                .document(targetUserId)
+                .set(followData)
+                .addOnSuccessListener(aVoid -> {
+                    // ✅ 상대방의 팔로워 컬렉션에도 추가
+                    db.collection("user")
+                            .document(targetUserId)
+                            .collection("follower")
+                            .document(myUid)
+                            .set(followData)
+                            .addOnSuccessListener(aVoid2 -> {
+                                Toast.makeText(this, notification.getUserName() + " 님을 팔로우했습니다", Toast.LENGTH_SHORT).show();
+
+                                // ✅ 알림 읽음 처리
+                                notification.setRead(true);
+                                todayAdapter.notifyDataSetChanged();
+                                recentAdapter.notifyDataSetChanged();
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "상대방 팔로워 추가 실패", e);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "팔로우 실패", e);
+                    Toast.makeText(this, "팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                });
     }
 
     public int getTotalUnreadCount() {

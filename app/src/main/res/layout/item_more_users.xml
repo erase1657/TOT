@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:paddingVertical="12dp"
+    android:background="?attr/selectableItemBackground">
+
+    <TextView
+        android:id="@+id/tv_more_users"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="+ 더 많은 사용자 보기"
+        android:textColor="#FF575DFB"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:background="@drawable/button_style2" />
+</LinearLayout>

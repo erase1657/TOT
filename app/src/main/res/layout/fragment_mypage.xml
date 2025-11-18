@@ -10,7 +10,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- 상단 배경 이미지 + 로그아웃 버튼 -->
+        <!-- 상단 배경 이미지 + 로그아웃/뒤로가기 버튼 -->
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="220dp">
@@ -23,6 +23,18 @@
                 android:src="@drawable/sample3"
                 android:contentDescription="배경 이미지" />
 
+            <!-- 뒤로가기 버튼 (타인 프로필 볼 때만 표시) -->
+            <ImageView
+                android:id="@+id/btn_back"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_alignParentStart="true"
+                android:layout_margin="16dp"
+                android:src="@drawable/ic_back"
+                android:contentDescription="뒤로가기"
+                android:visibility="gone" />
+
+            <!-- 로그아웃 버튼 (내 프로필 볼 때만 표시) -->
             <ImageView
                 android:id="@+id/btn_logout"
                 android:layout_width="28dp"
@@ -30,7 +42,8 @@
                 android:layout_alignParentEnd="true"
                 android:layout_margin="16dp"
                 android:src="@drawable/ic_logout"
-                android:contentDescription="로그아웃" />
+                android:contentDescription="로그아웃"
+                android:visibility="visible" />
         </RelativeLayout>
 
         <!-- 프로필 이미지 -->
@@ -51,7 +64,7 @@
                 app:civ_border_color="#E5E7EB" />
         </FrameLayout>
 
-        <!-- 닉네임 + 수정 버튼 -->
+        <!-- 닉네임 + 수정/팔로우 버튼 -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -64,18 +77,30 @@
                 android:id="@+id/tv_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="위찬우"
+                android:text="사용자"
                 android:textSize="22sp"
                 android:textStyle="bold"
                 android:textColor="#000000" />
 
+            <!-- 수정 버튼 (내 프로필 볼 때만 표시) -->
             <ImageView
                 android:id="@+id/btn_edit"
                 android:layout_width="18dp"
                 android:layout_height="18dp"
                 android:layout_marginStart="6dp"
                 android:src="@drawable/ic_edit"
-                android:contentDescription="수정" />
+                android:contentDescription="수정"
+                android:visibility="visible" />
+
+            <!-- 팔로우 버튼 (타인 프로필 볼 때만 표시) -->
+            <ImageView
+                android:id="@+id/btn_follow_icon"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_marginStart="8dp"
+                android:src="@drawable/ic_user_add"
+                android:contentDescription="팔로우"
+                android:visibility="gone" />
         </LinearLayout>
 
         <!-- 상태 메시지 -->
@@ -108,11 +133,27 @@
                 android:id="@+id/tv_location"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="전라북도, 익산시"
+                android:text="위치 정보 없음"
                 android:textSize="13sp"
                 android:layout_marginStart="4dp"
                 android:textColor="#000000" />
         </LinearLayout>
+
+        <!-- 팔로우 상태 텍스트 (타인 프로필 볼 때만 표시) -->
+        <TextView
+            android:id="@+id/tv_follow_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="6dp"
+            android:background="@drawable/button_style2"
+            android:text="팔로우 중"
+            android:textColor="#6366F1"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
 
         <!-- 팔로워 / 팔로잉 / 게시물 -->
         <LinearLayout
@@ -123,6 +164,7 @@
             android:layout_marginTop="16dp">
 
             <LinearLayout
+                android:id="@+id/follower_section"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -133,7 +175,7 @@
                     android:id="@+id/tv_followers_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="205"
+                    android:text="0"
                     android:textSize="20sp"
                     android:textColor="#6366F1"
                     android:textStyle="bold" />
@@ -147,6 +189,7 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/following_section"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -157,7 +200,7 @@
                     android:id="@+id/tv_following_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="178"
+                    android:text="0"
                     android:textSize="20sp"
                     android:textColor="#6366F1"
                     android:textStyle="bold" />
@@ -181,7 +224,7 @@
                     android:id="@+id/tv_posts_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="68"
+                    android:text="0"
                     android:textSize="20sp"
                     android:textColor="#6366F1"
                     android:textStyle="bold" />
@@ -202,8 +245,9 @@
             android:layout_marginTop="16dp"
             android:background="#E5E7EB" />
 
-        <!-- 나의 여행 기록 -->
+        <!-- 여행 기록 타이틀 -->
         <TextView
+            android:id="@+id/tv_travel_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
@@ -222,7 +266,7 @@
             android:orientation="vertical"
             android:gravity="center"
             android:padding="32dp"
-            android:visibility="gone">
+            android:visibility="visible">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -233,7 +277,7 @@
                 android:gravity="center" />
         </LinearLayout>
 
-        <!-- 여행 스케줄 RecyclerView (3열 그리드) -->
+        <!-- 여행 스케줄 RecyclerView -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rv_my_travels"
             android:layout_width="match_parent"

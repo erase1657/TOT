@@ -1,6 +1,7 @@
 package com.example.tot.Follow;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,10 +13,12 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
 
 import java.util.ArrayList;
@@ -27,8 +30,8 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
 
     private List<FollowUserDTO> users;
     private FollowListener listener;
-    private boolean isMyProfile;        // 내 프로필 여부
-    private boolean isFollowerMode;     // 팔로워 모드 여부
+    private boolean isMyProfile;
+    private boolean isFollowerMode;
 
     public interface FollowListener {
         void onProfileClick(FollowUserDTO user);
@@ -110,24 +113,20 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
         public void bind(FollowUserDTO user, int position) {
             if (user == null) return;
 
-            // 프로필 이미지
             if (user.getProfileImage() != 0) {
                 imgProfile.setImageResource(user.getProfileImage());
             } else {
                 imgProfile.setImageResource(R.drawable.ic_profile_default);
             }
 
-            // 사용자 이름
             tvUserName.setText(user.getUserName());
 
-            // Follow back 표시
             if (isFollowerMode && isMyProfile && !user.isFollowing()) {
                 tvFollowBack.setVisibility(View.VISIBLE);
             } else {
                 tvFollowBack.setVisibility(View.GONE);
             }
 
-            // 별명 표시 + 수정 아이콘
             if (isMyProfile) {
                 String nickname = user.getNickname();
                 if (nickname != null && !nickname.trim().isEmpty()) {
@@ -142,22 +141,18 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                 btnEditNickname.setVisibility(View.GONE);
             }
 
-            // 팔로우 버튼 설정
             updateFollowButton(user);
 
-            // 점 세개 메뉴
             if (isFollowerMode && isMyProfile) {
                 btnMenu.setVisibility(View.VISIBLE);
             } else {
                 btnMenu.setVisibility(View.GONE);
             }
 
-            // 클릭 이벤트
             setupClickListeners(user, position);
         }
 
         private void updateFollowButton(FollowUserDTO user) {
-            // ✅ 팔로우 버튼 라운드 처리
             GradientDrawable btnBg = new GradientDrawable();
             btnBg.setCornerRadius(dpToPx(10));
 
@@ -173,7 +168,6 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                         btnFollow.setTextColor(0xFFFFFFFF);
                     }
                 } else {
-                    // ✅ 팔로잉 모드: 언팔하면 "팔로우"로 변경
                     if (user.isFollowing()) {
                         btnFollow.setText("팔로우 중");
                         btnBg.setColor(0xFFE0E0E0);
@@ -185,7 +179,6 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                     }
                 }
             } else {
-                // 친구 프로필
                 if (user.isFollower() && user.isFollowing()) {
                     btnFollow.setText("팔로우 중");
                     btnBg.setColor(0xFFE0E0E0);
@@ -205,26 +198,46 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
         }
 
         private void setupClickListeners(FollowUserDTO user, int position) {
-            // 프로필 클릭
             imgProfile.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onProfileClick(user);
+                String userId = user.getUserId();
+                // ✅ userId가 없는 더미 데이터는 Toast만 표시하고 화면 전환 안 함
+                if (userId == null || userId.isEmpty()) {
+                    Toast.makeText(itemView.getContext(),
+                            "프로필 정보가 없는 사용자입니다 (더미 데이터)",
+                            Toast.LENGTH_SHORT).show();
+                    return;
                 }
+
+                Intent intent = new Intent(itemView.getContext(), UserProfileActivity.class);
+                intent.putExtra("userId", userId);
+                itemView.getContext().startActivity(intent);
             });
 
-            // ✅ 수정 아이콘 클릭
+            // tvUserName 클릭 시에도 동일한 처리
+            tvUserName.setOnClickListener(v -> {
+                String userId = user.getUserId();
+                if (userId == null || userId.isEmpty()) {
+                    Toast.makeText(itemView.getContext(),
+                            "프로필 정보가 없는 사용자입니다 (더미 데이터)",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                Intent intent = new Intent(itemView.getContext(), UserProfileActivity.class);
+                intent.putExtra("userId", userId);
+                itemView.getContext().startActivity(intent);
+            });
+
             btnEditNickname.setOnClickListener(v -> {
                 if (isMyProfile) {
                     enterNicknameEditMode(user);
                 }
             });
 
-            // 별명 저장
             btnSaveNickname.setOnClickListener(v -> {
                 saveNickname(user, position);
             });
 
-            // 엔터키로 저장
             edtNickname.setOnEditorActionListener((v, actionId, event) -> {
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
                     saveNickname(user, position);
@@ -233,7 +246,6 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                 return false;
             });
 
-            // 팔로우 버튼
             btnFollow.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onFollowClick(user, position);
@@ -241,7 +253,6 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                 }
             });
 
-            // 메뉴 버튼
             btnMenu.setOnClickListener(v -> {
                 showPopupMenu(v, user, position);
             });

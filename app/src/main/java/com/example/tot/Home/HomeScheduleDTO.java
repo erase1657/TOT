@@ -11,7 +11,7 @@ public class HomeScheduleDTO {
     public HomeScheduleDTO(String title, String date, String room, String startTime, String endTime, int locationIconResId) {
         this.title = title;
         this.date = date;
-        this.room = room;
+        this.room = room;  // room은 장소를 나타냄
         this.startTime = startTime;
         this.endTime = endTime;
         this.locationIconResId = locationIconResId;

@@ -44,6 +44,9 @@
             android:name=".Authentication.FindAccountActivity"
             android:exported="false" />
         <activity
+            android:name=".UserProfileActivity"
+            android:exported="false" />
+        <activity
             android:name=".ViewPagerAdapter"
             android:exported="false" />
         <activity
