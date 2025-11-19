@@ -21,25 +21,23 @@
 
         <activity
             android:name=".Map.MapActivity"
-            android:exported="true">
-        </activity>
-
+            android:exported="true" />
         <activity
             android:name=".SplashActivity"
             android:exported="true"
             android:theme="@style/Theme.TOT.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".MainActivity"
-            android:exported="false"/>
+            android:exported="false" />
         <activity
             android:name=".Schedule.ScheduleSetting.ScheduleSettingActivity"
-            android:exported="false"/>
+            android:exported="false" />
         <activity
             android:name=".Authentication.FindAccountActivity"
             android:exported="false" />
@@ -49,27 +47,22 @@
         <activity
             android:name=".Authentication.RegisterActivity"
             android:exported="false" />
-
         <activity
             android:name=".Authentication.LoginActivity"
-            android:exported="false">
-        </activity>
+            android:exported="false" />
         <activity
             android:name=".Album.ScheduleAlbumActivity"
-            android:exported="false">
-        </activity>
+            android:exported="false" />
 
         <meta-data
             android:name="com.naver.maps.map.NCP_KEY_ID"
-            android:value=""/> <!-- 네이버 키값 넣는 곳 -->
-
+            android:value="" /> <!-- 네이버 키값 넣는 곳 -->
         <meta-data
             android:name="com.kakao.sdk.AppKey"
             android:value="${KAKAO_NATIVE_KEY}" />
         <meta-data
             android:name="com.kakao.sdk.LogEnabled"
             android:value="true" />
-
     </application>
 
 </manifest>
