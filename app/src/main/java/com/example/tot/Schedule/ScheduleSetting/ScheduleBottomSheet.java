@@ -9,9 +9,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.NumberPicker;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.tot.R;
+import com.google.android.gms.maps.model.LatLng;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.firebase.Timestamp;
@@ -27,15 +29,19 @@ public class ScheduleBottomSheet {
     public interface OnScheduleSaveListener {
         void onScheduleSaved(ScheduleItemDTO item);
     }
-
+    public interface OnAddPlaceListener {
+        void onAddPlaceClicked();
+    }
     private final Context context;
     private OnScheduleSaveListener listener;
+    private OnAddPlaceListener placeListener;
     private NumberPicker np_StartHour, np_StartMinute, np_EndHour, np_EndMinute;
     private com.github.angads25.toggle.widget.LabeledSwitch sw_Alarm;
     private EditText et_Title;
     private Button btn_Save;
-
+    private TextView tv_PlaceAddress;
     // 수정 모드 관련 변수
+    private LatLng selectedLatLng;
     private boolean isEditMode = false;
     private String editingDocId = null;
     private ScheduleItemDTO editingItem = null;
@@ -47,10 +53,18 @@ public class ScheduleBottomSheet {
     public void setOnScheduleSaveListener(OnScheduleSaveListener listener) {
         this.listener = listener;
     }
-
+    public void setOnAddPlaceListener(OnAddPlaceListener listener) {
+        this.placeListener = listener;
+    }
     /** 새 일정 추가용 */
     public void show() {
         showInternal(null, null);
+    }
+    public void setPlaceData(String address, LatLng latLng) {
+        if (tv_PlaceAddress != null) {
+            tv_PlaceAddress.setText(address);
+        }
+        this.selectedLatLng = latLng;
     }
 
     /** 기존 일정 수정용 */
@@ -85,6 +99,8 @@ public class ScheduleBottomSheet {
         np_EndMinute = view.findViewById(R.id.np_end_minute);
         sw_Alarm = view.findViewById(R.id.sw_alarm);
         btn_Save = view.findViewById(R.id.btn_save);
+        Button btn_AddPlace = view.findViewById(R.id.btn_add_place);
+        tv_PlaceAddress = view.findViewById(R.id.tv_place_address);
 
         setupNumberPicker(np_StartHour, 0, 23);
         setupNumberPicker(np_StartMinute, 0, 59);
@@ -99,7 +115,12 @@ public class ScheduleBottomSheet {
 
             et_Title.setText(item.getTitle());
             sw_Alarm.setOn(item.getAlarm());
-
+            if (item.getPlaceName() != null && !item.getPlaceName().isEmpty()) {
+                tv_PlaceAddress.setText(item.getPlaceName());
+            }
+            if (item.getPlace() != null) {
+                selectedLatLng = new LatLng(item.getPlace().getLatitude(), item.getPlace().getLongitude());
+            }
             Calendar cal = Calendar.getInstance();
             Timestamp start = item.getStartTime();
             cal.setTime(start.toDate());
@@ -112,6 +133,12 @@ public class ScheduleBottomSheet {
             np_EndMinute.setValue(cal.get(Calendar.MINUTE));
         }
 
+        btn_AddPlace.setOnClickListener(v -> {
+            if (placeListener != null) {
+                placeListener.onAddPlaceClicked();
+            }
+        });
+
         // 저장버튼 클릭
         btn_Save.setOnClickListener(v -> {
             String title = et_Title.getText().toString().trim();
@@ -120,7 +147,7 @@ public class ScheduleBottomSheet {
             int endHour = np_EndHour.getValue();
             int endMinute = np_EndMinute.getValue();
             boolean alarmIsOn = sw_Alarm.isOn();
-
+            String placeAddress = tv_PlaceAddress.getText().toString();
             if (title.isEmpty()) {
                 Toast.makeText(context, "제목을 입력해주세요.", Toast.LENGTH_SHORT).show();
                 return;
