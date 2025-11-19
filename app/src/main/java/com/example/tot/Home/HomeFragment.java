@@ -1,5 +1,6 @@
 package com.example.tot.Home;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -21,6 +22,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.tot.Community.CommunityAdapter;
 import com.example.tot.Community.CommunityPostDTO;
 import com.example.tot.Community.CommunityViewModel;
+import com.example.tot.Notification.NotificationActivity;
+import com.example.tot.Notification.NotificationDTO;
+import com.example.tot.Notification.NotificationManager;
 import com.example.tot.R;
 
 import java.util.ArrayList;
@@ -48,6 +52,9 @@ public class HomeFragment extends Fragment {
     private CommunityAdapter communityAdapter;
     private CommunityViewModel viewModel;
 
+    // 알림 관리자
+    private NotificationManager notificationManager;
+
     public HomeFragment() {
         super(R.layout.fragment_home);
     }
@@ -58,6 +65,7 @@ public class HomeFragment extends Fragment {
 
         initViews(view);
         initViewModel();
+        setupNotificationManager();
         setupProvinceButtons();
         setupMemoryRecyclerView(view.findViewById(R.id.re_memory));
         setupCommunityStyleRecyclerView(view.findViewById(R.id.re_album));
@@ -65,6 +73,7 @@ public class HomeFragment extends Fragment {
 
         viewModel.loadDummyData();
         filterAlbums();
+        loadDummyNotifications();
     }
 
     private void initViews(View view) {
@@ -91,6 +100,11 @@ public class HomeFragment extends Fragment {
         viewModel.setFilter(CommunityViewModel.FilterMode.POPULAR);
     }
 
+    private void setupNotificationManager() {
+        notificationManager = NotificationManager.getInstance();
+        notificationManager.addListener(this::updateInboxBadge);
+    }
+
     /** ✅ 프로필 및 수신함 (애니메이션 포함) */
     private void setupProfileAndInbox() {
         profileImage.setOnClickListener(v -> {
@@ -99,10 +113,12 @@ public class HomeFragment extends Fragment {
             if (viewPager != null) viewPager.setCurrentItem(3);
         });
 
-        inboxContainer.setOnClickListener(v ->
-                Toast.makeText(getContext(), "수신함 (준비중)", Toast.LENGTH_SHORT).show()
-        );
+        inboxContainer.setOnClickListener(v -> {
+            Intent intent = new Intent(getContext(), NotificationActivity.class);
+            startActivity(intent);
+        });
 
+        // 뱃지 배경 설정
         GradientDrawable badgeBackground = new GradientDrawable();
         badgeBackground.setShape(GradientDrawable.RECTANGLE);
         badgeBackground.setColor(Color.parseColor("#FF4444"));
@@ -110,16 +126,87 @@ public class HomeFragment extends Fragment {
         inboxBadge.setBackground(badgeBackground);
         inboxBadge.setClipToOutline(true);
 
-        int unreadCount = 11; // 예시 값
+        // 초기 뱃지 업데이트
+        updateInboxBadge(notificationManager.getUnreadCount());
+    }
+
+    private void updateInboxBadge(int unreadCount) {
+        if (inboxBadge == null) return;
+
         if (unreadCount > 0) {
             inboxBadge.setVisibility(View.VISIBLE);
             inboxBadge.setText(unreadCount > 10 ? "10+" : String.valueOf(unreadCount));
 
-            Animation shakeAnim = AnimationUtils.loadAnimation(requireContext(), R.anim.shake);
-            inboxContainer.startAnimation(shakeAnim);
+            // 애니메이션은 처음 표시될 때만
+            if (inboxBadge.getTag() == null) {
+                Animation shakeAnim = AnimationUtils.loadAnimation(requireContext(), R.anim.shake);
+                inboxContainer.startAnimation(shakeAnim);
+                inboxBadge.setTag("animated");
+            }
         } else {
             inboxBadge.setVisibility(View.GONE);
+            inboxBadge.setTag(null);
         }
+    }
+
+    private void loadDummyNotifications() {
+        List<NotificationDTO> todayNotifs = new ArrayList<>();
+
+        // 1. 스케줄 초대 알림 (전주)
+        todayNotifs.add(NotificationDTO.createScheduleInvite(
+                "1",
+                "전주",
+                "여행 일정에 참여해 주세요",
+                "9분전",
+                false,
+                2,
+                R.drawable.ic_schedule
+        ));
+
+        // 2. 팔로우 알림
+        todayNotifs.add(NotificationDTO.createFollow(
+                "2",
+                "위찬우",
+                "14분전",
+                false,
+                R.drawable.ic_user_add
+        ));
+
+        // 3. 댓글 알림
+        todayNotifs.add(NotificationDTO.createComment(
+                "3",
+                "위찬우",
+                "댓글을 확인해 주세요",
+                "19분전",
+                false,
+                2,
+                R.drawable.ic_comment
+        ));
+
+        List<NotificationDTO> recentNotifs = new ArrayList<>();
+
+        // 4. 스케줄 초대 알림 (부산)
+        recentNotifs.add(NotificationDTO.createScheduleInvite(
+                "4",
+                "부산",
+                "여행 일정에 참여해 주세요",
+                "9일",
+                true,
+                0,
+                R.drawable.ic_schedule
+        ));
+
+        // 5. 팔로우 알림
+        recentNotifs.add(NotificationDTO.createFollow(
+                "5",
+                "이민섭",
+                "14일",
+                true,
+                R.drawable.ic_user_add
+        ));
+
+        notificationManager.setTodayNotifications(todayNotifs);
+        notificationManager.setRecentNotifications(recentNotifs);
     }
 
     /** 시/도 버튼 */
@@ -290,8 +377,18 @@ public class HomeFragment extends Fragment {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        // 화면으로 돌아올 때 뱃지 업데이트
+        updateInboxBadge(notificationManager.getUnreadCount());
+    }
+
+    @Override
     public void onDestroyView() {
         super.onDestroyView();
         if (viewModel != null) viewModel.destroy();
+        if (notificationManager != null) {
+            notificationManager.removeListener(this::updateInboxBadge);
+        }
     }
 }

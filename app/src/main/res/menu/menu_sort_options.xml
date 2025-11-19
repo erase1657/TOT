@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/sort_default"
+        android:title="기본" />
+    <item
+        android:id="@+id/sort_name"
+        android:title="이름순" />
+    <item
+        android:id="@+id/sort_nickname"
+        android:title="별명순" />
+</menu>

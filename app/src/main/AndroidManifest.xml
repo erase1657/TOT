@@ -51,8 +51,17 @@
             android:name=".ViewPagerAdapter"
             android:exported="false" />
         <activity
+            android:name=".Notification.NotificationActivity"
+            android:exported="false" />
+        <activity
             android:name=".Authentication.RegisterActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".Follow.FollowActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".Authentication.LoginActivity"
