@@ -9,9 +9,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.NumberPicker;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.tot.R;
+import com.google.android.gms.maps.model.LatLng;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.firebase.Timestamp;
@@ -27,15 +29,19 @@ public class ScheduleBottomSheet {
     public interface OnScheduleSaveListener {
         void onScheduleSaved(ScheduleItemDTO item);
     }
-
+    public interface OnAddPlaceListener {
+        void onAddPlaceClicked();
+    }
     private final Context context;
     private OnScheduleSaveListener listener;
+    private OnAddPlaceListener placeListener;
     private NumberPicker np_StartHour, np_StartMinute, np_EndHour, np_EndMinute;
     private com.github.angads25.toggle.widget.LabeledSwitch sw_Alarm;
     private EditText et_Title;
     private Button btn_Save;
-
+    private TextView tv_PlaceAddress;
     // 수정 모드 관련 변수
+    private LatLng selectedLatLng;
     private boolean isEditMode = false;
     private String editingDocId = null;
     private ScheduleItemDTO editingItem = null;
@@ -47,10 +53,18 @@ public class ScheduleBottomSheet {
     public void setOnScheduleSaveListener(OnScheduleSaveListener listener) {
         this.listener = listener;
     }
-
+    public void setOnAddPlaceListener(OnAddPlaceListener listener) {
+        this.placeListener = listener;
+    }
     /** 새 일정 추가용 */
     public void show() {
         showInternal(null, null);
+    }
+    public void setPlaceData(String address, LatLng latLng) {
+        if (tv_PlaceAddress != null) {
+            tv_PlaceAddress.setText(address);
+        }
+        this.selectedLatLng = latLng;
     }
 
     /** 기존 일정 수정용 */
@@ -85,6 +99,8 @@ public class ScheduleBottomSheet {
         np_EndMinute = view.findViewById(R.id.np_end_minute);
         sw_Alarm = view.findViewById(R.id.sw_alarm);
         btn_Save = view.findViewById(R.id.btn_save);
+        Button btn_AddPlace = view.findViewById(R.id.btn_add_place);
+        tv_PlaceAddress = view.findViewById(R.id.tv_place_address);
 
         setupNumberPicker(np_StartHour, 0, 23);
         setupNumberPicker(np_StartMinute, 0, 59);
@@ -99,7 +115,12 @@ public class ScheduleBottomSheet {
 
             et_Title.setText(item.getTitle());
             sw_Alarm.setOn(item.getAlarm());
-
+            if (item.getPlaceName() != null && !item.getPlaceName().isEmpty()) {
+                tv_PlaceAddress.setText(item.getPlaceName());
+            }
+            if (item.getPlace() != null) {
+                selectedLatLng = new LatLng(item.getPlace().getLatitude(), item.getPlace().getLongitude());
+            }
             Calendar cal = Calendar.getInstance();
             Timestamp start = item.getStartTime();
             cal.setTime(start.toDate());
@@ -112,6 +133,12 @@ public class ScheduleBottomSheet {
             np_EndMinute.setValue(cal.get(Calendar.MINUTE));
         }
 
+        btn_AddPlace.setOnClickListener(v -> {
+            if (placeListener != null) {
+                placeListener.onAddPlaceClicked();
+            }
+        });
+
         // 저장버튼 클릭
         btn_Save.setOnClickListener(v -> {
             String title = et_Title.getText().toString().trim();
@@ -120,6 +147,7 @@ public class ScheduleBottomSheet {
             int endHour = np_EndHour.getValue();
             int endMinute = np_EndMinute.getValue();
             boolean alarmIsOn = sw_Alarm.isOn();
+            String placeAddress = tv_PlaceAddress.getText().toString();
 
             if (title.isEmpty()) {
                 Toast.makeText(context, "제목을 입력해주세요.", Toast.LENGTH_SHORT).show();
@@ -142,19 +170,17 @@ public class ScheduleBottomSheet {
                 return;
             }
 
-            // ✅ 겹치는 일정 검사 (수정됨)
             if (context instanceof ScheduleSettingActivity) {
                 ScheduleSettingActivity activity = (ScheduleSettingActivity) context;
                 List<ScheduleItemDTO> existingItems = activity.getCachedItemsForDate(activity.getSelectedDate());
-                List<String> existingDocIds = activity.getCachedDocIdsForDate(activity.getSelectedDate()); // 🔹 추가됨
+                List<String> existingDocIds = activity.getCachedDocIdsForDate(activity.getSelectedDate());
 
                 for (int i = 0; i < existingItems.size(); i++) {
                     ScheduleItemDTO existing = existingItems.get(i);
                     String existingDocId = (existingDocIds != null && i < existingDocIds.size())
                             ? existingDocIds.get(i) : null;
 
-                    // 🔹 자기 자신은 겹침 검사에서 제외
-                    if (isEditMode && editingDocId != null && editingDocId.equals(existingDocId)) continue; // ✅ 수정됨
+                    if (isEditMode && editingDocId != null && editingDocId.equals(existingDocId)) continue;
 
                     Timestamp existStart = existing.getStartTime();
                     Timestamp existEnd = existing.getEndTime();
@@ -167,18 +193,25 @@ public class ScheduleBottomSheet {
                 }
             }
 
-            GeoPoint location = new GeoPoint(0, 0);
-            ScheduleItemDTO newItem = new ScheduleItemDTO(title, startTimestamp, endTimestamp, location, "예시", alarmIsOn);
+            GeoPoint location = null;
+            if (selectedLatLng != null) {
+                location = new GeoPoint(selectedLatLng.latitude, selectedLatLng.longitude);
+            }
+            String placeName = tv_PlaceAddress.getText().toString();
+            if (placeName.equals("장소")) {
+                placeName = null;
+            }
 
-            // ✅ 수정모드일 경우 Firestore 업데이트
+            ScheduleItemDTO newItem = new ScheduleItemDTO(title, startTimestamp, endTimestamp, location, placeName, alarmIsOn);
+
             if (isEditMode && editingDocId != null && context instanceof ScheduleSettingActivity) {
                 ScheduleSettingActivity act = (ScheduleSettingActivity) context;
                 FirebaseFirestore db = FirebaseFirestore.getInstance();
 
                 db.collection("user")
-                        .document(act.getUserUid()) // 🔹 getUserUid() 사용 (getter 방식)
+                        .document(act.getUserUid())
                         .collection("schedule")
-                        .document(act.getScheduleId()) // 🔹 getScheduleId() 사용 (getter 방식)
+                        .document(act.getScheduleId())
                         .collection("scheduleDate")
                         .document(act.getSelectedDate())
                         .collection("scheduleItem")
@@ -192,7 +225,6 @@ public class ScheduleBottomSheet {
                                 Toast.makeText(context, "수정 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show()
                         );
             } else {
-                // 새 일정 추가
                 if (listener != null) listener.onScheduleSaved(newItem);
                 dialog.dismiss();
             }

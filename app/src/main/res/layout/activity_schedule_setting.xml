@@ -7,14 +7,14 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#FAF9F9"
-    tools:context=".Schedule.ScheduleSetting.ScheduleSettingActivity">
+    tools:context=".Schedule.ScheduleSetting.ScheduleSettingActivity"
+    >
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="?attr/actionBarSize"
         android:layout_marginBottom="18dp">
         <androidx.recyclerview.widget.RecyclerView
-
             android:layout_width="wrap_content"
             android:layout_height="wrap_content" />
         <Button
@@ -78,14 +78,19 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             />
-        <!--TODO:버튼 짤림 해결 -->
-        <Button
+
+        <!-- ImageButton으로 변경 + src 사용 -->
+        <ImageButton
             android:id="@+id/btn_add_schedule"
-            android:layout_width="46dp"
-            android:layout_height="45dp"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
             android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="10dp"
-            android:background="@drawable/ic_add"/>
+            android:layout_marginBottom="16dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_add"
+            android:scaleType="fitCenter"
+            android:elevation="6dp"
+            android:contentDescription="일정 추가 버튼"/>
     </LinearLayout>
 
 </LinearLayout>

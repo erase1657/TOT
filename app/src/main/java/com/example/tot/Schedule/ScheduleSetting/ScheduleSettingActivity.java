@@ -1,41 +1,46 @@
 package com.example.tot.Schedule.ScheduleSetting;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.Album.ScheduleAlbumActivity;
+import com.example.tot.Map.MapActivity;
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleSetting.Invite.InviteDialog;
+import com.google.android.gms.maps.model.LatLng;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.QuerySnapshot;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.TimeUnit;
 
-/**
- * 여행 일정 설정 화면
- * 상단: 날짜 리스트 (RecyclerView)
- * 하단: 각 날짜별 일정 리스트 (실시간 반영 + 캐시)
- */
 public class ScheduleSettingActivity extends AppCompatActivity {
 
     private FirebaseFirestore db;
@@ -45,7 +50,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private DateAdapter dateAdapter;
     private ScheduleItemAdapter scheduleItemAdapter;
     private List<String> dateList = new ArrayList<>();
-
+    private ScheduleBottomSheet currentBottomSheet;
     // ✅ 기존 일정 데이터 캐시
     private final Map<String, List<ScheduleItemDTO>> localCache = new HashMap<>();
 
@@ -54,7 +59,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
 
     private Button btn_AddSchedule, btn_Menu, btn_Invite;
     private ListenerRegistration currentListener; // 실시간 리스너
-
+    private ActivityResultLauncher<Intent> mapActivityLauncher;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -85,6 +90,19 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         setRvDate();
         setRvScheduleItem();
         generateScheduleDates(startDate, endDate);
+        // Launcher 초기화
+        mapActivityLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        String address = result.getData().getStringExtra(MapActivity.EXTRA_PLACE_ADDRESS);
+                        LatLng latLng = result.getData().getParcelableExtra(MapActivity.EXTRA_PLACE_LAT_LNG);
+
+                        if (address != null && latLng != null && currentBottomSheet != null) {
+                            currentBottomSheet.setPlaceData(address, latLng);
+                        }
+                    }
+                });
 
         btn_Menu.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -98,14 +116,10 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                         int id = item.getItemId();
 
                         if (id == R.id.menu_map) {
-                            Toast.makeText(ScheduleSettingActivity.this, "지도 클릭됨", Toast.LENGTH_SHORT).show();
+                            showAllPlacesOnMap();
                             return true;
                         } else if (id == R.id.menu_album) {
-                            Intent intent = new Intent(ScheduleSettingActivity.this, ScheduleAlbumActivity.class);
-                            intent.putExtra("scheduleId", scheduleId);
-                            intent.putExtra("userUid", userUid);
-                            intent.putStringArrayListExtra("dateList", new ArrayList<>(dateList));
-                            startActivity(intent);
+                            Toast.makeText(ScheduleSettingActivity.this, "앨범 클릭됨", Toast.LENGTH_SHORT).show();
                             return true;
                         } else if (id == R.id.menu_delete) {
                             Toast.makeText(ScheduleSettingActivity.this, "스케줄 삭제 클릭됨", Toast.LENGTH_SHORT).show();
@@ -123,9 +137,9 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         });
         // ✅ 일정 추가 버튼
         btn_AddSchedule.setOnClickListener(v -> {
-            ScheduleBottomSheet bottom = new ScheduleBottomSheet(ScheduleSettingActivity.this);
-
-            bottom.setOnScheduleSaveListener(item -> {
+            currentBottomSheet = new ScheduleBottomSheet(ScheduleSettingActivity.this);
+            currentBottomSheet.setOnAddPlaceListener(this::openMapForPlaceSelection);
+            currentBottomSheet.setOnScheduleSaveListener(item -> {
                 if (selectedDate == null) {
                     Toast.makeText(this, "날짜가 선택되지 않았습니다.", Toast.LENGTH_SHORT).show();
                     return;
@@ -146,9 +160,35 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                                 Toast.makeText(this, "일정 추가 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show());
             });
 
-            bottom.show();
+            currentBottomSheet.show();
         });
     }
+
+    private void openMapForPlaceSelection() {
+        Intent intent = new Intent(this, MapActivity.class);
+        ArrayList<LatLng> sortedLocations = new ArrayList<>();
+        ArrayList<Integer> dayListForMap = new ArrayList<>();
+        Collections.sort(this.dateList);
+
+        for (int i = 0; i < this.dateList.size(); i++) {
+            String dateKey = this.dateList.get(i);
+            List<ScheduleItemDTO> items = localCache.get(dateKey);
+            if (items != null) {
+                for (ScheduleItemDTO item : items) {
+                    if (item.getPlace() != null) {
+                        GeoPoint geoPoint = item.getPlace();
+                        sortedLocations.add(new LatLng(geoPoint.getLatitude(), geoPoint.getLongitude()));
+                        dayListForMap.add(i + 1);
+                    }
+                }
+            }
+        }
+
+        intent.putParcelableArrayListExtra(MapActivity.EXTRA_PLACE_LAT_LNG_LIST, sortedLocations);
+        intent.putIntegerArrayListExtra(MapActivity.EXTRA_PLACE_DAY_LIST, dayListForMap);
+        mapActivityLauncher.launch(intent);
+    }
+
 
     private void setRvDate() {
         dateAdapter = new DateAdapter(dateList, date -> {
@@ -163,8 +203,9 @@ public class ScheduleSettingActivity extends AppCompatActivity {
 
     private void setRvScheduleItem() {
         scheduleItemAdapter = new ScheduleItemAdapter((item, docID) -> {
-            ScheduleBottomSheet bottom = new ScheduleBottomSheet(ScheduleSettingActivity.this);
-            bottom.showWithData(item, docID); // ✅ 수정 모드로 열기
+            currentBottomSheet = new ScheduleBottomSheet(ScheduleSettingActivity.this);
+            currentBottomSheet.setOnAddPlaceListener(this::openMapForPlaceSelection);
+            currentBottomSheet.showWithData(item, docID); // ✅ 수정 모드로 열기
             Toast.makeText(this, "클릭됨: " + item.getTitle(), Toast.LENGTH_SHORT).show();
         });
         rvScheduleItem.setLayoutManager(new LinearLayoutManager(this));
@@ -213,7 +254,76 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                     Log.d("Firestore", "⚡ 실시간 반영 완료: " + dateKey + " (" + list.size() + "개)");
                 });
     }
+    private void launchMapWithAllPlaces(Map<String, List<ScheduleItemDTO>> itemsMap) {
+        ArrayList<LatLng> sortedLocations = new ArrayList<>();
+        ArrayList<Integer> dayList = new ArrayList<>();
+        int dayIndex = 1;
 
+        // 정렬된 dateList를 기준으로 전체 리스트를 다시 만듦
+        for (String dateKey : dateList) {
+            List<ScheduleItemDTO> items = itemsMap.get(dateKey);
+            if (items != null) {
+                for (ScheduleItemDTO item : items) {
+                    if (item.getPlace() != null) {
+                        GeoPoint geoPoint = item.getPlace();
+                        sortedLocations.add(new LatLng(geoPoint.getLatitude(), geoPoint.getLongitude()));
+                        dayList.add(dayIndex);
+                    }
+                }
+            }
+            dayIndex++;
+        }
+
+        if (sortedLocations.isEmpty()) {
+            Toast.makeText(this, "지도에 표시할 장소가 없습니다.\n모든 날짜의 일정을 확인했는지 체크해주세요.", Toast.LENGTH_LONG).show();
+        } else {
+            Intent intent = new Intent(this, MapActivity.class);
+            intent.putParcelableArrayListExtra(MapActivity.EXTRA_PLACE_LAT_LNG_LIST, sortedLocations);
+            intent.putIntegerArrayListExtra(MapActivity.EXTRA_PLACE_DAY_LIST, dayList);
+            startActivity(intent);
+        }
+    }
+    private void showAllPlacesOnMap() {
+        final Map<String, List<ScheduleItemDTO>> tempItemsMap = new HashMap<>();
+        AtomicInteger pendingFetches = new AtomicInteger(dateList.size());
+
+        // 날짜 리스트를 정렬하여 순서를 보장
+        Collections.sort(dateList);
+
+        for (String dateKey : dateList) {
+            if (localCache.containsKey(dateKey)) {
+                tempItemsMap.put(dateKey, localCache.get(dateKey));
+                if (pendingFetches.decrementAndGet() == 0) {
+                    launchMapWithAllPlaces(tempItemsMap);
+                }
+            } else {
+                db.collection("user").document(userUid).collection("schedule").document(scheduleId)
+                        .collection("scheduleDate").document(dateKey).collection("scheduleItem").get()
+                        .addOnSuccessListener(queryDocumentSnapshots -> {
+                            List<ScheduleItemDTO> items = new ArrayList<>();
+                            for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
+                                ScheduleItemDTO item = doc.toObject(ScheduleItemDTO.class);
+                                if (item != null && item.getPlace() != null) {
+                                    items.add(item);
+                                }
+                            }
+                            items.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
+                            localCache.put(dateKey, new ArrayList<>(items));
+                            tempItemsMap.put(dateKey, items);
+
+                            if (pendingFetches.decrementAndGet() == 0) {
+                                launchMapWithAllPlaces(tempItemsMap);
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e("Firestore", "Failed to fetch items for date: " + dateKey, e);
+                            if (pendingFetches.decrementAndGet() == 0) {
+                                launchMapWithAllPlaces(tempItemsMap);
+                            }
+                        });
+            }
+        }
+    }
     /**
      * ✅ 여행기간 기반 날짜 문서 자동 생성
      */
@@ -224,6 +334,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         Date current = start.toDate();
 
+        dateList.clear(); // 리스트 초기화
         for (int i = 0; i < days; i++) {
             Date date = new Date(current.getTime() + TimeUnit.DAYS.toMillis(i));
             String dateString = sdf.format(date);
@@ -250,6 +361,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         }
 
         if (!dateList.isEmpty()) {
+            Collections.sort(dateList);
             selectedDate = dateList.get(0);
             dateAdapter.setSelectedDate(selectedDate);
             listenScheduleItems(selectedDate);

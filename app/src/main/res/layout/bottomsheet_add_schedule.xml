@@ -192,45 +192,58 @@
 
 
     </LinearLayout>
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="60dp">
         <!--TODO: 위치 아이콘 크기 설정-->
         <ImageView
+            android:id="@+id/iv_place_icon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/ic_place"/>
-        <Space
-            android:layout_width="30dp"
-            android:layout_height="0dp"/>
+            android:background="@drawable/ic_place"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
         <TextView
-            android:layout_width="wrap_content"
+            android:id="@+id/tv_place_address"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="30dp"
+            android:ellipsize="end"
+            android:maxLines="1"
             android:text="장소"
             android:textColor="#7B7B7B"
             android:textSize="17dp"
-            android:textStyle="bold"/>
-        <Space
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:layout_weight="1"/>
+            android:textStyle="bold"
+            app:layout_constraintStart_toEndOf="@id/iv_place_icon"
+            app:layout_constraintEnd_toStartOf="@id/tv_add_place_label"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
 
         <TextView
+            android:id="@+id/tv_add_place_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="10dp"
             android:text="추가"
-            android:textStyle="bold"
+            android:textColor="#7B7B7B"
             android:textSize="17dp"
-            android:textColor="#7B7B7B"/>
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@id/btn_add_place"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
         <Button
-            android:layout_gravity="center"
-            android:gravity="center"
+            android:id="@+id/btn_add_place"
             android:layout_width="22dp"
             android:layout_height="22dp"
-            android:background="@drawable/ic_plus"/>
-    </LinearLayout>
+            android:background="@drawable/ic_plus"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
     <Button
         android:id="@+id/btn_save"
         android:layout_width="match_parent"

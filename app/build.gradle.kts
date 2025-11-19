@@ -9,6 +9,9 @@ val localFile = rootProject.file("local.properties")
 if (localFile.exists()) {
     localProps.load(FileInputStream(localFile))
 }
+val localProperties = Properties().apply {
+    load(project.rootProject.file("local.properties").inputStream())
+}
 
 val kakaoKey: String = localProps.getProperty("KAKAO_NATIVE_KEY")?.let { it } ?: "YOUR_KAKAO_KEY_HERE"
 
@@ -26,6 +29,7 @@ android {
         buildConfigField("String", "KAKAO_NATIVE_KEY", "\"$kakaoKey\"")
         manifestPlaceholders["KAKAO_NATIVE_KEY"] = kakaoKey
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["mapsApiKey"] = localProperties.getProperty("MAPS_API_KEY") ?: ""
     }
     buildFeatures {
         buildConfig = true
@@ -48,6 +52,9 @@ android {
 
 
 dependencies {
+    implementation("com.google.android.gms:play-services-maps:18.2.0") // 구글 지도 SDK
+    implementation("com.google.android.libraries.places:places:3.4.0") // 구글 장소(검색) SDK
+    implementation("com.google.android.gms:play-services-location:21.3.0") //안드로이드 위치 서비스
     implementation("com.kakao.sdk:v2-share:2.22.0")  // 공유 메시지 전송
     implementation("com.naver.maps:map-sdk:3.23.0") // 네이버 지도 SDK
     implementation("nl.bryanderidder:themed-toggle-button-group:1.4.1") //토글 버튼 리스트

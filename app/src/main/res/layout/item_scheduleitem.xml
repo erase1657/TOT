@@ -3,13 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="140dp"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:background="@color/white">
+    android:background="#FFFFFF">
 
+    <!-- 시간 표시 -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center_horizontal">
+        android:gravity="center_horizontal"
+        android:layout_marginEnd="18dp">
 
         <TextView
             android:id="@+id/tv_starttime"
@@ -17,34 +19,31 @@
             android:layout_height="wrap_content"
             android:text="17:01"
             android:textStyle="bold"
-            android:textColor="@color/black"
-            android:textSize="15dp" />
+            android:textColor="#000000"
+            android:textSize="15sp"/>
+
         <Space
             android:layout_width="0dp"
-            android:layout_height="3dp"/>
+            android:layout_height="6dp"/>
+
         <TextView
             android:id="@+id/tv_endtime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="17:01"
             android:textStyle="bold"
-            android:textSize="15dp" />
+            android:textColor="#999999"
+            android:textSize="15sp"/>
     </LinearLayout>
-    <Space
-        android:layout_width="18.5dp"
-        android:layout_height="0dp"/>
 
+    <!-- 구분선 -->
     <View
         android:layout_width="3dp"
         android:layout_height="match_parent"
         android:background="#FAF9F9"
-        android:layout_gravity="center_vertical"
+        android:layout_marginEnd="18dp"/>
 
-        />
-    <Space
-        android:layout_width="18dp"
-        android:layout_height="0dp"/>
-
+    <!-- 일정 카드 -->
     <androidx.cardview.widget.CardView
         android:id="@+id/item_schedule"
         android:clickable="true"
@@ -53,7 +52,9 @@
         android:layout_height="116dp"
         app:cardBackgroundColor="#F6F6F5"
         android:descendantFocusability="afterDescendants"
-        app:cardCornerRadius="17dp">
+        app:cardCornerRadius="17dp"
+        app:cardElevation="2dp">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -63,65 +64,78 @@
             android:paddingEnd="16dp"
             android:orientation="vertical">
 
+            <!-- 제목 + 설정 버튼 -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical">
 
                 <TextView
                     android:id="@+id/tv_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="제목"
-                    android:textColor="@color/black"
-                    android:textSize="17dp"
-                    android:textStyle="bold"/>
-                <Space
                     android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"/>
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="제목"
+                    android:textColor="#000000"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:ellipsize="end"
+                    android:maxLines="1"/>
+
                 <Button
                     android:id="@+id/btn_modify"
                     android:layout_width="27dp"
                     android:layout_height="29dp"
-                    android:layout_alignParentEnd="true"
                     android:background="@drawable/ic_setting_dot"/>
             </LinearLayout>
+
+            <!-- 장소 정보 -->
             <LinearLayout
                 android:id="@+id/layout_place"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp">
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical">
+
                 <ImageView
-                    android:layout_width="14dp"
-                    android:layout_height="15dp"
-                    android:background="@drawable/ic_place"
-                    android:layout_gravity="center"
-                    android:layout_marginEnd="11dp"/>
+                    android:layout_width="18dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_location_point"
+                    android:scaleType="fitCenter"
+                    android:layout_marginEnd="8dp"/>
+
                 <TextView
                     android:id="@+id/tv_place"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="장소 표시 예시"
-                    android:textColor="#646262"/>
-
+                    android:textColor="#646262"
+                    android:textSize="14sp"
+                    android:ellipsize="end"
+                    android:maxLines="1"/>
             </LinearLayout>
+
+            <!-- 알람 정보 -->
             <LinearLayout
                 android:id="@+id/layout_alarm"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp">
+                android:layout_marginTop="1dp"
+                android:gravity="center_vertical">
+
                 <ImageView
-                    android:layout_width="15dp"
-                    android:layout_height="15dp"
-                    android:background="@drawable/ic_alarm"
-                    android:layout_marginEnd="11dp"
-                    android:layout_gravity="center"/>
+                    android:layout_width="18dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_alarm"
+                    android:scaleType="fitCenter"
+                    android:layout_marginEnd="8dp"/>
+
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="알림"
-                    android:textColor="#646262"/>
-
+                    android:textColor="#646262"
+                    android:textSize="14sp"/>
             </LinearLayout>
 
         </LinearLayout>
