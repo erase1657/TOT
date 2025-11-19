@@ -148,6 +148,7 @@ public class ScheduleBottomSheet {
             int endMinute = np_EndMinute.getValue();
             boolean alarmIsOn = sw_Alarm.isOn();
             String placeAddress = tv_PlaceAddress.getText().toString();
+
             if (title.isEmpty()) {
                 Toast.makeText(context, "제목을 입력해주세요.", Toast.LENGTH_SHORT).show();
                 return;
@@ -169,19 +170,17 @@ public class ScheduleBottomSheet {
                 return;
             }
 
-            // ✅ 겹치는 일정 검사 (수정됨)
             if (context instanceof ScheduleSettingActivity) {
                 ScheduleSettingActivity activity = (ScheduleSettingActivity) context;
                 List<ScheduleItemDTO> existingItems = activity.getCachedItemsForDate(activity.getSelectedDate());
-                List<String> existingDocIds = activity.getCachedDocIdsForDate(activity.getSelectedDate()); // 🔹 추가됨
+                List<String> existingDocIds = activity.getCachedDocIdsForDate(activity.getSelectedDate());
 
                 for (int i = 0; i < existingItems.size(); i++) {
                     ScheduleItemDTO existing = existingItems.get(i);
                     String existingDocId = (existingDocIds != null && i < existingDocIds.size())
                             ? existingDocIds.get(i) : null;
 
-                    // 🔹 자기 자신은 겹침 검사에서 제외
-                    if (isEditMode && editingDocId != null && editingDocId.equals(existingDocId)) continue; // ✅ 수정됨
+                    if (isEditMode && editingDocId != null && editingDocId.equals(existingDocId)) continue;
 
                     Timestamp existStart = existing.getStartTime();
                     Timestamp existEnd = existing.getEndTime();
@@ -194,18 +193,25 @@ public class ScheduleBottomSheet {
                 }
             }
 
-            GeoPoint location = new GeoPoint(0, 0);
-            ScheduleItemDTO newItem = new ScheduleItemDTO(title, startTimestamp, endTimestamp, location, "예시", alarmIsOn);
+            GeoPoint location = null;
+            if (selectedLatLng != null) {
+                location = new GeoPoint(selectedLatLng.latitude, selectedLatLng.longitude);
+            }
+            String placeName = tv_PlaceAddress.getText().toString();
+            if (placeName.equals("장소")) {
+                placeName = null;
+            }
 
-            // ✅ 수정모드일 경우 Firestore 업데이트
+            ScheduleItemDTO newItem = new ScheduleItemDTO(title, startTimestamp, endTimestamp, location, placeName, alarmIsOn);
+
             if (isEditMode && editingDocId != null && context instanceof ScheduleSettingActivity) {
                 ScheduleSettingActivity act = (ScheduleSettingActivity) context;
                 FirebaseFirestore db = FirebaseFirestore.getInstance();
 
                 db.collection("user")
-                        .document(act.getUserUid()) // 🔹 getUserUid() 사용 (getter 방식)
+                        .document(act.getUserUid())
                         .collection("schedule")
-                        .document(act.getScheduleId()) // 🔹 getScheduleId() 사용 (getter 방식)
+                        .document(act.getScheduleId())
                         .collection("scheduleDate")
                         .document(act.getSelectedDate())
                         .collection("scheduleItem")
@@ -219,7 +225,6 @@ public class ScheduleBottomSheet {
                                 Toast.makeText(context, "수정 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show()
                         );
             } else {
-                // 새 일정 추가
                 if (listener != null) listener.onScheduleSaved(newItem);
                 dialog.dismiss();
             }

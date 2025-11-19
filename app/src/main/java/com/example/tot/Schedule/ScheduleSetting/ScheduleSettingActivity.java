@@ -137,9 +137,9 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         });
         // ✅ 일정 추가 버튼
         btn_AddSchedule.setOnClickListener(v -> {
-            ScheduleBottomSheet bottom = new ScheduleBottomSheet(ScheduleSettingActivity.this);
-
-            bottom.setOnScheduleSaveListener(item -> {
+            currentBottomSheet = new ScheduleBottomSheet(ScheduleSettingActivity.this);
+            currentBottomSheet.setOnAddPlaceListener(this::openMapForPlaceSelection);
+            currentBottomSheet.setOnScheduleSaveListener(item -> {
                 if (selectedDate == null) {
                     Toast.makeText(this, "날짜가 선택되지 않았습니다.", Toast.LENGTH_SHORT).show();
                     return;
@@ -160,9 +160,35 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                                 Toast.makeText(this, "일정 추가 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show());
             });
 
-            bottom.show();
+            currentBottomSheet.show();
         });
     }
+
+    private void openMapForPlaceSelection() {
+        Intent intent = new Intent(this, MapActivity.class);
+        ArrayList<LatLng> sortedLocations = new ArrayList<>();
+        ArrayList<Integer> dayListForMap = new ArrayList<>();
+        Collections.sort(this.dateList);
+
+        for (int i = 0; i < this.dateList.size(); i++) {
+            String dateKey = this.dateList.get(i);
+            List<ScheduleItemDTO> items = localCache.get(dateKey);
+            if (items != null) {
+                for (ScheduleItemDTO item : items) {
+                    if (item.getPlace() != null) {
+                        GeoPoint geoPoint = item.getPlace();
+                        sortedLocations.add(new LatLng(geoPoint.getLatitude(), geoPoint.getLongitude()));
+                        dayListForMap.add(i + 1);
+                    }
+                }
+            }
+        }
+
+        intent.putParcelableArrayListExtra(MapActivity.EXTRA_PLACE_LAT_LNG_LIST, sortedLocations);
+        intent.putIntegerArrayListExtra(MapActivity.EXTRA_PLACE_DAY_LIST, dayListForMap);
+        mapActivityLauncher.launch(intent);
+    }
+
 
     private void setRvDate() {
         dateAdapter = new DateAdapter(dateList, date -> {
@@ -177,8 +203,9 @@ public class ScheduleSettingActivity extends AppCompatActivity {
 
     private void setRvScheduleItem() {
         scheduleItemAdapter = new ScheduleItemAdapter((item, docID) -> {
-            ScheduleBottomSheet bottom = new ScheduleBottomSheet(ScheduleSettingActivity.this);
-            bottom.showWithData(item, docID); // ✅ 수정 모드로 열기
+            currentBottomSheet = new ScheduleBottomSheet(ScheduleSettingActivity.this);
+            currentBottomSheet.setOnAddPlaceListener(this::openMapForPlaceSelection);
+            currentBottomSheet.showWithData(item, docID); // ✅ 수정 모드로 열기
             Toast.makeText(this, "클릭됨: " + item.getTitle(), Toast.LENGTH_SHORT).show();
         });
         rvScheduleItem.setLayoutManager(new LinearLayoutManager(this));
