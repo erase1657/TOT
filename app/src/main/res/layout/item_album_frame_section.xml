@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="26dp"
+    android:padding="10dp"
+    android:orientation="vertical">
+    <TextView
+        android:id="@+id/tv_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="26dp"
+        android:text="2025.12.15"
+        android:textStyle="bold"
+        android:textSize="16dp"/>
+    
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_photo_list"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        />
+
+
+</LinearLayout>

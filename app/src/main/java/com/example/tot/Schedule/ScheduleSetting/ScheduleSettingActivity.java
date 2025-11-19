@@ -1,5 +1,6 @@
 package com.example.tot.Schedule.ScheduleSetting;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
@@ -12,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.tot.Album.ScheduleAlbumActivity;
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleSetting.Invite.InviteDialog;
 import com.google.firebase.Timestamp;
@@ -99,7 +101,11 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                             Toast.makeText(ScheduleSettingActivity.this, "지도 클릭됨", Toast.LENGTH_SHORT).show();
                             return true;
                         } else if (id == R.id.menu_album) {
-                            Toast.makeText(ScheduleSettingActivity.this, "앨범 클릭됨", Toast.LENGTH_SHORT).show();
+                            Intent intent = new Intent(ScheduleSettingActivity.this, ScheduleAlbumActivity.class);
+                            intent.putExtra("scheduleId", scheduleId);
+                            intent.putExtra("userUid", userUid);
+                            intent.putStringArrayListExtra("dateList", new ArrayList<>(dateList));
+                            startActivity(intent);
                             return true;
                         } else if (id == R.id.menu_delete) {
                             Toast.makeText(ScheduleSettingActivity.this, "스케줄 삭제 클릭됨", Toast.LENGTH_SHORT).show();

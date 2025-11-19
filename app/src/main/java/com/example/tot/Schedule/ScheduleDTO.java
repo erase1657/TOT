@@ -12,6 +12,7 @@ public class ScheduleDTO{
     private String inviteCode;
     private int invitedCount;
 
+
     public ScheduleDTO() {
     }
 
@@ -23,6 +24,7 @@ public class ScheduleDTO{
         this.thumbnailRef = thumbnailRef;
         this.inviteCode = inviteCode;
         this.invitedCount = invitedCount;
+
     }
 
     public String getScheduleId() {

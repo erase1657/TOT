@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center_vertical"
+    android:padding="8dp">
+    <ImageView
+        android:id="@+id/btn_drag_handle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/ic_drag"
+        android:backgroundTint="@color/black"/>
+    <Space
+        android:layout_width="8dp"
+        android:layout_height="0dp"/>
+    <androidx.cardview.widget.CardView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="18dp">
+        <ImageView
+            android:id="@+id/img_edit_photo"
+            android:layout_width="160dp"
+            android:layout_height="100dp"
+            android:scaleType="centerCrop"/>
+
+    </androidx.cardview.widget.CardView>
+    <Space
+        android:layout_width="10dp"
+        android:layout_height="0dp"/>
+    <TextView
+        android:id="@+id/tv_comment"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"/>
+    <Space
+        android:layout_width="8dp"
+        android:layout_height="0dp"/>
+    <Button
+        android:id="@+id/btn_edit_comment"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:background="@drawable/ic_pencil"
+        />
+</LinearLayout>
