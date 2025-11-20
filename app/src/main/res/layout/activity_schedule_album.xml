@@ -35,10 +35,14 @@
             android:layout_height="0dp"
             android:layout_weight="1"/>
 
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/sw_mode"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+
+        <ImageButton
+            android:id="@+id/btn_mode_change"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:background="@drawable/ic_frame"
+            android:backgroundTint="@color/black"/>
+
     </LinearLayout>
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/container_fragment"

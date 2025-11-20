@@ -1,6 +1,10 @@
 package com.example.tot.Album;
 
 import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ImageButton;
+
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
@@ -15,10 +19,11 @@ import java.util.ArrayList;
 
 public class ScheduleAlbumActivity extends AppCompatActivity {
 
-    private SwitchCompat swMode;
 
+    private ImageButton btnModeChange;
     private String scheduleId, userUid;
     private ArrayList<String> dateList;
+    private boolean isEditMode = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,8 +31,8 @@ public class ScheduleAlbumActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_schedule_album);
 
-        swMode = findViewById(R.id.sw_mode);
 
+        btnModeChange = findViewById(R.id.btn_mode_change);
         scheduleId = getIntent().getStringExtra("scheduleId");
         userUid = getIntent().getStringExtra("userUid");
         dateList = getIntent().getStringArrayListExtra("dateList");
@@ -35,13 +40,21 @@ public class ScheduleAlbumActivity extends AppCompatActivity {
         // 기본 Fragment (읽기 모드)
         loadFragment(createFragmentWithArgs(new FrameViewFragment()));
 
-        swMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) {
+        btnModeChange.setOnClickListener(v -> {
+            // 모드 반전
+            isEditMode = !isEditMode;
+
+            if (isEditMode) {
+                // 편집 모드로 전환
+                btnModeChange.setBackgroundResource(R.drawable.ic_frame);
                 loadFragment(createFragmentWithArgs(new EditViewFragment()));
             } else {
+                // 읽기 모드로 전환
+                btnModeChange.setBackgroundResource(R.drawable.ic_album_edit);
                 loadFragment(createFragmentWithArgs(new FrameViewFragment()));
             }
         });
+
     }
 
     private void loadFragment(Fragment fragment) {
