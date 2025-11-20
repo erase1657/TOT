@@ -10,6 +10,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
@@ -30,6 +31,7 @@ public class NotificationActivity extends AppCompatActivity {
     private LinearLayout emptyView;
     private RecyclerView recyclerToday;
     private RecyclerView recyclerRecent;
+    private SwipeRefreshLayout swipeRefreshLayout;
 
     private NotificationAdapter todayAdapter;
     private NotificationAdapter recentAdapter;
@@ -41,6 +43,9 @@ public class NotificationActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
 
+    // ✅ NotificationManager 리스너
+    private NotificationManager.UnreadCountListener unreadListener;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,6 +56,12 @@ public class NotificationActivity extends AppCompatActivity {
 
         initViews();
         setupRecyclerViews();
+        setupSwipeRefresh();
+
+        // ✅ NotificationManager 리스너 등록 (UI 업데이트용)
+        setupNotificationListener();
+
+        // ✅ 초기 데이터 로드
         loadNotifications();
         updateUI();
     }
@@ -62,6 +73,7 @@ public class NotificationActivity extends AppCompatActivity {
         emptyView = findViewById(R.id.empty_view);
         recyclerToday = findViewById(R.id.recycler_today);
         recyclerRecent = findViewById(R.id.recycler_recent);
+        swipeRefreshLayout = findViewById(R.id.swipe_refresh);
 
         btnBack.setOnClickListener(v -> finish());
     }
@@ -96,10 +108,70 @@ public class NotificationActivity extends AppCompatActivity {
         recyclerRecent.setAdapter(recentAdapter);
     }
 
+    /**
+     * ✅ 새로고침 설정
+     */
+    private void setupSwipeRefresh() {
+        swipeRefreshLayout.setColorSchemeColors(
+                getResources().getColor(android.R.color.holo_blue_bright),
+                getResources().getColor(android.R.color.holo_green_light),
+                getResources().getColor(android.R.color.holo_orange_light),
+                getResources().getColor(android.R.color.holo_red_light)
+        );
+
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            refreshNotifications();
+        });
+    }
+
+    /**
+     * ✅ 알림 새로고침
+     */
+    private void refreshNotifications() {
+        Log.d(TAG, "🔄 새로고침 시작");
+
+        NotificationManager manager = NotificationManager.getInstance();
+        manager.refresh();
+
+        // 1초 후 새로고침 완료
+        swipeRefreshLayout.postDelayed(() -> {
+            loadNotifications();
+            updateUI();
+            swipeRefreshLayout.setRefreshing(false);
+            Toast.makeText(this, "새로고침 완료", Toast.LENGTH_SHORT).show();
+        }, 1000);
+    }
+
+    /**
+     * ✅ NotificationManager 리스너 등록 (실시간 업데이트)
+     */
+    private void setupNotificationListener() {
+        unreadListener = count -> {
+            runOnUiThread(() -> {
+                Log.d(TAG, "📬 알림 카운트 변경: " + count + "개");
+                loadNotifications();
+                updateUI();
+            });
+        };
+        NotificationManager.getInstance().addListener(unreadListener);
+    }
+
     private void loadNotifications() {
         NotificationManager manager = NotificationManager.getInstance();
+        todayNotifications.clear();
+        recentNotifications.clear();
         todayNotifications.addAll(manager.getTodayNotifications());
         recentNotifications.addAll(manager.getRecentNotifications());
+
+        if (todayAdapter != null) {
+            todayAdapter.notifyDataSetChanged();
+        }
+        if (recentAdapter != null) {
+            recentAdapter.notifyDataSetChanged();
+        }
+
+        Log.d(TAG, "✅ 알림 로드: 오늘 " + todayNotifications.size() +
+                "개, 최근 " + recentNotifications.size() + "개");
     }
 
     private void updateUI() {
@@ -118,6 +190,9 @@ public class NotificationActivity extends AppCompatActivity {
     }
 
     private void handleNotificationClick(NotificationDTO notification) {
+        // ✅ Firestore에 읽음 상태 업데이트
+        NotificationManager.getInstance().markAsRead(notification.getId());
+
         notification.setRead(true);
         todayAdapter.notifyDataSetChanged();
         recentAdapter.notifyDataSetChanged();
@@ -168,7 +243,7 @@ public class NotificationActivity extends AppCompatActivity {
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "팔로우 상태 확인 실패", e);
+                    Log.e(TAG, "❌ 팔로우 상태 확인 실패", e);
                     Toast.makeText(this, "오류가 발생했습니다", Toast.LENGTH_SHORT).show();
                 });
     }
@@ -197,16 +272,21 @@ public class NotificationActivity extends AppCompatActivity {
                                 Toast.makeText(this, notification.getUserName() + " 님을 팔로우했습니다", Toast.LENGTH_SHORT).show();
 
                                 // ✅ 알림 읽음 처리
+                                NotificationManager.getInstance().markAsRead(notification.getId());
                                 notification.setRead(true);
+
+                                // ✅ 어댑터 업데이트 (버튼 상태 갱신)
                                 todayAdapter.notifyDataSetChanged();
                                 recentAdapter.notifyDataSetChanged();
+
+                                Log.d(TAG, "✅ 팔로우 성공: " + targetUserId);
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "상대방 팔로워 추가 실패", e);
+                                Log.e(TAG, "❌ 상대방 팔로워 추가 실패", e);
                             });
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "팔로우 실패", e);
+                    Log.e(TAG, "❌ 팔로우 실패", e);
                     Toast.makeText(this, "팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
                 });
     }
@@ -232,16 +312,21 @@ public class NotificationActivity extends AppCompatActivity {
                                 Toast.makeText(this, notification.getUserName() + " 님을 언팔로우했습니다", Toast.LENGTH_SHORT).show();
 
                                 // ✅ 알림 읽음 처리
+                                NotificationManager.getInstance().markAsRead(notification.getId());
                                 notification.setRead(true);
+
+                                // ✅ 어댑터 업데이트 (버튼 상태 갱신)
                                 todayAdapter.notifyDataSetChanged();
                                 recentAdapter.notifyDataSetChanged();
+
+                                Log.d(TAG, "✅ 언팔로우 성공: " + targetUserId);
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "상대방 follower 삭제 실패", e);
+                                Log.e(TAG, "❌ 상대방 follower 삭제 실패", e);
                             });
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "언팔로우 실패", e);
+                    Log.e(TAG, "❌ 언팔로우 실패", e);
                     Toast.makeText(this, "언팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
                 });
     }
@@ -255,5 +340,14 @@ public class NotificationActivity extends AppCompatActivity {
             if (!notif.isRead()) count++;
         }
         return count;
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // ✅ 리스너 해제
+        if (unreadListener != null) {
+            NotificationManager.getInstance().removeListener(unreadListener);
+        }
     }
 }

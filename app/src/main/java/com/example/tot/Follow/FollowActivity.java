@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.tot.Notification.NotificationManager;
 import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -406,7 +407,7 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
     }
 
     /**
-     * ✅ 팔로우 실행 (양방향 처리)
+     * ✅ 팔로우 실행 (양방향 처리 + 알림 전송)
      */
     private void performFollow(FollowUserDTO user, int position) {
         if (targetUserId == null) return;
@@ -435,6 +436,9 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                                     allFollowing.add(user);
                                 }
 
+                                // ✅ 3. 팔로우 알림 전송
+                                sendFollowNotification(user.getUserId());
+
                                 Toast.makeText(this, user.getUserName() + " 팔로우", Toast.LENGTH_SHORT).show();
                                 updateFollowCounts();
                                 adapter.notifyItemChanged(position);
@@ -446,6 +450,33 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "팔로우 실패", e);
                     Toast.makeText(this, "팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * ✅ 팔로우 알림 전송
+     */
+    private void sendFollowNotification(String recipientId) {
+        // 내 프로필 정보 가져오기
+        db.collection("user")
+                .document(targetUserId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        String myNickname = doc.getString("nickname");
+                        if (myNickname == null || myNickname.isEmpty()) {
+                            myNickname = "사용자";
+                        }
+
+                        // NotificationManager를 통해 알림 전송
+                        NotificationManager.getInstance()
+                                .addFollowNotification(recipientId, myNickname, targetUserId);
+
+                        Log.d(TAG, "✅ 팔로우 알림 전송: " + myNickname + " → " + recipientId);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "내 프로필 정보 로드 실패", e);
                 });
     }
 

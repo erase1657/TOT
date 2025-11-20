@@ -70,7 +70,7 @@
                 android:id="@+id/tv_follower_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="5 팔로워"
+                android:text="  팔로워"
                 android:textColor="#FF000000"
                 android:textSize="16sp"
                 android:textStyle="bold" />
@@ -100,7 +100,7 @@
                 android:id="@+id/tv_following_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="4 팔로잉"
+                android:text="  팔로잉"
                 android:textColor="#FF999999"
                 android:textSize="16sp" />
 
