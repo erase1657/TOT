@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.example.tot.Authentication.LoginActivity;
 import com.example.tot.Authentication.UserDTO;
+import com.example.tot.Follow.FollowActionHelper;
 import com.example.tot.Follow.FollowActivity;
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleDTO;
@@ -48,11 +49,10 @@ public class MyPageFragment extends Fragment {
     private ImageView btnLogout;
     private ImageView btnBack;
     private ImageView btnEdit;
-    private ImageView btnFollowIcon;
+    private TextView btnFollowButton;
     private TextView tvName;
     private TextView tvStatusMessage;
     private TextView tvLocation;
-    private TextView tvFollowStatus;
     private TextView tvFollowersCount;
     private TextView tvFollowingCount;
     private TextView tvPostsCount;
@@ -147,11 +147,10 @@ public class MyPageFragment extends Fragment {
         btnLogout = view.findViewById(R.id.btn_logout);
         btnBack = view.findViewById(R.id.btn_back);
         btnEdit = view.findViewById(R.id.btn_edit);
-        btnFollowIcon = view.findViewById(R.id.btn_follow_icon);
+        btnFollowButton = view.findViewById(R.id.btn_follow_dynamic);
         tvName = view.findViewById(R.id.tv_name);
         tvStatusMessage = view.findViewById(R.id.tv_status_message);
         tvLocation = view.findViewById(R.id.tv_location);
-        tvFollowStatus = view.findViewById(R.id.tv_follow_status);
         tvFollowersCount = view.findViewById(R.id.tv_followers_count);
         tvFollowingCount = view.findViewById(R.id.tv_following_count);
         tvPostsCount = view.findViewById(R.id.tv_posts_count);
@@ -185,8 +184,7 @@ public class MyPageFragment extends Fragment {
             btnLogout.setVisibility(View.VISIBLE);
             btnBack.setVisibility(View.GONE);
             btnEdit.setVisibility(View.VISIBLE);
-            btnFollowIcon.setVisibility(View.GONE);
-            tvFollowStatus.setVisibility(View.GONE);
+            btnFollowButton.setVisibility(View.GONE);
             tvTravelTitle.setText("나의 여행 기록");
 
             followerSection.setEnabled(true);
@@ -195,8 +193,7 @@ public class MyPageFragment extends Fragment {
             btnLogout.setVisibility(View.GONE);
             btnBack.setVisibility(View.VISIBLE);
             btnEdit.setVisibility(View.GONE);
-            btnFollowIcon.setVisibility(View.VISIBLE);
-            tvFollowStatus.setVisibility(View.VISIBLE);
+            btnFollowButton.setVisibility(View.VISIBLE);
             tvTravelTitle.setText("여행 기록");
 
             followerSection.setEnabled(false);
@@ -363,24 +360,23 @@ public class MyPageFragment extends Fragment {
 
     private void updateFollowUI() {
         if (!isMyProfile) {
+            btnFollowButton.setVisibility(View.VISIBLE);
             if (isFollowing && isFollower) {
-                tvFollowStatus.setText("맞팔로우 ✓");
-                tvFollowStatus.setBackgroundResource(R.drawable.button_style2);
-                tvFollowStatus.setTextColor(0xFF6366F1);
-                btnFollowIcon.setColorFilter(0xFF6366F1);
+                btnFollowButton.setText("맞팔로우");
+                btnFollowButton.setBackgroundResource(R.drawable.button_style2);
+                btnFollowButton.setTextColor(0xFF6366F1);
             } else if (isFollowing) {
-                tvFollowStatus.setText("팔로우 중");
-                tvFollowStatus.setBackgroundResource(R.drawable.button_style2);
-                tvFollowStatus.setTextColor(0xFF6366F1);
-                btnFollowIcon.setColorFilter(0xFF6366F1);
+                btnFollowButton.setText("팔로우 중");
+                btnFollowButton.setBackgroundResource(R.drawable.button_style2);
+                btnFollowButton.setTextColor(0xFF6366F1);
             } else if (isFollower) {
-                tvFollowStatus.setText("맞 팔로우");
-                tvFollowStatus.setBackgroundResource(R.drawable.button_style1);
-                tvFollowStatus.setTextColor(0xFFFFFFFF);
-                btnFollowIcon.setColorFilter(0xFF575DFB);
+                btnFollowButton.setText("맞 팔로우");
+                btnFollowButton.setBackgroundResource(R.drawable.button_style1);
+                btnFollowButton.setTextColor(0xFFFFFFFF);
             } else {
-                tvFollowStatus.setVisibility(View.GONE);
-                btnFollowIcon.setColorFilter(0xFF575DFB);
+                btnFollowButton.setText("팔로우");
+                btnFollowButton.setBackgroundResource(R.drawable.button_style1);
+                btnFollowButton.setTextColor(0xFFFFFFFF);
             }
         }
     }
@@ -434,8 +430,7 @@ public class MyPageFragment extends Fragment {
             }
         });
 
-        btnFollowIcon.setOnClickListener(v -> toggleFollow());
-        tvFollowStatus.setOnClickListener(v -> toggleFollow());
+        btnFollowButton.setOnClickListener(v -> toggleFollow());
 
         imgProfile.setOnClickListener(v -> {
             if (isMyProfile) {
@@ -523,6 +518,7 @@ public class MyPageFragment extends Fragment {
 
                                 String message = isFollower ? "맞팔로우했습니다" : "팔로우했습니다";
                                 Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+                                FollowActionHelper.sendFollowNotification(targetUserId, myUid);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "❌ 상대방 follower 추가 실패", e);

@@ -93,13 +93,18 @@
                 android:visibility="visible" />
 
             <!-- 팔로우 버튼 (타인 프로필 볼 때만 표시) -->
-            <ImageView
-                android:id="@+id/btn_follow_icon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+            <TextView
+                android:id="@+id/btn_follow_dynamic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:src="@drawable/ic_user_add"
-                android:contentDescription="팔로우"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="6dp"
+                android:background="@drawable/button_style1"
+                android:text="팔로우"
+                android:textColor="#FFFFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
                 android:visibility="gone" />
         </LinearLayout>
 
@@ -139,21 +144,7 @@
                 android:textColor="#000000" />
         </LinearLayout>
 
-        <!-- 팔로우 상태 텍스트 (타인 프로필 볼 때만 표시) -->
-        <TextView
-            android:id="@+id/tv_follow_status"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="6dp"
-            android:background="@drawable/button_style2"
-            android:text="팔로우 중"
-            android:textColor="#6366F1"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:visibility="gone" />
+        <!-- 팔로우 상태 텍스트 제거 (동적 버튼으로 통합) -->
 
         <!-- 팔로워 / 팔로잉 / 게시물 -->
         <LinearLayout

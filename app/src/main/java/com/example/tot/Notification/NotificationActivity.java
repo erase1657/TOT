@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.example.tot.Follow.FollowActionHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
@@ -299,6 +300,7 @@ public class NotificationActivity extends AppCompatActivity {
                                 recentAdapter.notifyDataSetChanged();
 
                                 Log.d(TAG, "✅ 팔로우 성공: " + targetUserId);
+                                FollowActionHelper.sendFollowNotification(targetUserId, myUid);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "❌ 상대방 팔로워 추가 실패", e);

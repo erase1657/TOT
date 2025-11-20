@@ -445,7 +445,7 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                                 // 🔥 3. 팔로우 알림 전송 (수정됨!)
                                 // recipientId = 상대방 (알림 받을 사람)
                                 // senderId = 실제 로그인한 나
-                                sendFollowNotification(targetUserToFollow, myActualUserId);
+                                FollowActionHelper.sendFollowNotification(targetUserToFollow, myActualUserId);
 
                                 Toast.makeText(this, user.getUserName() + " 팔로우", Toast.LENGTH_SHORT).show();
                                 updateFollowCounts();
@@ -463,41 +463,6 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                 });
     }
 
-    /**
-     * 🔥 수정: 팔로우 알림 전송
-     * @param recipientUserId 팔로우를 받는 사람 (상대방) - 알림을 받을 사람
-     * @param senderUserId 팔로우를 하는 사람 (실제 로그인한 나) - 알림을 보낸 사람
-     */
-    private void sendFollowNotification(String recipientUserId, String senderUserId) {
-        // 🔥 실제 로그인한 내 프로필 정보 가져오기
-        db.collection("user")
-                .document(senderUserId)
-                .get()
-                .addOnSuccessListener(doc -> {
-                    if (doc.exists()) {
-                        String myNickname = doc.getString("nickname");
-                        if (myNickname == null || myNickname.isEmpty()) {
-                            myNickname = "사용자";
-                        }
-
-                        // 🔥 수정: recipientId = 팔로우를 받는 사람 (상대방)
-                        //          senderId = 실제 로그인한 나
-                        NotificationManager.getInstance()
-                                .addFollowNotification(
-                                        recipientUserId,  // 🔥 상대방 ID (알림을 받을 사람)
-                                        myNickname,       // 내 닉네임
-                                        senderUserId      // 🔥 실제 내 ID (알림을 보낸 사람)
-                                );
-
-                        Log.d(TAG, "✅ 팔로우 알림 전송 성공");
-                        Log.d(TAG, "   - 받는 사람(recipientId): " + recipientUserId);
-                        Log.d(TAG, "   - 보낸 사람(senderId): " + senderUserId + " (" + myNickname + ")");
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ 내 프로필 정보 로드 실패", e);
-                });
-    }
 
     /**
      * ✅ 언팔로우 실행 (양방향 처리)
