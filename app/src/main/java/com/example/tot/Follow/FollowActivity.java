@@ -407,30 +407,32 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
     }
 
     /**
-     * ✅ 팔로우 실행 (양방향 처리 + 알림 전송)
-     * 🔥 핵심 수정: 실제 로그인한 사용자 ID 사용
+     * 🔥 수정: 팔로우 실행 (양방향 처리 + 알림 전송)
+     * - 실제 로그인한 사용자(myActualUserId)가 상대방(user.getUserId())을 팔로우
+     * - 알림은 상대방에게 전송
      */
     private void performFollow(FollowUserDTO user, int position) {
         if (targetUserId == null || mAuth.getCurrentUser() == null) return;
 
         // 🔥 실제 로그인한 사용자 ID
         String myActualUserId = mAuth.getCurrentUser().getUid();
+        String targetUserToFollow = user.getUserId(); // 팔로우할 대상
 
         Map<String, Object> followData = new HashMap<>();
         followData.put("followedAt", System.currentTimeMillis());
 
-        // ✅ 1. 내 following에 추가
+        // ✅ 1. 내 following에 추가 (실제 로그인한 사용자)
         db.collection("user")
-                .document(targetUserId)
+                .document(myActualUserId)
                 .collection("following")
-                .document(user.getUserId())
+                .document(targetUserToFollow)
                 .set(followData)
                 .addOnSuccessListener(aVoid -> {
                     // ✅ 2. 상대방 follower에 추가
                     db.collection("user")
-                            .document(user.getUserId())
+                            .document(targetUserToFollow)
                             .collection("follower")
-                            .document(targetUserId)
+                            .document(myActualUserId)
                             .set(followData)
                             .addOnSuccessListener(aVoid2 -> {
                                 user.setFollowing(true);
@@ -441,13 +443,15 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                                 }
 
                                 // 🔥 3. 팔로우 알림 전송 (수정됨!)
-                                sendFollowNotification(user.getUserId(), myActualUserId);
+                                // recipientId = 상대방 (알림 받을 사람)
+                                // senderId = 실제 로그인한 나
+                                sendFollowNotification(targetUserToFollow, myActualUserId);
 
                                 Toast.makeText(this, user.getUserName() + " 팔로우", Toast.LENGTH_SHORT).show();
                                 updateFollowCounts();
                                 adapter.notifyItemChanged(position);
 
-                                Log.d(TAG, "✅ 팔로우 성공: " + targetUserId + " → " + user.getUserId());
+                                Log.d(TAG, "✅ 팔로우 성공: " + myActualUserId + " → " + targetUserToFollow);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "❌ 상대방 follower 추가 실패", e);
@@ -460,9 +464,9 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
     }
 
     /**
-     * 🔥 핵심 수정: 팔로우 알림 전송
-     * @param recipientUserId 팔로우를 받는 사람 (상대방)
-     * @param senderUserId 팔로우를 하는 사람 (실제 로그인한 나)
+     * 🔥 수정: 팔로우 알림 전송
+     * @param recipientUserId 팔로우를 받는 사람 (상대방) - 알림을 받을 사람
+     * @param senderUserId 팔로우를 하는 사람 (실제 로그인한 나) - 알림을 보낸 사람
      */
     private void sendFollowNotification(String recipientUserId, String senderUserId) {
         // 🔥 실제 로그인한 내 프로필 정보 가져오기
@@ -480,14 +484,14 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                         //          senderId = 실제 로그인한 나
                         NotificationManager.getInstance()
                                 .addFollowNotification(
-                                        recipientUserId,  // 상대방 ID (알림을 받을 사람)
+                                        recipientUserId,  // 🔥 상대방 ID (알림을 받을 사람)
                                         myNickname,       // 내 닉네임
                                         senderUserId      // 🔥 실제 내 ID (알림을 보낸 사람)
                                 );
 
                         Log.d(TAG, "✅ 팔로우 알림 전송 성공");
-                        Log.d(TAG, "   - 받는 사람: " + recipientUserId);
-                        Log.d(TAG, "   - 보낸 사람: " + senderUserId + " (" + myNickname + ")");
+                        Log.d(TAG, "   - 받는 사람(recipientId): " + recipientUserId);
+                        Log.d(TAG, "   - 보낸 사람(senderId): " + senderUserId + " (" + myNickname + ")");
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -503,20 +507,23 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                 .setTitle("언팔로우")
                 .setMessage("정말 언팔로우하시겠습니까?")
                 .setPositiveButton("예", (dialog, which) -> {
-                    if (targetUserId == null) return;
+                    if (mAuth.getCurrentUser() == null) return;
+
+                    String myActualUserId = mAuth.getCurrentUser().getUid();
+                    String targetUserToUnfollow = user.getUserId();
 
                     // ✅ 1. 내 following에서 삭제
                     db.collection("user")
-                            .document(targetUserId)
+                            .document(myActualUserId)
                             .collection("following")
-                            .document(user.getUserId())
+                            .document(targetUserToUnfollow)
                             .delete()
                             .addOnSuccessListener(aVoid -> {
                                 // ✅ 2. 상대방 follower에서 삭제
                                 db.collection("user")
-                                        .document(user.getUserId())
+                                        .document(targetUserToUnfollow)
                                         .collection("follower")
-                                        .document(targetUserId)
+                                        .document(myActualUserId)
                                         .delete()
                                         .addOnSuccessListener(aVoid2 -> {
                                             user.setFollowing(false);

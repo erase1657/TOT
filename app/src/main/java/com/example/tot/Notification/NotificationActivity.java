@@ -1,5 +1,6 @@
 package com.example.tot.Notification;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -12,6 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -189,6 +191,9 @@ public class NotificationActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 🔥 수정: 알림 클릭 시 프로필로 실제 이동
+     */
     private void handleNotificationClick(NotificationDTO notification) {
         // ✅ Firestore에 읽음 상태 업데이트
         NotificationManager.getInstance().markAsRead(notification.getId());
@@ -200,12 +205,26 @@ public class NotificationActivity extends AppCompatActivity {
         switch (notification.getType()) {
             case SCHEDULE_INVITE:
                 Toast.makeText(this, "일정 상세 화면으로 이동", Toast.LENGTH_SHORT).show();
+                // TODO: 일정 상세 화면으로 이동하는 코드 추가
                 break;
+
             case FOLLOW:
-                Toast.makeText(this, notification.getUserName() + " 님의 프로필로 이동", Toast.LENGTH_SHORT).show();
+                // 🔥 수정: 실제 프로필 화면으로 이동
+                String userId = notification.getUserId();
+                if (userId != null && !userId.isEmpty()) {
+                    Intent intent = new Intent(this, UserProfileActivity.class);
+                    intent.putExtra("userId", userId);
+                    startActivity(intent);
+                    Log.d(TAG, "✅ 프로필 화면으로 이동: " + userId);
+                } else {
+                    Toast.makeText(this, "사용자 정보를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                    Log.w(TAG, "⚠️ userId가 null입니다");
+                }
                 break;
+
             case COMMENT:
                 Toast.makeText(this, "게시물 상세 화면으로 이동", Toast.LENGTH_SHORT).show();
+                // TODO: 게시물 상세 화면으로 이동하는 코드 추가
                 break;
         }
     }
