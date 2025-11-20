@@ -408,9 +408,13 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
 
     /**
      * ✅ 팔로우 실행 (양방향 처리 + 알림 전송)
+     * 🔥 핵심 수정: 실제 로그인한 사용자 ID 사용
      */
     private void performFollow(FollowUserDTO user, int position) {
-        if (targetUserId == null) return;
+        if (targetUserId == null || mAuth.getCurrentUser() == null) return;
+
+        // 🔥 실제 로그인한 사용자 ID
+        String myActualUserId = mAuth.getCurrentUser().getUid();
 
         Map<String, Object> followData = new HashMap<>();
         followData.put("followedAt", System.currentTimeMillis());
@@ -436,30 +440,34 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                                     allFollowing.add(user);
                                 }
 
-                                // ✅ 3. 팔로우 알림 전송
-                                sendFollowNotification(user.getUserId());
+                                // 🔥 3. 팔로우 알림 전송 (수정됨!)
+                                sendFollowNotification(user.getUserId(), myActualUserId);
 
                                 Toast.makeText(this, user.getUserName() + " 팔로우", Toast.LENGTH_SHORT).show();
                                 updateFollowCounts();
                                 adapter.notifyItemChanged(position);
+
+                                Log.d(TAG, "✅ 팔로우 성공: " + targetUserId + " → " + user.getUserId());
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "상대방 follower 추가 실패", e);
+                                Log.e(TAG, "❌ 상대방 follower 추가 실패", e);
                             });
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "팔로우 실패", e);
+                    Log.e(TAG, "❌ 팔로우 실패", e);
                     Toast.makeText(this, "팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
                 });
     }
 
     /**
-     * ✅ 팔로우 알림 전송
+     * 🔥 핵심 수정: 팔로우 알림 전송
+     * @param recipientUserId 팔로우를 받는 사람 (상대방)
+     * @param senderUserId 팔로우를 하는 사람 (실제 로그인한 나)
      */
-    private void sendFollowNotification(String recipientId) {
-        // 내 프로필 정보 가져오기
+    private void sendFollowNotification(String recipientUserId, String senderUserId) {
+        // 🔥 실제 로그인한 내 프로필 정보 가져오기
         db.collection("user")
-                .document(targetUserId)
+                .document(senderUserId)
                 .get()
                 .addOnSuccessListener(doc -> {
                     if (doc.exists()) {
@@ -468,15 +476,22 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                             myNickname = "사용자";
                         }
 
-                        // NotificationManager를 통해 알림 전송
+                        // 🔥 수정: recipientId = 팔로우를 받는 사람 (상대방)
+                        //          senderId = 실제 로그인한 나
                         NotificationManager.getInstance()
-                                .addFollowNotification(recipientId, myNickname, targetUserId);
+                                .addFollowNotification(
+                                        recipientUserId,  // 상대방 ID (알림을 받을 사람)
+                                        myNickname,       // 내 닉네임
+                                        senderUserId      // 🔥 실제 내 ID (알림을 보낸 사람)
+                                );
 
-                        Log.d(TAG, "✅ 팔로우 알림 전송: " + myNickname + " → " + recipientId);
+                        Log.d(TAG, "✅ 팔로우 알림 전송 성공");
+                        Log.d(TAG, "   - 받는 사람: " + recipientUserId);
+                        Log.d(TAG, "   - 보낸 사람: " + senderUserId + " (" + myNickname + ")");
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "내 프로필 정보 로드 실패", e);
+                    Log.e(TAG, "❌ 내 프로필 정보 로드 실패", e);
                 });
     }
 
@@ -510,13 +525,15 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                                             Toast.makeText(this, user.getUserName() + " 팔로우 취소", Toast.LENGTH_SHORT).show();
                                             updateFollowCounts();
                                             adapter.notifyItemChanged(position);
+
+                                            Log.d(TAG, "✅ 언팔로우 성공: " + user.getUserId());
                                         })
                                         .addOnFailureListener(e -> {
-                                            Log.e(TAG, "상대방 follower 삭제 실패", e);
+                                            Log.e(TAG, "❌ 상대방 follower 삭제 실패", e);
                                         });
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "언팔로우 실패", e);
+                                Log.e(TAG, "❌ 언팔로우 실패", e);
                                 Toast.makeText(this, "언팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
                             });
                 })
@@ -550,13 +567,15 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                                             Toast.makeText(this, user.getUserName() + " 팔로워 삭제됨", Toast.LENGTH_SHORT).show();
                                             updateFollowCounts();
                                             applyFilter();
+
+                                            Log.d(TAG, "✅ 팔로워 삭제 성공: " + user.getUserId());
                                         })
                                         .addOnFailureListener(e -> {
-                                            Log.e(TAG, "상대방 following 삭제 실패", e);
+                                            Log.e(TAG, "❌ 상대방 following 삭제 실패", e);
                                         });
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "팔로워 삭제 실패", e);
+                                Log.e(TAG, "❌ 팔로워 삭제 실패", e);
                                 Toast.makeText(this, "팔로워 삭제 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
                             });
                 })
@@ -580,9 +599,11 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                     user.setNickname(newNickname);
                     Toast.makeText(this, "별명이 저장되었습니다", Toast.LENGTH_SHORT).show();
                     adapter.notifyItemChanged(position);
+
+                    Log.d(TAG, "✅ 별명 저장 성공: " + newNickname);
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "별명 저장 실패", e);
+                    Log.e(TAG, "❌ 별명 저장 실패", e);
                     Toast.makeText(this, "별명 저장 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
                 });
     }
