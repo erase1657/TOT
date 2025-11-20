@@ -7,6 +7,7 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.Toast;
@@ -57,7 +58,8 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     // ✅ 각 날짜별 문서 ID 캐시 (겹침 검사에서 자기 자신 제외용)
     private final Map<String, List<String>> localCacheDocIds = new HashMap<>();
 
-    private Button btn_AddSchedule, btn_Menu, btn_Invite;
+    private Button btn_Menu, btn_Invite;
+    private ImageButton btn_AddSchedule;
     private ListenerRegistration currentListener; // 실시간 리스너
     private ActivityResultLauncher<Intent> mapActivityLauncher;
     @Override
@@ -119,7 +121,11 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                             showAllPlacesOnMap();
                             return true;
                         } else if (id == R.id.menu_album) {
-                            Toast.makeText(ScheduleSettingActivity.this, "앨범 클릭됨", Toast.LENGTH_SHORT).show();
+                            Intent intent = new Intent(ScheduleSettingActivity.this, ScheduleAlbumActivity.class);
+                            intent.putExtra("scheduleId", scheduleId);
+                            intent.putExtra("userUid", userUid);
+                            intent.putStringArrayListExtra("dateList", new ArrayList<>(dateList));
+                            startActivity(intent);
                             return true;
                         } else if (id == R.id.menu_delete) {
                             Toast.makeText(ScheduleSettingActivity.this, "스케줄 삭제 클릭됨", Toast.LENGTH_SHORT).show();

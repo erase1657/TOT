@@ -1,36 +1,45 @@
 package com.example.tot.Album;
 
-import com.google.firebase.firestore.DocumentReference;
-
 public class AlbumDTO {
-    private String imageURI;
+
+    private String photoId;
+    private String imageUrl;
     private String comment;
     private int index;
-    AlbumDTO() {};
-    public AlbumDTO(String imageURI, String comment, int index) {
-        this.imageURI = imageURI;
+    private String dateKey;
+
+    public AlbumDTO() {}
+
+    public AlbumDTO(String photoId, String imageUrl, String comment, int index, String dateKey) {
+        this.photoId = photoId;
+        this.imageUrl = imageUrl;
         this.comment = comment;
         this.index = index;
+        this.dateKey = dateKey;
     }
 
-    public String getImageURI() {
-        return imageURI;
+    public String getPhotoId() {
+        return photoId;
     }
 
-    public void setImageURI(String imageURI) {
-        this.imageURI = imageURI;
+    public String getImageUrl() {
+        return imageUrl;
     }
 
     public String getComment() {
         return comment;
     }
 
-    public void setComment(String comment) {
-        this.comment = comment;
-    }
-
     public int getIndex() {
         return index;
+    }
+
+    public String getDateKey() {
+        return dateKey;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
     }
 
     public void setIndex(int index) {

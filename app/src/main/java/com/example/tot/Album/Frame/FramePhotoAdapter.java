@@ -48,7 +48,7 @@ public class FramePhotoAdapter extends RecyclerView.Adapter<FramePhotoAdapter.Vi
         // 이미지 로드
         AlbumDTO dto = photos.get(pos);
         Glide.with(h.itemView.getContext())
-                .load(dto.getImageURI())
+                .load(dto.getImageUrl())
                 .centerCrop()
                 .into(h.imgPhoto);
     }

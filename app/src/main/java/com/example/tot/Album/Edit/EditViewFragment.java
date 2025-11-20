@@ -1,9 +1,8 @@
 package com.example.tot.Album.Edit;
 
-
-
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,20 +29,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class EditViewFragment extends Fragment implements EditSectionAdapter.AddPhotoListener {
+public class EditViewFragment extends Fragment implements
+        EditSectionAdapter.AddPhotoListener,
+        EditSectionAdapter.CommentEditListener {
 
     private RecyclerView rvEditSections;
     private ArrayList<String> dateList;
     private String scheduleId, userUid;
 
-    private Map<String, List<AlbumDTO>> photoMap = new HashMap<>();
+    private final Map<String, List<AlbumDTO>> photoMap = new HashMap<>();
     private String currentDateForPhoto;
 
     private EditSectionAdapter adapter;
     private ActivityResultLauncher<String> galleryLauncher;
 
     private FirebaseFirestore db;
-    private FirebaseStorage storage;
     private StorageReference storageRef;
 
     @Override
@@ -51,8 +51,7 @@ public class EditViewFragment extends Fragment implements EditSectionAdapter.Add
         super.onCreate(savedInstanceState);
 
         db = FirebaseFirestore.getInstance();
-        storage = FirebaseStorage.getInstance();
-        storageRef = storage.getReference();
+        storageRef = FirebaseStorage.getInstance().getReference();
 
         if (getArguments() != null) {
             dateList = getArguments().getStringArrayList("dateList");
@@ -60,14 +59,11 @@ public class EditViewFragment extends Fragment implements EditSectionAdapter.Add
             userUid = getArguments().getString("userUid");
         }
 
-        // 여러 장 선택 가능
         galleryLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetMultipleContents(),
                 uris -> {
                     if (uris != null && !uris.isEmpty() && currentDateForPhoto != null) {
-                        for (Uri uri : uris) {
-                            uploadPhotoToStorage(uri, currentDateForPhoto);
-                        }
+                        for (Uri uri : uris) uploadPhotoToStorage(uri, currentDateForPhoto);
                     }
                 }
         );
@@ -88,40 +84,56 @@ public class EditViewFragment extends Fragment implements EditSectionAdapter.Add
 
         rvEditSections = v.findViewById(R.id.rv_edit_sections);
 
-        adapter = new EditSectionAdapter(dateList, photoMap, getContext(), this);
+        adapter = new EditSectionAdapter(
+                dateList,
+                photoMap,
+                getContext(),
+                this,
+                userUid,
+                scheduleId
+        );
+        adapter.setCommentEditListener(this);
+
         rvEditSections.setLayoutManager(new LinearLayoutManager(getContext()));
         rvEditSections.setAdapter(adapter);
 
+        adapter.setDeleteListener((dto, onSuccess, onFail) -> {
+            db.collection("user")
+                    .document(userUid)
+                    .collection("schedule")
+                    .document(scheduleId)
+                    .collection("scheduleDate")
+                    .document(dto.getDateKey())
+                    .collection("album")
+                    .document(dto.getPhotoId())
+                    .delete()
+                    .addOnSuccessListener(unused -> onSuccess.run())
+                    .addOnFailureListener(e -> {
+                        Log.e("FirestoreDelete", "삭제 실패: " + e.getMessage());
+                        onFail.run();
+                    });
+        });
+
         initPhotoLists();
+        loadPhotosFromFirestore();
     }
 
-    // 날짜별 리스트 초기화
     private void initPhotoLists() {
-        for (String date : dateList) {
-            photoMap.put(date, new ArrayList<>());
-        }
+        for (String date : dateList) photoMap.put(date, new ArrayList<>());
     }
 
-    // -------------------- 🔥 Storage 업로드 + Firestore 저장 --------------------
     private void uploadPhotoToStorage(Uri uri, String dateKey) {
 
         String fileName = System.currentTimeMillis() + ".jpg";
-        StorageReference fileRef =
-                storageRef.child("album")
-                        .child(userUid)
-                        .child(scheduleId)
-                        .child(dateKey)
-                        .child(fileName);
 
-        fileRef.putFile(uri)
-                .addOnSuccessListener(task ->
-                        fileRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
-                            savePhotoToFirestore(dateKey, downloadUri.toString());
-                        })
-                )
-                .addOnFailureListener(e ->
-                        Toast.makeText(getContext(), "업로드 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show()
-                );
+        StorageReference fileRef =
+                storageRef.child("album").child(userUid).child(scheduleId).child(dateKey).child(fileName);
+
+        fileRef.putFile(uri).addOnSuccessListener(task ->
+                fileRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
+                    savePhotoToFirestore(dateKey, downloadUri.toString());
+                })
+        );
     }
 
     private void savePhotoToFirestore(String dateKey, String downloadUrl) {
@@ -130,10 +142,12 @@ public class EditViewFragment extends Fragment implements EditSectionAdapter.Add
                 .document(userUid)
                 .collection("schedule")
                 .document(scheduleId)
-                .collection("album")
+                .collection("scheduleDate")
                 .document(dateKey)
-                .collection("photos")
+                .collection("album")
                 .document();
+
+        String photoId = doc.getId();
 
         Map<String, Object> data = new HashMap<>();
         data.put("imageUrl", downloadUrl);
@@ -141,19 +155,78 @@ public class EditViewFragment extends Fragment implements EditSectionAdapter.Add
         data.put("index", photoMap.get(dateKey).size());
         data.put("createdAt", Timestamp.now());
 
-        doc.set(data)
-                .addOnSuccessListener(unused -> {
-                    photoMap.get(dateKey).add(new AlbumDTO(downloadUrl, "", photoMap.get(dateKey).size()));
-                    adapter.notifyDataSetChanged();
-                })
-                .addOnFailureListener(e ->
-                        Toast.makeText(getContext(), "저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show()
-                );
+        doc.set(data).addOnSuccessListener(a -> {
+            photoMap.get(dateKey).add(
+                    new AlbumDTO(photoId, downloadUrl, "", photoMap.get(dateKey).size(), dateKey)
+            );
+
+            int idx = dateList.indexOf(dateKey);
+            adapter.notifyItemChanged(idx);
+        });
+    }
+
+    private void loadPhotosFromFirestore() {
+
+        for (String dateKey : dateList) {
+            db.collection("user")
+                    .document(userUid)
+                    .collection("schedule")
+                    .document(scheduleId)
+                    .collection("scheduleDate")
+                    .document(dateKey)
+                    .collection("album")
+                    .orderBy("index")
+                    .get()
+                    .addOnSuccessListener(snap -> {
+                        List<AlbumDTO> list = new ArrayList<>();
+                        snap.forEach(doc -> list.add(
+                                new AlbumDTO(
+                                        doc.getId(),
+                                        doc.getString("imageUrl"),
+                                        doc.getString("comment"),
+                                        doc.getLong("index").intValue(),
+                                        dateKey
+                                )
+                        ));
+
+                        photoMap.put(dateKey, list);
+
+                        int idx = dateList.indexOf(dateKey);
+                        adapter.notifyItemChanged(idx);
+                    });
+        }
     }
 
     @Override
     public void onAddPhoto(String date) {
         currentDateForPhoto = date;
         galleryLauncher.launch("image/*");
+    }
+
+    @Override
+    public void onEditComment(String dateKey, AlbumDTO dto, int position) {
+        EditCommentDialog dialog = new EditCommentDialog(
+                requireContext(),
+                dto.getComment(),
+                newComment -> {
+
+                    dto.setComment(newComment);
+
+                    int idx = dateList.indexOf(dateKey);
+                    adapter.notifyItemChanged(idx);
+
+                    db.collection("user")
+                            .document(userUid)
+                            .collection("schedule")
+                            .document(scheduleId)
+                            .collection("scheduleDate")
+                            .document(dateKey)
+                            .collection("album")
+                            .document(dto.getPhotoId())
+                            .update("comment", newComment);
+                }
+        );
+
+        dialog.show();
     }
 }

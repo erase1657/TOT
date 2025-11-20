@@ -28,11 +28,9 @@ public class FrameViewFragment extends Fragment {
     private ArrayList<String> dateList;
     private String scheduleId, userUid;
 
-    // Firestore에서 읽어올 날짜별 사진
     private Map<String, List<AlbumDTO>> photoMap = new HashMap<>();
 
     private FrameSectionAdapter adapter;
-
     private FirebaseFirestore db;
 
     @Override
@@ -47,18 +45,22 @@ public class FrameViewFragment extends Fragment {
             userUid = getArguments().getString("userUid");
         }
 
-        // 날짜별 Map 초기화
         for (String date : dateList) {
             photoMap.put(date, new ArrayList<>());
         }
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        loadPhotosFromFirestore();
+    }
+
     @Nullable
     @Override
-    public View onCreateView(
-            @NonNull LayoutInflater inflater,
-            @Nullable ViewGroup container,
-            @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
 
         return inflater.inflate(R.layout.fragment_album_frame_view, container, false);
     }
@@ -75,7 +77,7 @@ public class FrameViewFragment extends Fragment {
         loadPhotosFromFirestore();
     }
 
-    // -------------------- 🔥 날짜별 Firestore에서 사진 로드 --------------------
+    // -------------------- 🔥 날짜별 Firestore 사진 로드 --------------------
     private void loadPhotosFromFirestore() {
 
         for (String dateKey : dateList) {
@@ -84,9 +86,9 @@ public class FrameViewFragment extends Fragment {
                     .document(userUid)
                     .collection("schedule")
                     .document(scheduleId)
-                    .collection("album")
+                    .collection("scheduleDate")     // 🔥 수정된 경로
                     .document(dateKey)
-                    .collection("photos")
+                    .collection("album")           // 🔥 album 컬렉션
                     .orderBy("index")
                     .get()
                     .addOnSuccessListener(snapshot -> {
@@ -94,13 +96,21 @@ public class FrameViewFragment extends Fragment {
                         List<AlbumDTO> list = new ArrayList<>();
 
                         for (DocumentSnapshot doc : snapshot) {
+
+                            String photoId = doc.getId();                  // 🔥 photoId 추가
                             String imgUrl = doc.getString("imageUrl");
                             String comment = doc.getString("comment");
                             Long indexLong = doc.getLong("index");
 
                             int index = indexLong != null ? indexLong.intValue() : 0;
 
-                            list.add(new AlbumDTO(imgUrl, comment, index));
+                            list.add(new AlbumDTO(
+                                    photoId,
+                                    imgUrl,
+                                    comment != null ? comment : "",
+                                    index,
+                                    dateKey
+                            ));
                         }
 
                         photoMap.put(dateKey, list);
