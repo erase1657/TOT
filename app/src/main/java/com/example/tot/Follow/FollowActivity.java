@@ -133,7 +133,7 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
     }
 
     /**
-     * ✅ Firestore에서 팔로워 목록 로드
+     * ✅ Firestore에서 팔로워 목록 로드.
      */
     private void loadFollowersFromFirestore() {
         if (targetUserId == null) return;
