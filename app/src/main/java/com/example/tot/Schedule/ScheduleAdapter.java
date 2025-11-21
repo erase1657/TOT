@@ -1,9 +1,12 @@
 package com.example.tot.Schedule;
 
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -26,6 +29,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
     // 클릭 리스너 인터페이스
     public interface OnScheduleClickListener {
         void onScheduleClick(ScheduleDTO schedule, int position);
+        void onScheduleDeleteClick(ScheduleDTO schedule, int position);
     }
 
     public ScheduleAdapter(List<ScheduleDTO> scheduleList) {
@@ -72,6 +76,25 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
                 clickListener.onScheduleClick(schedule, position);
             });
         }
+
+        holder.btnMenu.setOnClickListener(v -> {
+            showPopupMenu(v.getContext(), v, schedule, position);
+        });
+    }
+
+    private void showPopupMenu(Context context, View view, ScheduleDTO schedule, int position) {
+        PopupMenu popup = new PopupMenu(context, view);
+        popup.getMenuInflater().inflate(R.menu.schedule_item_menu, popup.getMenu());
+        popup.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_delete) {
+                if (clickListener != null) {
+                    clickListener.onScheduleDeleteClick(schedule, position);
+                }
+                return true;
+            }
+            return false;
+        });
+        popup.show();
     }
 
     @Override
@@ -113,6 +136,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
         TextView tvLocation;
         TextView tvDateRange;
         TextView tvDate;
+        ImageButton btnMenu;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -120,6 +144,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
             tvLocation = itemView.findViewById(R.id.tv_schedule_location);
             tvDateRange = itemView.findViewById(R.id.tv_date_range);
             tvDate = itemView.findViewById(R.id.tv_date);
+            btnMenu = itemView.findViewById(R.id.btn_schedule_menu);
         }
     }
 }

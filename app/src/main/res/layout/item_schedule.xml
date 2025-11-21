@@ -72,5 +72,16 @@
                 android:shadowDy="1"
                 android:shadowRadius="3" />
         </LinearLayout>
+
+        <!-- 메뉴 버튼 -->
+        <ImageButton
+            android:id="@+id/btn_schedule_menu"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            android:src="@drawable/ic_more_vert"
+            app:tint="@android:color/white" />
     </FrameLayout>
 </androidx.cardview.widget.CardView>

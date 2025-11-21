@@ -28,8 +28,8 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
-import com.google.firebase.firestore.MetadataChanges;
 import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -40,7 +40,7 @@ import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-public class ScheduleFragment extends Fragment {
+public class ScheduleFragment extends Fragment implements ScheduleAdapter.OnScheduleClickListener {
 
     private Timestamp startDate;
     private Timestamp endDate;
@@ -97,14 +97,7 @@ public class ScheduleFragment extends Fragment {
 
         scheduleList = new ArrayList<>();
 
-        scheduleAdapter = new ScheduleAdapter(scheduleList, (schedule, position) -> {
-            // TODO: 상세 화면 이동
-            Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
-            intent.putExtra("scheduleId", schedule.getScheduleId());
-            intent.putExtra("startDate", schedule.getStartDate().toDate().getTime());
-            intent.putExtra("endDate", schedule.getEndDate().toDate().getTime());
-            startActivity(intent);
-        });
+        scheduleAdapter = new ScheduleAdapter(scheduleList, this);
 
         recyclerView.setAdapter(scheduleAdapter);
     }
@@ -268,5 +261,51 @@ public class ScheduleFragment extends Fragment {
                         }
                     });
                 });
+    }
+
+    @Override
+    public void onScheduleClick(ScheduleDTO schedule, int position) {
+        Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
+        intent.putExtra("scheduleId", schedule.getScheduleId());
+        intent.putExtra("startDate", schedule.getStartDate().toDate().getTime());
+        intent.putExtra("endDate", schedule.getEndDate().toDate().getTime());
+        startActivity(intent);
+    }
+
+    @Override
+    public void onScheduleDeleteClick(ScheduleDTO schedule, int position) {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("스케줄 삭제")
+                .setMessage("이 스케줄을 정말로 삭제하시겠습니까? 모든 관련 데이터가 삭제됩니다.")
+                .setPositiveButton("삭제", (dialog, which) -> deleteSchedule(schedule))
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void deleteSchedule(ScheduleDTO schedule) {
+        String uid = auth.getCurrentUser().getUid();
+        String scheduleId = schedule.getScheduleId();
+
+        db.collection("user").document(uid).collection("schedule").document(scheduleId)
+                .collection("scheduleDate").get()
+                .addOnSuccessListener(querySnapshot -> {
+                    WriteBatch batch = db.batch();
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        batch.delete(doc.getReference());
+                    }
+
+                    batch.commit().addOnSuccessListener(aVoid -> {
+                        db.collection("user").document(uid).collection("schedule").document(scheduleId)
+                                .delete()
+                                .addOnSuccessListener(aVoid1 -> {
+                                    Toast.makeText(getContext(), "스케줄이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                                    scheduleList.remove(schedule);
+                                    scheduleAdapter.notifyDataSetChanged();
+                                    updateEmptyState();
+                                })
+                                .addOnFailureListener(e -> Toast.makeText(getContext(), "스케줄 삭제 실패", Toast.LENGTH_SHORT).show());
+                    }).addOnFailureListener(e -> Toast.makeText(getContext(), "하위 일정 삭제 실패", Toast.LENGTH_SHORT).show());
+                })
+                .addOnFailureListener(e -> Toast.makeText(getContext(), "오류 발생", Toast.LENGTH_SHORT).show());
     }
 }
