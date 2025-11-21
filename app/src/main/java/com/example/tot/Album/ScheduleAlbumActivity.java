@@ -21,6 +21,7 @@ public class ScheduleAlbumActivity extends AppCompatActivity {
 
 
     private ImageButton btnModeChange;
+    private Button btnBack;
     private String scheduleId, userUid;
     private ArrayList<String> dateList;
     private boolean isEditMode = false;
@@ -31,7 +32,7 @@ public class ScheduleAlbumActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_schedule_album);
 
-
+        btnBack = findViewById(R.id.btn_back);
         btnModeChange = findViewById(R.id.btn_mode_change);
         scheduleId = getIntent().getStringExtra("scheduleId");
         userUid = getIntent().getStringExtra("userUid");
@@ -39,6 +40,8 @@ public class ScheduleAlbumActivity extends AppCompatActivity {
 
         // 기본 Fragment (읽기 모드)
         loadFragment(createFragmentWithArgs(new FrameViewFragment()));
+
+        btnBack.setOnClickListener(v -> finish());
 
         btnModeChange.setOnClickListener(v -> {
             // 모드 반전
