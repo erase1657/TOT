@@ -1,18 +1,21 @@
 package com.example.tot.Schedule.ScheduleSetting;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
 import com.google.firebase.Timestamp;
@@ -29,6 +32,7 @@ public class ScheduleItemAdapter extends ListAdapter<ScheduleItemDTO, ScheduleIt
 
     public interface OnItemClickListener {
         void onItemClick(ScheduleItemDTO item, String docId);
+        void onDeleteClick(String docId);
     }
 
     private static final DiffUtil.ItemCallback<ScheduleItemDTO> DIFF_CALLBACK = new DiffUtil.ItemCallback<ScheduleItemDTO>() {
@@ -70,7 +74,7 @@ public class ScheduleItemAdapter extends ListAdapter<ScheduleItemDTO, ScheduleIt
         holder.bind(item, docId, listener);
     }
 
-    static class ViewHolder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
+    static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tv_Title, tv_StartTime, tv_EndTime, tv_Place;
         LinearLayout layout_Place, layout_Alarm;
         CardView item_Schedule;
@@ -116,6 +120,26 @@ public class ScheduleItemAdapter extends ListAdapter<ScheduleItemDTO, ScheduleIt
             item_Schedule.setOnClickListener(v -> {
                 if (listener != null) listener.onItemClick(item, docId);
             });
+
+            btn_Modify.setOnClickListener(v -> {
+                showPopupMenu(v, docId, listener);
+            });
+        }
+
+        private void showPopupMenu(View view, String docId, OnItemClickListener listener) {
+            Context context = view.getContext();
+            PopupMenu popup = new PopupMenu(context, view);
+            popup.getMenuInflater().inflate(R.menu.schedule_item_menu, popup.getMenu());
+            popup.setOnMenuItemClickListener(item -> {
+                if (item.getItemId() == R.id.action_delete) {
+                    if (listener != null) {
+                        listener.onDeleteClick(docId);
+                    }
+                    return true;
+                }
+                return false;
+            });
+            popup.show();
         }
     }
 }

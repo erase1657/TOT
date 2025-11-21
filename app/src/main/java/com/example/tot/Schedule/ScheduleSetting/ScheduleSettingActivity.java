@@ -32,6 +32,7 @@ import com.google.firebase.firestore.ListenerRegistration;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -40,7 +41,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class ScheduleSettingActivity extends AppCompatActivity {
+public class ScheduleSettingActivity extends AppCompatActivity implements ScheduleItemAdapter.OnItemClickListener {
 
     private FirebaseFirestore db;
     private String userUid, scheduleId, selectedDate;
@@ -313,12 +314,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     }
 
     private void setRvScheduleItem() {
-        scheduleItemAdapter = new ScheduleItemAdapter((item, docID) -> {
-            currentBottomSheet = new ScheduleBottomSheet(ScheduleSettingActivity.this);
-            currentBottomSheet.setOnAddPlaceListener(this::openMapForPlaceSelection);
-            currentBottomSheet.showWithData(item, docID);
-            Toast.makeText(this, "클릭됨: " + item.getTitle(), Toast.LENGTH_SHORT).show();
-        });
+        scheduleItemAdapter = new ScheduleItemAdapter(this);
         rvScheduleItem.setLayoutManager(new LinearLayoutManager(this));
         rvScheduleItem.setAdapter(scheduleItemAdapter);
     }
@@ -339,24 +335,29 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                         return;
                     }
 
-                    List<ScheduleItemDTO> list = new ArrayList<>();
-                    List<String> docIds = new ArrayList<>();
-
+                    Map<String, ScheduleItemDTO> itemsMap = new HashMap<>();
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
                         ScheduleItemDTO item = doc.toObject(ScheduleItemDTO.class);
                         if (item != null) {
-                            list.add(item);
-                            docIds.add(doc.getId());
+                            itemsMap.put(doc.getId(), item);
                         }
                     }
 
-                    list.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
+                    List<Map.Entry<String, ScheduleItemDTO>> sortedEntries = new ArrayList<>(itemsMap.entrySet());
+                    sortedEntries.sort(Comparator.comparing(entry -> entry.getValue().getStartTime()));
 
-                    localCache.put(dateKey, list);
-                    localCacheDocIds.put(dateKey, docIds);
+                    List<ScheduleItemDTO> sortedList = new ArrayList<>();
+                    List<String> sortedDocIds = new ArrayList<>();
+                    for (Map.Entry<String, ScheduleItemDTO> entry : sortedEntries) {
+                        sortedList.add(entry.getValue());
+                        sortedDocIds.add(entry.getKey());
+                    }
 
-                    scheduleItemAdapter.submitList(new ArrayList<>(list), docIds);
-                    Log.d("Firestore", "⚡ 실시간 반영 완료: " + dateKey + " (" + list.size() + "개)");
+                    localCache.put(dateKey, sortedList);
+                    localCacheDocIds.put(dateKey, sortedDocIds);
+
+                    scheduleItemAdapter.submitList(new ArrayList<>(sortedList), sortedDocIds);
+                    Log.d("Firestore", "⚡ 실시간 반영 완료: " + dateKey + " (" + sortedList.size() + "개)");
                 });
     }
 
@@ -500,5 +501,49 @@ public class ScheduleSettingActivity extends AppCompatActivity {
 
     public FirebaseFirestore getFirestore() {
         return db;
+    }
+
+    @Override
+    public void onItemClick(ScheduleItemDTO item, String docId) {
+        currentBottomSheet = new ScheduleBottomSheet(ScheduleSettingActivity.this);
+        currentBottomSheet.setOnAddPlaceListener(this::openMapForPlaceSelection);
+        currentBottomSheet.showWithData(item, docId);
+        Toast.makeText(this, "클릭됨: " + item.getTitle(), Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onDeleteClick(String docId) {
+        if (selectedDate == null || docId == null) {
+            Toast.makeText(this, "삭제할 수 없습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("일정 삭제")
+                .setMessage("이 일정을 삭제하시겠습니까?")
+                .setPositiveButton("삭제", (dialog, which) -> {
+                    db.collection("user")
+                            .document(userUid)
+                            .collection("schedule")
+                            .document(scheduleId)
+                            .collection("scheduleDate")
+                            .document(selectedDate)
+                            .collection("scheduleItem")
+                            .document(docId)
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                // 알람도 함께 삭제
+                                db.collection("user")
+                                        .document(userUid)
+                                        .collection("alarms")
+                                        .document(docId)
+                                        .delete();
+
+                                Toast.makeText(ScheduleSettingActivity.this, "일정이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                            })
+                            .addOnFailureListener(e -> Toast.makeText(ScheduleSettingActivity.this, "삭제 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+                })
+                .setNegativeButton("취소", null)
+                .show();
     }
 }
