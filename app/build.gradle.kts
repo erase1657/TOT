@@ -80,4 +80,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+
+    // ✅ Gson 라이브러리 추가 (JSON 직렬화/역직렬화)
+    implementation("com.google.code.gson:gson:2.10.1")
 }

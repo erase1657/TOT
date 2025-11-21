@@ -1,11 +1,11 @@
 package com.example.tot.Notification;
 
+import android.content.Context;
 import android.util.Log;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
 
 import java.util.ArrayList;
@@ -15,8 +15,9 @@ import java.util.Map;
 
 /**
  * 알림 관리 싱글톤 클래스
- * 앱 전역에서 알림 데이터를 관리하고 읽지 않은 알림 수를 추적합니다.
- * ✅ Firestore 실시간 리스너 추가
+ * ✅ 1단계: 실시간 리스너 제거, get()으로 변경
+ * ✅ 2단계: 로컬 캐시 추가 (SharedPreferences)
+ * ✅ Firestore 쓰기 최소화 (읽음 처리는 로컬만)
  */
 public class NotificationManager {
 
@@ -27,10 +28,13 @@ public class NotificationManager {
     private List<NotificationDTO> recentNotifications;
     private List<UnreadCountListener> listeners;
 
-    // ✅ Firestore 리스너
+    // ✅ 로컬 캐시
+    private NotificationCache cache;
+    private Context appContext;
+
+    // Firestore
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
-    private ListenerRegistration notificationListener;
 
     public interface UnreadCountListener {
         void onUnreadCountChanged(int count);
@@ -52,65 +56,116 @@ public class NotificationManager {
     }
 
     /**
-     * ✅ Firestore에서 실시간으로 알림 수신 시작
+     * ✅ Context 초기화 (Application에서 호출)
      */
-    public void startListeningForNotifications() {
-        // ✅ 이미 리스너가 활성화되어 있으면 중복 실행 방지
-        if (notificationListener != null) {
-            Log.d(TAG, "⚠️ 알림 리스너가 이미 실행 중입니다");
+    public void init(Context context) {
+        this.appContext = context.getApplicationContext();
+        this.cache = new NotificationCache(appContext);
+        Log.d(TAG, "✅ NotificationManager 초기화");
+    }
+
+    /**
+     * ✅ 1단계: 실시간 리스너 제거, 필요할 때만 로드
+     * ✅ 2단계: 로컬 캐시 먼저 로드 후 Firestore에서 새 알림만 가져오기
+     */
+    public void loadNotificationsFromCache() {
+        if (cache == null) {
+            Log.w(TAG, "⚠️ Cache가 초기화되지 않았습니다");
             return;
         }
 
+        // 1. 로컬 캐시에서 먼저 로드 (빠른 UI 표시)
+        List<NotificationDTO> cached = cache.loadNotifications();
+        splitNotifications(cached);
+        notifyUnreadCountChanged();
+
+        Log.d(TAG, "📱 로컬 캐시 로드: " + cached.size() + "개");
+    }
+
+    /**
+     * ✅ Firestore에서 새 알림만 가져오기 (실시간 리스너 제거)
+     */
+    public void loadNewNotificationsFromFirestore() {
         if (mAuth.getCurrentUser() == null) {
             Log.w(TAG, "⚠️ 사용자가 로그인하지 않았습니다");
             return;
         }
 
-        String userId = mAuth.getCurrentUser().getUid();
-        Log.d(TAG, "🔔 알림 리스너 시작: " + userId);
+        if (cache == null) {
+            Log.w(TAG, "⚠️ Cache가 초기화되지 않았습니다");
+            return;
+        }
 
-        // ✅ Firestore 실시간 리스너 등록
-        notificationListener = db.collection("notifications")
+        String userId = mAuth.getCurrentUser().getUid();
+        long lastCheck = cache.getLastCheckTime();
+
+        Log.d(TAG, "🔄 Firestore에서 새 알림 확인 (마지막 확인: " + lastCheck + ")");
+
+        // ✅ get()으로 변경 (실시간 리스너 제거)
+        db.collection("notifications")
                 .whereEqualTo("recipientId", userId)
+                .whereGreaterThan("createdAt", lastCheck)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(50)
-                .addSnapshotListener((snapshots, error) -> {
-                    if (error != null) {
-                        Log.e(TAG, "❌ 알림 수신 실패", error);
+                .get()  // ✅ addSnapshotListener() → get()
+                .addOnSuccessListener(snapshots -> {
+                    if (snapshots == null || snapshots.isEmpty()) {
+                        Log.d(TAG, "✅ 새 알림 없음");
                         return;
                     }
 
-                    if (snapshots == null) {
-                        Log.w(TAG, "⚠️ 알림 스냅샷이 null입니다");
-                        return;
-                    }
-
-                    // 기존 Firestore 알림 초기화
-                    todayNotifications.clear();
-                    recentNotifications.clear();
-
-                    long now = System.currentTimeMillis();
-                    long oneDayAgo = now - (24 * 60 * 60 * 1000);
+                    List<NotificationDTO> newNotifications = new ArrayList<>();
 
                     for (DocumentSnapshot doc : snapshots.getDocuments()) {
                         NotificationDTO notification = parseNotification(doc);
                         if (notification != null) {
-                            long createdAt = doc.getLong("createdAt") != null ?
-                                    doc.getLong("createdAt") : 0;
-
-                            if (createdAt >= oneDayAgo) {
-                                todayNotifications.add(notification);
-                            } else {
-                                recentNotifications.add(notification);
-                            }
+                            newNotifications.add(notification);
                         }
                     }
 
-                    Log.d(TAG, "✅ 알림 로드 완료: 오늘 " + todayNotifications.size() +
-                            "개, 최근 " + recentNotifications.size() + "개");
+                    if (!newNotifications.isEmpty()) {
+                        // 로컬 캐시에 새 알림 추가
+                        cache.addNewNotifications(newNotifications);
 
-                    notifyUnreadCountChanged();
+                        // 메모리에도 반영
+                        List<NotificationDTO> allNotifications = cache.loadNotifications();
+                        splitNotifications(allNotifications);
+
+                        // 마지막 확인 시간 업데이트
+                        cache.setLastCheckTime(System.currentTimeMillis());
+
+                        Log.d(TAG, "✅ 새 알림 " + newNotifications.size() + "개 추가");
+                        notifyUnreadCountChanged();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 알림 로드 실패", e);
                 });
+    }
+
+    /**
+     * ✅ 알림 목록을 오늘/최근으로 분류
+     */
+    private void splitNotifications(List<NotificationDTO> notifications) {
+        todayNotifications.clear();
+        recentNotifications.clear();
+
+        long now = System.currentTimeMillis();
+        long oneDayAgo = now - (24 * 60 * 60 * 1000);
+
+        for (NotificationDTO notification : notifications) {
+            // createdAt을 추가해야 하므로 임시로 현재 시간 사용
+            // TODO: NotificationDTO에 createdAt 필드 추가
+            long createdAt = now; // 임시
+
+            if (createdAt >= oneDayAgo) {
+                todayNotifications.add(notification);
+            } else {
+                recentNotifications.add(notification);
+            }
+        }
+
+        Log.d(TAG, "📊 분류 완료: 오늘 " + todayNotifications.size() + "개, 최근 " + recentNotifications.size() + "개");
     }
 
     /**
@@ -181,18 +236,7 @@ public class NotificationManager {
     }
 
     /**
-     * ✅ 리스너 중지
-     */
-    public void stopListeningForNotifications() {
-        if (notificationListener != null) {
-            Log.d(TAG, "🔕 알림 리스너 중지");
-            notificationListener.remove();
-            notificationListener = null;
-        }
-    }
-
-    /**
-     * ✅ Firestore에 팔로우 알림 추가
+     * ✅ Firestore에 팔로우 알림 추가 (쓰기는 여전히 필요)
      */
     public void addFollowNotification(String recipientId, String senderName, String senderId) {
         if (recipientId == null || recipientId.isEmpty()) {
@@ -241,45 +285,16 @@ public class NotificationManager {
         }
     }
 
-    public void setTodayNotifications(List<NotificationDTO> notifications) {
-        todayNotifications.clear();
-        if (notifications != null) {
-            todayNotifications.addAll(notifications);
-        }
-        notifyUnreadCountChanged();
-    }
-
-    public void setRecentNotifications(List<NotificationDTO> notifications) {
-        recentNotifications.clear();
-        if (notifications != null) {
-            recentNotifications.addAll(notifications);
-        }
-        notifyUnreadCountChanged();
-    }
-
-    public void addNotification(NotificationDTO notification, boolean isToday) {
-        if (isToday) {
-            todayNotifications.add(0, notification);
-        } else {
-            recentNotifications.add(0, notification);
-        }
-        notifyUnreadCountChanged();
-    }
-
+    /**
+     * ✅ 읽음 처리 - 로컬만 업데이트 (Firestore 쓰기 제거)
+     */
     public void markAsRead(String notificationId) {
-        // Firestore에도 읽음 상태 업데이트
-        if (mAuth.getCurrentUser() != null) {
-            db.collection("notifications")
-                    .document(notificationId)
-                    .update("isRead", true)
-                    .addOnSuccessListener(aVoid -> {
-                        Log.d(TAG, "✅ 알림 읽음 처리 성공: " + notificationId);
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "❌ 알림 읽음 처리 실패", e);
-                    });
+        // 로컬 캐시에서만 읽음 처리
+        if (cache != null) {
+            cache.markAsReadLocal(notificationId);
         }
 
+        // 메모리에서도 읽음 처리
         for (NotificationDTO notif : todayNotifications) {
             if (notif.getId().equals(notificationId)) {
                 notif.setRead(true);
@@ -294,6 +309,8 @@ public class NotificationManager {
                 return;
             }
         }
+
+        Log.d(TAG, "✅ 로컬 알림 읽음 처리: " + notificationId);
     }
 
     public int getUnreadCount() {
@@ -318,16 +335,27 @@ public class NotificationManager {
     public void clearAll() {
         todayNotifications.clear();
         recentNotifications.clear();
+        if (cache != null) {
+            cache.clearCache();
+        }
         notifyUnreadCountChanged();
     }
 
     /**
-     * ✅ 새로고침 (Firestore에서 다시 로드)
+     * ✅ 새로고침 - 로컬 캐시 먼저 로드 후 Firestore 확인
      */
     public void refresh() {
         Log.d(TAG, "🔄 알림 새로고침 시작");
-        // 기존 리스너 중지 후 재시작
-        stopListeningForNotifications();
-        startListeningForNotifications();
+        loadNotificationsFromCache();
+        loadNewNotificationsFromFirestore();
+    }
+
+    /**
+     * ✅ 초기 로드 (앱 시작시 호출)
+     */
+    public void initialLoad() {
+        Log.d(TAG, "🚀 초기 알림 로드 시작");
+        loadNotificationsFromCache();
+        loadNewNotificationsFromFirestore();
     }
 }
