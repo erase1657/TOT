@@ -5,7 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.view.MenuItem;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -18,14 +18,21 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.tot.Notification.NotificationManager;
 import com.example.tot.R;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class FollowActivity extends AppCompatActivity implements FollowAdapter.FollowListener {
+
+    private static final String TAG = "FollowActivity";
 
     // UI 요소
     private ImageView btnBack;
@@ -48,17 +55,21 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
     private FollowAdapter adapter;
 
     // 상태
-    private boolean isFollowerMode = true;  // true: 팔로워, false: 팔로잉
-    private boolean isMyProfile = true;     // true: 내 프로필, false: 친구 프로필
-    private String targetUserId;            // 대상 사용자 ID
-    private String targetUserName;          // 대상 사용자 이름
+    private boolean isFollowerMode = true;
+    private boolean isMyProfile = true;
+    private String targetUserId;
+    private String targetUserName;
     private String searchQuery = "";
     private SortMode currentSortMode = SortMode.DEFAULT;
 
+    // Firestore
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
+
     enum SortMode {
-        DEFAULT,    // 기본 (최신순)
-        NAME,       // 이름순
-        NICKNAME    // 별명순
+        DEFAULT,
+        NAME,
+        NICKNAME
     }
 
     @Override
@@ -66,7 +77,9 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_follow);
 
-        // Intent에서 데이터 받기
+        db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
+
         Intent intent = getIntent();
         targetUserId = intent.getStringExtra("userId");
         targetUserName = intent.getStringExtra("userName");
@@ -74,12 +87,14 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
         isMyProfile = intent.getBooleanExtra("isMyProfile", true);
 
         initViews();
-        loadDummyData();
         setupRecyclerView();
         setupClickListeners();
         setupSearch();
 
-        // 초기 필터 적용
+        // Firestore에서 실제 데이터 로드
+        loadFollowersFromFirestore();
+        loadFollowingFromFirestore();
+
         if (isFollowerMode) {
             selectFollowerMode();
         } else {
@@ -101,28 +116,164 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
         btnSort = findViewById(R.id.btn_sort);
         recyclerFollow = findViewById(R.id.recycler_follow);
 
-        // 사용자 이름 설정
         if (targetUserName != null && !targetUserName.isEmpty()) {
             tvUserName.setText(targetUserName);
         } else {
-            tvUserName.setText("위찬우"); // 기본값
+            tvUserName.setText("사용자");
         }
     }
 
     private void setupRecyclerView() {
         recyclerFollow.setLayoutManager(new LinearLayoutManager(this));
         displayedUsers = new ArrayList<>();
+        allFollowers = new ArrayList<>();
+        allFollowing = new ArrayList<>();
         adapter = new FollowAdapter(displayedUsers, this, isMyProfile, isFollowerMode);
         recyclerFollow.setAdapter(adapter);
     }
 
+    /**
+     * ✅ Firestore에서 팔로워 목록 로드
+     */
+    private void loadFollowersFromFirestore() {
+        if (targetUserId == null) return;
+
+        db.collection("user")
+                .document(targetUserId)
+                .collection("follower")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    allFollowers.clear();
+
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        String followerId = doc.getId();
+
+                        // 팔로워 사용자 정보 가져오기
+                        db.collection("user")
+                                .document(followerId)
+                                .get()
+                                .addOnSuccessListener(userDoc -> {
+                                    if (userDoc.exists()) {
+                                        FollowUserDTO user = new FollowUserDTO();
+                                        user.setUserId(followerId);
+                                        user.setUserName(userDoc.getString("nickname"));
+                                        user.setStatusMessage(userDoc.getString("comment"));
+                                        user.setFollowedAt(doc.getLong("followedAt") != null ? doc.getLong("followedAt") : System.currentTimeMillis());
+
+                                        // ✅ 내가 이 사용자를 팔로우하고 있는지 확인 + 별명 로드
+                                        checkIfFollowingAndLoadNickname(user);
+                                    }
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "팔로워 로드 실패", e);
+                    Toast.makeText(this, "팔로워 목록을 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * ✅ Firestore에서 팔로잉 목록 로드
+     */
+    private void loadFollowingFromFirestore() {
+        if (targetUserId == null) return;
+
+        db.collection("user")
+                .document(targetUserId)
+                .collection("following")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    allFollowing.clear();
+
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        String followingId = doc.getId();
+
+                        // ✅ 별명 로드 (following 문서에서)
+                        String customNickname = doc.getString("customNickname");
+
+                        // 팔로잉 사용자 정보 가져오기
+                        db.collection("user")
+                                .document(followingId)
+                                .get()
+                                .addOnSuccessListener(userDoc -> {
+                                    if (userDoc.exists()) {
+                                        FollowUserDTO user = new FollowUserDTO();
+                                        user.setUserId(followingId);
+                                        user.setUserName(userDoc.getString("nickname"));
+                                        user.setStatusMessage(userDoc.getString("comment"));
+                                        user.setFollowing(true); // 이미 팔로잉 중
+                                        user.setNickname(customNickname); // ✅ 별명 설정
+                                        user.setFollowedAt(doc.getLong("followedAt") != null ? doc.getLong("followedAt") : System.currentTimeMillis());
+
+                                        // 이 사용자가 나를 팔로우하고 있는지 확인
+                                        checkIfFollower(user);
+                                    }
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "팔로잉 로드 실패", e);
+                    Toast.makeText(this, "팔로잉 목록을 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * ✅ 내가 이 사용자를 팔로우하고 있는지 확인 + 별명 로드
+     */
+    private void checkIfFollowingAndLoadNickname(FollowUserDTO user) {
+        if (targetUserId == null) return;
+
+        db.collection("user")
+                .document(targetUserId)
+                .collection("following")
+                .document(user.getUserId())
+                .get()
+                .addOnSuccessListener(doc -> {
+                    user.setFollowing(doc.exists());
+                    user.setFollower(true); // 팔로워 목록에서 가져왔으므로 true
+
+                    // ✅ 별명 로드
+                    if (doc.exists()) {
+                        String customNickname = doc.getString("customNickname");
+                        user.setNickname(customNickname);
+                    }
+
+                    if (!allFollowers.contains(user)) {
+                        allFollowers.add(user);
+                    }
+
+                    updateFollowCounts();
+                    applyFilter();
+                });
+    }
+
+    /**
+     * ✅ 이 사용자가 나를 팔로우하고 있는지 확인
+     */
+    private void checkIfFollower(FollowUserDTO user) {
+        if (targetUserId == null) return;
+
+        db.collection("user")
+                .document(targetUserId)
+                .collection("follower")
+                .document(user.getUserId())
+                .get()
+                .addOnSuccessListener(doc -> {
+                    user.setFollower(doc.exists());
+
+                    if (!allFollowing.contains(user)) {
+                        allFollowing.add(user);
+                    }
+
+                    updateFollowCounts();
+                    applyFilter();
+                });
+    }
+
     private void setupClickListeners() {
         btnBack.setOnClickListener(v -> finish());
-
         btnFollower.setOnClickListener(v -> selectFollowerMode());
-
         btnFollowing.setOnClickListener(v -> selectFollowingMode());
-
         btnSort.setOnClickListener(v -> showSortMenu());
     }
 
@@ -144,39 +295,25 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
 
     private void selectFollowerMode() {
         isFollowerMode = true;
-
-        // UI 업데이트
         tvFollowerLabel.setTextColor(0xFF000000);
         tvFollowerLabel.setTypeface(null, android.graphics.Typeface.BOLD);
         viewFollowerIndicator.setBackgroundColor(0xFF000000);
-
         tvFollowingLabel.setTextColor(0xFF999999);
         tvFollowingLabel.setTypeface(null, android.graphics.Typeface.NORMAL);
         viewFollowingIndicator.setBackgroundColor(0xFFE0E0E0);
-
-        // 어댑터 모드 변경
         adapter.setFollowerMode(true);
-
-        // 필터 적용
         applyFilter();
     }
 
     private void selectFollowingMode() {
         isFollowerMode = false;
-
-        // UI 업데이트
         tvFollowingLabel.setTextColor(0xFF000000);
         tvFollowingLabel.setTypeface(null, android.graphics.Typeface.BOLD);
         viewFollowingIndicator.setBackgroundColor(0xFF000000);
-
         tvFollowerLabel.setTextColor(0xFF999999);
         tvFollowerLabel.setTypeface(null, android.graphics.Typeface.NORMAL);
         viewFollowerIndicator.setBackgroundColor(0xFFE0E0E0);
-
-        // 어댑터 모드 변경
         adapter.setFollowerMode(false);
-
-        // 필터 적용
         applyFilter();
     }
 
@@ -184,7 +321,6 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
         List<FollowUserDTO> sourceList = isFollowerMode ? allFollowers : allFollowing;
         List<FollowUserDTO> filtered = new ArrayList<>();
 
-        // 검색 필터
         if (searchQuery.isEmpty()) {
             filtered.addAll(sourceList);
         } else {
@@ -192,61 +328,39 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
             for (FollowUserDTO user : sourceList) {
                 String name = user.getUserName() != null ? user.getUserName().toLowerCase() : "";
                 String nickname = user.getNickname() != null ? user.getNickname().toLowerCase() : "";
-
                 if (name.contains(lowerQuery) || nickname.contains(lowerQuery)) {
                     filtered.add(user);
                 }
             }
         }
 
-        // 정렬
         sortUsers(filtered);
-
-        // 어댑터 업데이트
         adapter.updateData(filtered);
     }
 
     private void sortUsers(List<FollowUserDTO> users) {
         switch (currentSortMode) {
             case DEFAULT:
-                // 최신순 (팔로우 시간 역순)
-                Collections.sort(users, new Comparator<FollowUserDTO>() {
-                    @Override
-                    public int compare(FollowUserDTO o1, FollowUserDTO o2) {
-                        return Long.compare(o2.getFollowedAt(), o1.getFollowedAt());
-                    }
-                });
+                Collections.sort(users, (o1, o2) ->
+                        Long.compare(o2.getFollowedAt(), o1.getFollowedAt()));
                 break;
-
             case NAME:
-                // 이름순 (가나다순)
-                Collections.sort(users, new Comparator<FollowUserDTO>() {
-                    @Override
-                    public int compare(FollowUserDTO o1, FollowUserDTO o2) {
-                        String name1 = o1.getUserName() != null ? o1.getUserName() : "";
-                        String name2 = o2.getUserName() != null ? o2.getUserName() : "";
-                        return name1.compareTo(name2);
-                    }
+                Collections.sort(users, (o1, o2) -> {
+                    String name1 = o1.getUserName() != null ? o1.getUserName() : "";
+                    String name2 = o2.getUserName() != null ? o2.getUserName() : "";
+                    return name1.compareTo(name2);
                 });
                 break;
-
             case NICKNAME:
-                // 별명순 (별명 있는 사람 우선, 그 다음 이름순)
-                Collections.sort(users, new Comparator<FollowUserDTO>() {
-                    @Override
-                    public int compare(FollowUserDTO o1, FollowUserDTO o2) {
-                        boolean hasNick1 = o1.getNickname() != null && !o1.getNickname().trim().isEmpty();
-                        boolean hasNick2 = o2.getNickname() != null && !o2.getNickname().trim().isEmpty();
-
-                        if (hasNick1 && !hasNick2) return -1;
-                        if (!hasNick1 && hasNick2) return 1;
-
-                        if (hasNick1 && hasNick2) {
-                            return o1.getNickname().compareTo(o2.getNickname());
-                        }
-
-                        return o1.getUserName().compareTo(o2.getUserName());
+                Collections.sort(users, (o1, o2) -> {
+                    boolean hasNick1 = o1.getNickname() != null && !o1.getNickname().trim().isEmpty();
+                    boolean hasNick2 = o2.getNickname() != null && !o2.getNickname().trim().isEmpty();
+                    if (hasNick1 && !hasNick2) return -1;
+                    if (!hasNick1 && hasNick2) return 1;
+                    if (hasNick1 && hasNick2) {
+                        return o1.getNickname().compareTo(o2.getNickname());
                     }
+                    return o1.getUserName().compareTo(o2.getUserName());
                 });
                 break;
         }
@@ -255,72 +369,148 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
     private void showSortMenu() {
         PopupMenu popup = new PopupMenu(this, btnSort);
         popup.getMenuInflater().inflate(R.menu.menu_sort_options, popup.getMenu());
-
-        popup.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
-            @Override
-            public boolean onMenuItemClick(MenuItem item) {
-                int itemId = item.getItemId();
-
-                if (itemId == R.id.sort_default) {
-                    currentSortMode = SortMode.DEFAULT;
-                    tvSortMode.setText("기본");
-                    applyFilter();
-                    return true;
-                } else if (itemId == R.id.sort_name) {
-                    currentSortMode = SortMode.NAME;
-                    tvSortMode.setText("이름순");
-                    applyFilter();
-                    return true;
-                } else if (itemId == R.id.sort_nickname) {
-                    currentSortMode = SortMode.NICKNAME;
-                    tvSortMode.setText("별명순");
-                    applyFilter();
-                    return true;
-                }
-
-                return false;
+        popup.setOnMenuItemClickListener(item -> {
+            int itemId = item.getItemId();
+            if (itemId == R.id.sort_default) {
+                currentSortMode = SortMode.DEFAULT;
+                tvSortMode.setText("기본");
+                applyFilter();
+                return true;
+            } else if (itemId == R.id.sort_name) {
+                currentSortMode = SortMode.NAME;
+                tvSortMode.setText("이름순");
+                applyFilter();
+                return true;
+            } else if (itemId == R.id.sort_nickname) {
+                currentSortMode = SortMode.NICKNAME;
+                tvSortMode.setText("별명순");
+                applyFilter();
+                return true;
             }
+            return false;
         });
-
         popup.show();
     }
 
-    // FollowAdapter.FollowListener 구현
     @Override
     public void onProfileClick(FollowUserDTO user) {
-        Toast.makeText(this, user.getUserName() + " 프로필로 이동", Toast.LENGTH_SHORT).show();
-        // TODO: 사용자 프로필 화면으로 이동
+        // 프로필 화면으로 이동 (이미 FollowAdapter에서 처리됨)
     }
 
     @Override
     public void onFollowClick(FollowUserDTO user, int position) {
         if (user.isFollowing()) {
-            // ✅ 2번 방식: 언팔로우하지만 프로필은 남김 (팔로잉 화면에서만 적용)
-            user.setFollowing(false);
-            allFollowing.remove(user);
-
-            Toast.makeText(this, user.getUserName() + " 팔로우 취소", Toast.LENGTH_SHORT).show();
-
-            // 팔로워 모드: 그대로 표시
-            // 팔로잉 모드: 프로필은 남기고 버튼만 "팔로우"로 변경
-            updateFollowCounts();
-            adapter.notifyItemChanged(position);
+            performUnfollow(user, position);
         } else {
-            // 팔로우
-            user.setFollowing(true);
-            user.setFollowedAt(System.currentTimeMillis());
-
-            // 팔로잉 목록에 추가
-            if (!allFollowing.contains(user)) {
-                allFollowing.add(user);
-            }
-
-            Toast.makeText(this, user.getUserName() + " 팔로우", Toast.LENGTH_SHORT).show();
-            updateFollowCounts();
-            adapter.notifyItemChanged(position);
+            performFollow(user, position);
         }
+    }
 
-        // TODO: 서버에 팔로우/언팔로우 요청
+    /**
+     * 🔥 수정: 팔로우 실행 (양방향 처리 + 알림 전송)
+     * - 실제 로그인한 사용자(myActualUserId)가 상대방(user.getUserId())을 팔로우
+     * - 알림은 상대방에게 전송
+     */
+    private void performFollow(FollowUserDTO user, int position) {
+        if (targetUserId == null || mAuth.getCurrentUser() == null) return;
+
+        // 🔥 실제 로그인한 사용자 ID
+        String myActualUserId = mAuth.getCurrentUser().getUid();
+        String targetUserToFollow = user.getUserId(); // 팔로우할 대상
+
+        Map<String, Object> followData = new HashMap<>();
+        followData.put("followedAt", System.currentTimeMillis());
+
+        // ✅ 1. 내 following에 추가 (실제 로그인한 사용자)
+        db.collection("user")
+                .document(myActualUserId)
+                .collection("following")
+                .document(targetUserToFollow)
+                .set(followData)
+                .addOnSuccessListener(aVoid -> {
+                    // ✅ 2. 상대방 follower에 추가
+                    db.collection("user")
+                            .document(targetUserToFollow)
+                            .collection("follower")
+                            .document(myActualUserId)
+                            .set(followData)
+                            .addOnSuccessListener(aVoid2 -> {
+                                user.setFollowing(true);
+                                user.setFollowedAt(System.currentTimeMillis());
+
+                                if (!allFollowing.contains(user)) {
+                                    allFollowing.add(user);
+                                }
+
+                                // 🔥 3. 팔로우 알림 전송 (수정됨!)
+                                // recipientId = 상대방 (알림 받을 사람)
+                                // senderId = 실제 로그인한 나
+                                FollowActionHelper.sendFollowNotification(targetUserToFollow, myActualUserId);
+
+                                Toast.makeText(this, user.getUserName() + " 팔로우", Toast.LENGTH_SHORT).show();
+                                updateFollowCounts();
+                                adapter.notifyItemChanged(position);
+
+                                Log.d(TAG, "✅ 팔로우 성공: " + myActualUserId + " → " + targetUserToFollow);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ 상대방 follower 추가 실패", e);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 팔로우 실패", e);
+                    Toast.makeText(this, "팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+
+    /**
+     * ✅ 언팔로우 실행 (양방향 처리)
+     */
+    private void performUnfollow(FollowUserDTO user, int position) {
+        new AlertDialog.Builder(this)
+                .setTitle("언팔로우")
+                .setMessage("정말 언팔로우하시겠습니까?")
+                .setPositiveButton("예", (dialog, which) -> {
+                    if (mAuth.getCurrentUser() == null) return;
+
+                    String myActualUserId = mAuth.getCurrentUser().getUid();
+                    String targetUserToUnfollow = user.getUserId();
+
+                    // ✅ 1. 내 following에서 삭제
+                    db.collection("user")
+                            .document(myActualUserId)
+                            .collection("following")
+                            .document(targetUserToUnfollow)
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                // ✅ 2. 상대방 follower에서 삭제
+                                db.collection("user")
+                                        .document(targetUserToUnfollow)
+                                        .collection("follower")
+                                        .document(myActualUserId)
+                                        .delete()
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            user.setFollowing(false);
+                                            allFollowing.remove(user);
+
+                                            Toast.makeText(this, user.getUserName() + " 팔로우 취소", Toast.LENGTH_SHORT).show();
+                                            updateFollowCounts();
+                                            adapter.notifyItemChanged(position);
+
+                                            Log.d(TAG, "✅ 언팔로우 성공: " + user.getUserId());
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "❌ 상대방 follower 삭제 실패", e);
+                                        });
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ 언팔로우 실패", e);
+                                Toast.makeText(this, "언팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                            });
+                })
+                .setNegativeButton("아니오", null)
+                .show();
     }
 
     @Override
@@ -329,21 +519,65 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
                 .setTitle("팔로워 삭제")
                 .setMessage(user.getUserName() + "님을 팔로워에서 삭제하시겠습니까?")
                 .setPositiveButton("삭제", (dialog, which) -> {
-                    allFollowers.remove(user);
-                    Toast.makeText(this, user.getUserName() + " 팔로워 삭제됨", Toast.LENGTH_SHORT).show();
-                    updateFollowCounts();
-                    applyFilter();
+                    if (targetUserId == null) return;
 
-                    // TODO: 서버에 팔로워 삭제 요청
+                    // ✅ 1. 내 follower에서 삭제
+                    db.collection("user")
+                            .document(targetUserId)
+                            .collection("follower")
+                            .document(user.getUserId())
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                // ✅ 2. 상대방 following에서 삭제
+                                db.collection("user")
+                                        .document(user.getUserId())
+                                        .collection("following")
+                                        .document(targetUserId)
+                                        .delete()
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            allFollowers.remove(user);
+                                            Toast.makeText(this, user.getUserName() + " 팔로워 삭제됨", Toast.LENGTH_SHORT).show();
+                                            updateFollowCounts();
+                                            applyFilter();
+
+                                            Log.d(TAG, "✅ 팔로워 삭제 성공: " + user.getUserId());
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "❌ 상대방 following 삭제 실패", e);
+                                        });
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ 팔로워 삭제 실패", e);
+                                Toast.makeText(this, "팔로워 삭제 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                            });
                 })
                 .setNegativeButton("취소", null)
                 .show();
     }
 
+    /**
+     * ✅ 별명 변경 (Firestore following 문서에 저장)
+     */
     @Override
     public void onNicknameChanged(FollowUserDTO user, String newNickname, int position) {
-        Toast.makeText(this, "별명 저장: " + newNickname, Toast.LENGTH_SHORT).show();
-        // TODO: 서버에 별명 저장 요청
+        if (targetUserId == null) return;
+
+        db.collection("user")
+                .document(targetUserId)
+                .collection("following")
+                .document(user.getUserId())
+                .update("customNickname", newNickname.isEmpty() ? null : newNickname)
+                .addOnSuccessListener(aVoid -> {
+                    user.setNickname(newNickname);
+                    Toast.makeText(this, "별명이 저장되었습니다", Toast.LENGTH_SHORT).show();
+                    adapter.notifyItemChanged(position);
+
+                    Log.d(TAG, "✅ 별명 저장 성공: " + newNickname);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 별명 저장 실패", e);
+                    Toast.makeText(this, "별명 저장 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void updateFollowCounts() {
@@ -351,68 +585,8 @@ public class FollowActivity extends AppCompatActivity implements FollowAdapter.F
         tvFollowingLabel.setText(allFollowing.size() + " 팔로잉");
     }
 
-    /**
-     * ✅ 팔로워/팔로잉 수 반환 (마이페이지 동기화용)
-     */
-    public int getFollowerCount() {
-        return allFollowers.size();
-    }
-
-    public int getFollowingCount() {
-        return allFollowing.size();
-    }
-
-    private void loadDummyData() {
-        allFollowers = new ArrayList<>();
-        allFollowing = new ArrayList<>();
-
-        long now = System.currentTimeMillis();
-        String[] names = {"박민주", "김서연", "이준호", "최유진", "정민수", "한지우", "송하늘", "강민지"};
-        int[] profiles = {R.drawable.sample1, R.drawable.sample2, R.drawable.sample3, R.drawable.sample4};
-
-        // 팔로워 더미 데이터 (5명)
-        for (int i = 0; i < 5; i++) {
-            boolean isFollowing = i % 2 == 0;
-            allFollowers.add(new FollowUserDTO(
-                    "follower_" + i,
-                    names[i % names.length],
-                    i % 3 == 0 ? "별명" + i : null,
-                    "상태메시지입니다",
-                    profiles[i % profiles.length],
-                    isFollowing,
-                    true,
-                    now - (i * 1000000L)
-            ));
-        }
-
-        // 팔로잉 더미 데이터 (4명)
-        for (int i = 0; i < 4; i++) {
-            FollowUserDTO user;
-            if (i < 2) {
-                // 맞팔 사용자
-                user = allFollowers.get(i * 2);
-            } else {
-                // 추가 팔로잉 사용자
-                user = new FollowUserDTO(
-                        "following_" + i,
-                        names[(i + 3) % names.length],
-                        null,
-                        "상태메시지",
-                        profiles[i % profiles.length],
-                        true,
-                        false,
-                        now - (i * 1000000L)
-                );
-            }
-            allFollowing.add(user);
-        }
-
-        updateFollowCounts();
-    }
-
     @Override
     public void finish() {
-        // ✅ 결과 데이터 전달
         Intent resultIntent = new Intent();
         resultIntent.putExtra("followerCount", allFollowers.size());
         resultIntent.putExtra("followingCount", allFollowing.size());

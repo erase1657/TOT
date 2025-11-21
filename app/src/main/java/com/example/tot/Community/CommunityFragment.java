@@ -1,11 +1,11 @@
 package com.example.tot.Community;
 
-import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -19,13 +19,16 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 public class CommunityFragment extends Fragment {
+
+    private static final String TAG = "CommunityFragment";
 
     private RecyclerView recyclerView;
     private CommunityAdapter adapter;
@@ -43,6 +46,17 @@ public class CommunityFragment extends Fragment {
     private boolean isLoading = false;
     private boolean isLastPage = false;
 
+    // ✅ Firestore
+    private FirebaseFirestore db;
+
+    // ✅ 검색 디바운싱
+    private Handler searchHandler;
+    private Runnable searchRunnable;
+    private static final long SEARCH_DELAY = 300;
+
+    // ✅ 전체 검색 결과 저장 (더보기용)
+    private List<UserSearchResult> allUserSearchResults = new ArrayList<>();
+
     enum FilterMode {
         POPULAR,
         ALL,
@@ -56,6 +70,9 @@ public class CommunityFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
+        db = FirebaseFirestore.getInstance();
+        searchHandler = new Handler(Looper.getMainLooper());
 
         initViews(view);
         loadDummyData();
@@ -84,9 +101,17 @@ public class CommunityFragment extends Fragment {
         recyclerView.setLayoutManager(layoutManager);
 
         filteredPosts = new ArrayList<>();
-        adapter = new CommunityAdapter(filteredPosts, (post, position) ->
-                Toast.makeText(getContext(), post.getTitle() + " 상세보기", Toast.LENGTH_SHORT).show()
-        );
+        adapter = new CommunityAdapter(filteredPosts, new CommunityAdapter.OnPostClickListener() {
+            @Override
+            public void onPostClick(CommunityPostDTO post, int position) {
+                Toast.makeText(getContext(), post.getTitle() + " 상세보기", Toast.LENGTH_SHORT).show();
+            }
+        }, new CommunityAdapter.OnMoreUsersClickListener() {
+            @Override
+            public void onMoreUsersClick() {
+                showAllUsers();
+            }
+        });
 
         recyclerView.setAdapter(adapter);
 
@@ -136,44 +161,40 @@ public class CommunityFragment extends Fragment {
         });
     }
 
-    /**
-     * 필터 버튼 상태 업데이트
-     * 버튼 크기나 모양이 변하지 않도록 backgroundTint만 변경하도록 수정.
-     */
     private void updateFilterButtonStates() {
-        int colorSelected = 0xFF575DFB;     // 선택된 버튼 (보라색)
-        int colorUnselected = 0xFFF0F0F5;   // 비활성 버튼 (회색)
-        int textSelected = 0xFFFFFFFF;      // 선택된 버튼 텍스트 색 (흰색)
-        int textUnselected = 0xFF000000;    // 비활성 텍스트 색 (검정)
+        int colorSelected = 0xFF575DFB;
+        int colorUnselected = 0xFFF0F0F5;
+        int textSelected = 0xFFFFFFFF;
+        int textUnselected = 0xFF000000;
 
-        // 인기순 버튼
         if (currentFilter == FilterMode.POPULAR) {
-            btnPopular.setBackgroundTintList(ColorStateList.valueOf(colorSelected));
+            btnPopular.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorSelected));
             btnPopular.setTextColor(textSelected);
         } else {
-            btnPopular.setBackgroundTintList(ColorStateList.valueOf(colorUnselected));
+            btnPopular.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorUnselected));
             btnPopular.setTextColor(textUnselected);
         }
 
-        // 전체보기 버튼
         if (currentFilter == FilterMode.ALL) {
-            btnAll.setBackgroundTintList(ColorStateList.valueOf(colorSelected));
+            btnAll.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorSelected));
             btnAll.setTextColor(textSelected);
         } else {
-            btnAll.setBackgroundTintList(ColorStateList.valueOf(colorUnselected));
+            btnAll.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorUnselected));
             btnAll.setTextColor(textUnselected);
         }
 
-        // 친구 버튼
         if (currentFilter == FilterMode.FRIENDS) {
-            btnFriends.setBackgroundTintList(ColorStateList.valueOf(colorSelected));
+            btnFriends.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorSelected));
             btnFriends.setTextColor(textSelected);
         } else {
-            btnFriends.setBackgroundTintList(ColorStateList.valueOf(colorUnselected));
+            btnFriends.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorUnselected));
             btnFriends.setTextColor(textUnselected);
         }
     }
 
+    /**
+     * ✅ 검색창 설정 (디바운싱 적용)
+     */
     private void setupSearch() {
         edtSearch.addTextChangedListener(new TextWatcher() {
             @Override
@@ -181,9 +202,27 @@ public class CommunityFragment extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                searchQuery = s.toString().trim();
-                resetPagination();
-                applyFilter();
+                // 이전 검색 작업 취소
+                if (searchRunnable != null) {
+                    searchHandler.removeCallbacks(searchRunnable);
+                }
+
+                // 새로운 검색 작업 예약
+                searchRunnable = () -> {
+                    searchQuery = s.toString().trim();
+                    resetPagination();
+
+                    // ✅ 검색어가 있으면 Firestore에서 사용자 검색
+                    if (!searchQuery.isEmpty()) {
+                        searchUsersInFirestore(searchQuery);
+                    } else {
+                        // 검색어가 없으면 기존 필터 적용
+                        allUserSearchResults.clear();
+                        applyFilter();
+                    }
+                };
+
+                searchHandler.postDelayed(searchRunnable, SEARCH_DELAY);
             }
 
             @Override
@@ -192,9 +231,105 @@ public class CommunityFragment extends Fragment {
     }
 
     /**
-     * 필터 적용 (인기순/전체보기/친구)
+     * ✅ Firestore에서 사용자 검색
+     */
+    private void searchUsersInFirestore(String query) {
+        Log.d(TAG, "🔍 사용자 검색 시작: " + query);
+
+        db.collection("user")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    allUserSearchResults.clear();
+
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        String userId = document.getId();
+                        String nickname = document.getString("nickname");
+                        String email = document.getString("email");
+
+                        if (nickname != null && nickname.toLowerCase().contains(query.toLowerCase())) {
+                            allUserSearchResults.add(new UserSearchResult(
+                                    userId,
+                                    nickname,
+                                    email,
+                                    document.getString("comment"),
+                                    document.getString("profileImageUrl")
+                            ));
+                        }
+                    }
+
+                    Log.d(TAG, "✅ 검색 결과: " + allUserSearchResults.size() + "명");
+
+                    // ✅ 검색 결과와 게시글 필터링 결과를 어댑터에 전달
+                    applyFilterWithUsers();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 사용자 검색 실패", e);
+                    Toast.makeText(getContext(), "검색 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                    applyFilter();
+                });
+    }
+
+    /**
+     * ✅ 사용자 검색 결과와 게시글 필터링 통합
+     */
+    private void applyFilterWithUsers() {
+        // 게시글 필터링
+        List<CommunityPostDTO> filtered = filterPosts();
+
+        // ✅ 사용자 검색 결과를 최대 3개로 제한
+        List<UserSearchResult> limitedUsers = allUserSearchResults.size() > 3
+                ? allUserSearchResults.subList(0, 3)
+                : allUserSearchResults;
+
+        // ✅ 4명 이상일 때만 더보기 버튼 표시
+        boolean showMoreButton = allUserSearchResults.size() >= 4;
+
+        // 어댑터에 전달
+        adapter.updateDataWithUsers(
+                getPagedPosts(filtered, 0),
+                limitedUsers,
+                !searchQuery.isEmpty(),
+                showMoreButton
+        );
+
+        isLastPage = (PAGE_SIZE >= filtered.size());
+    }
+
+    /**
+     * ✅ 더보기 버튼 클릭 시 전체 사용자 표시
+     */
+    private void showAllUsers() {
+        Log.d(TAG, "📋 전체 사용자 표시: " + allUserSearchResults.size() + "명");
+
+        // 게시글 필터링
+        List<CommunityPostDTO> filtered = filterPosts();
+
+        // ✅ 전체 사용자 표시 (더보기 버튼 숨김)
+        adapter.updateDataWithUsers(
+                getPagedPosts(filtered, 0),
+                allUserSearchResults,
+                !searchQuery.isEmpty(),
+                false // 더보기 버튼 숨김
+        );
+
+        Toast.makeText(getContext(), allUserSearchResults.size() + "명의 사용자", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * 필터 적용 (기존 방식)
      */
     private void applyFilter() {
+        List<CommunityPostDTO> filtered = filterPosts();
+        List<CommunityPostDTO> pagedPosts = getPagedPosts(filtered, 0);
+
+        adapter.updateDataWithUsers(pagedPosts, new ArrayList<>(), false, false);
+        isLastPage = (PAGE_SIZE >= filtered.size());
+    }
+
+    /**
+     * 게시글 필터링 로직
+     */
+    private List<CommunityPostDTO> filterPosts() {
         List<CommunityPostDTO> filtered = new ArrayList<>();
 
         // 1단계: 필터 모드 적용
@@ -230,19 +365,14 @@ public class CommunityFragment extends Fragment {
 
         // 3단계: 정렬
         if (currentFilter == FilterMode.POPULAR) {
-            // 인기순: 좋아요 수 내림차순
             Collections.sort(filtered, (o1, o2) ->
                     Integer.compare(o2.getHeartCount(), o1.getHeartCount()));
         } else {
-            // 전체보기/친구: 최신순
             Collections.sort(filtered, (o1, o2) ->
                     Long.compare(o2.getCreatedAt(), o1.getCreatedAt()));
         }
 
-        // 4단계: 페이지네이션
-        List<CommunityPostDTO> pagedPosts = getPagedPosts(filtered, 0);
-        adapter.updateData(pagedPosts);
-        isLastPage = (PAGE_SIZE >= filtered.size());
+        return filtered;
     }
 
     private List<CommunityPostDTO> getPagedPosts(List<CommunityPostDTO> source, int page) {
@@ -275,46 +405,7 @@ public class CommunityFragment extends Fragment {
     }
 
     private List<CommunityPostDTO> getCurrentFilteredList() {
-        List<CommunityPostDTO> filtered = new ArrayList<>();
-
-        for (CommunityPostDTO post : allPosts) {
-            boolean matchFilter = false;
-
-            switch (currentFilter) {
-                case POPULAR:
-                case ALL:
-                    matchFilter = true;
-                    break;
-                case FRIENDS:
-                    matchFilter = post.isFriend();
-                    break;
-            }
-
-            if (matchFilter) {
-                filtered.add(post);
-            }
-        }
-
-        if (!searchQuery.isEmpty()) {
-            List<CommunityPostDTO> searchFiltered = new ArrayList<>();
-            for (CommunityPostDTO post : filtered) {
-                if (post.getTitle().toLowerCase().contains(searchQuery.toLowerCase()) ||
-                        post.getRegionTag().toLowerCase().contains(searchQuery.toLowerCase())) {
-                    searchFiltered.add(post);
-                }
-            }
-            filtered = searchFiltered;
-        }
-
-        if (currentFilter == FilterMode.POPULAR) {
-            Collections.sort(filtered, (o1, o2) ->
-                    Integer.compare(o2.getHeartCount(), o1.getHeartCount()));
-        } else {
-            Collections.sort(filtered, (o1, o2) ->
-                    Long.compare(o2.getCreatedAt(), o1.getCreatedAt()));
-        }
-
-        return filtered;
+        return filterPosts();
     }
 
     private void resetPagination() {
@@ -373,5 +464,38 @@ public class CommunityFragment extends Fragment {
                     i % 3 == 0
             ));
         }
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (searchHandler != null && searchRunnable != null) {
+            searchHandler.removeCallbacks(searchRunnable);
+        }
+    }
+
+    /**
+     * ✅ 사용자 검색 결과 DTO
+     */
+    public static class UserSearchResult {
+        private String userId;
+        private String nickname;
+        private String email;
+        private String statusMessage;
+        private String profileImageUrl;
+
+        public UserSearchResult(String userId, String nickname, String email, String statusMessage, String profileImageUrl) {
+            this.userId = userId;
+            this.nickname = nickname;
+            this.email = email;
+            this.statusMessage = statusMessage;
+            this.profileImageUrl = profileImageUrl;
+        }
+
+        public String getUserId() { return userId; }
+        public String getNickname() { return nickname; }
+        public String getEmail() { return email; }
+        public String getStatusMessage() { return statusMessage; }
+        public String getProfileImageUrl() { return profileImageUrl; }
     }
 }

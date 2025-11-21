@@ -3,9 +3,9 @@ package com.example.tot.Notification;
 public class NotificationDTO {
 
     public enum NotificationType {
-        SCHEDULE_INVITE,  // 일정 초대
-        FOLLOW,           // 팔로우
-        COMMENT           // 댓글
+        SCHEDULE_INVITE,
+        FOLLOW,
+        COMMENT
     }
 
     private String id;
@@ -13,13 +13,13 @@ public class NotificationDTO {
     private String title;
     private String content;
     private String timestamp;
-    private String timeDisplay; // "9분전", "14일" 등
+    private String timeDisplay;
     private boolean isRead;
-    private int unreadCount; // 읽지 않은 메시지 수 (SCHEDULE_INVITE, COMMENT용)
-    private String userName; // 팔로우/댓글 사용자 이름
+    private int unreadCount;
+    private String userName;
+    private String userId; // ✅ 추가: 팔로우 기능을 위한 사용자 ID
     private int iconResId;
 
-    // Private 생성자 - Builder를 통해서만 생성
     private NotificationDTO(Builder builder) {
         this.id = builder.id;
         this.type = builder.type;
@@ -29,13 +29,17 @@ public class NotificationDTO {
         this.isRead = builder.isRead;
         this.unreadCount = builder.unreadCount;
         this.userName = builder.userName;
+        this.userId = builder.userId;
         this.iconResId = builder.iconResId;
     }
 
-    // 정적 팩토리 메서드들 - 따옴표 제거 및 말투 통일
+    /**
+     * ✅ 스케줄 초대 알림 생성 (userId 추가)
+     */
     public static NotificationDTO createScheduleInvite(String id, String scheduleName,
                                                        String content, String timeDisplay,
-                                                       boolean isRead, int unreadCount, int iconResId) {
+                                                       boolean isRead, int unreadCount,
+                                                       int iconResId, String userId) {
         return new Builder(id, NotificationType.SCHEDULE_INVITE)
                 .title(scheduleName + " 여행 일정에 초대되었습니다")
                 .content(content)
@@ -43,13 +47,19 @@ public class NotificationDTO {
                 .isRead(isRead)
                 .unreadCount(unreadCount)
                 .iconResId(iconResId)
+                .userId(userId)
                 .build();
     }
 
+    /**
+     * ✅ 팔로우 알림 생성 (userId 추가)
+     */
     public static NotificationDTO createFollow(String id, String userName,
-                                               String timeDisplay, boolean isRead, int iconResId) {
+                                               String timeDisplay, boolean isRead,
+                                               int iconResId, String userId) {
         return new Builder(id, NotificationType.FOLLOW)
                 .userName(userName)
+                .userId(userId)
                 .title(userName + " 님이 회원님을 팔로우했습니다")
                 .content("프로필을 확인해 주세요")
                 .timeDisplay(timeDisplay)
@@ -58,11 +68,16 @@ public class NotificationDTO {
                 .build();
     }
 
+    /**
+     * ✅ 댓글 알림 생성 (userId 추가)
+     */
     public static NotificationDTO createComment(String id, String userName,
                                                 String content, String timeDisplay,
-                                                boolean isRead, int unreadCount, int iconResId) {
+                                                boolean isRead, int unreadCount,
+                                                int iconResId, String userId) {
         return new Builder(id, NotificationType.COMMENT)
                 .userName(userName)
+                .userId(userId)
                 .title(userName + " 님이 게시물에 댓글을 남겼습니다")
                 .content(content)
                 .timeDisplay(timeDisplay)
@@ -72,7 +87,6 @@ public class NotificationDTO {
                 .build();
     }
 
-    // Builder 클래스
     public static class Builder {
         private final String id;
         private final NotificationType type;
@@ -82,6 +96,7 @@ public class NotificationDTO {
         private boolean isRead;
         private int unreadCount;
         private String userName;
+        private String userId;
         private int iconResId;
 
         public Builder(String id, NotificationType type) {
@@ -119,6 +134,11 @@ public class NotificationDTO {
             return this;
         }
 
+        public Builder userId(String userId) {
+            this.userId = userId;
+            return this;
+        }
+
         public Builder iconResId(int iconResId) {
             this.iconResId = iconResId;
             return this;
@@ -139,6 +159,7 @@ public class NotificationDTO {
     public boolean isRead() { return isRead; }
     public int getUnreadCount() { return unreadCount; }
     public String getUserName() { return userName; }
+    public String getUserId() { return userId; } // ✅ 추가
     public int getIconResId() { return iconResId; }
 
     // Setters

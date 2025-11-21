@@ -18,12 +18,12 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.tot.Community.CommunityAdapter;
 import com.example.tot.Community.CommunityPostDTO;
 import com.example.tot.Community.CommunityViewModel;
 import com.example.tot.Notification.NotificationActivity;
-import com.example.tot.Notification.NotificationDTO;
 import com.example.tot.Notification.NotificationManager;
 import com.example.tot.R;
 import com.google.firebase.Timestamp;
@@ -42,6 +42,7 @@ public class HomeFragment extends Fragment {
     private List<HomeAlarmDTO> alarmList;
     private HomeAlarmAdapter alarmAdapter;
     // UI
+    private SwipeRefreshLayout swipeRefreshLayout;
     private LinearLayout provinceButtonContainer;
     private LinearLayout cityButtonContainer;
     private HorizontalScrollView cityScrollView;
@@ -63,23 +64,28 @@ public class HomeFragment extends Fragment {
     }
 
     @Override
-    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
         initViews(view);
         initViewModel();
         setupNotificationManager();
+        setupSwipeRefresh();
         setupProvinceButtons();
         setupMemoryRecyclerView(view.findViewById(R.id.re_memory));
         setupCommunityStyleRecyclerView(view.findViewById(R.id.re_album));
         setupProfileAndInbox();
 
+        // 게시글 더미 로드 (테스트용)
         viewModel.loadDummyData();
         filterAlbums();
-        loadDummyNotifications();
+
+        // 🔥 Firestore 실시간 알림 사용 → 더미 알림 제거
+        // loadDummyNotifications(); (삭제)
     }
 
     private void initViews(View view) {
+        swipeRefreshLayout = view.findViewById(R.id.swipe_refresh_home);
         provinceButtonContainer = view.findViewById(R.id.provinceButtonContainer);
         cityButtonContainer = view.findViewById(R.id.cityButtonContainer);
         cityScrollView = view.findViewById(R.id.cityScrollView);
@@ -88,18 +94,56 @@ public class HomeFragment extends Fragment {
         inboxBadge = view.findViewById(R.id.inbox_badge);
     }
 
+    /** 새로고침 설정 */
+    private void setupSwipeRefresh() {
+        swipeRefreshLayout.setColorSchemeColors(
+                getResources().getColor(android.R.color.holo_blue_bright),
+                getResources().getColor(android.R.color.holo_green_light),
+                getResources().getColor(android.R.color.holo_orange_light),
+                getResources().getColor(android.R.color.holo_red_light)
+        );
+
+        swipeRefreshLayout.setOnRefreshListener(this::refreshHomeData);
+    }
+
+    /** 홈 데이터 새로고침 */
+    private void refreshHomeData() {
+
+        // 알림 새로고침
+        if (notificationManager != null) {
+            notificationManager.refresh();
+        }
+
+        // 게시글 더미 재로드
+        if (viewModel != null) {
+            viewModel.loadDummyData();
+            filterAlbums();
+        }
+
+        // 애니메이션 후 완료
+        swipeRefreshLayout.postDelayed(() -> {
+            swipeRefreshLayout.setRefreshing(false);
+            Toast.makeText(getContext(), "새로고침 완료", Toast.LENGTH_SHORT).show();
+        }, 1000);
+    }
+
     private void initViewModel() {
         viewModel = new CommunityViewModel(new CommunityViewModel.DataCallback() {
             @Override
             public void onDataChanged(List<CommunityPostDTO> posts) {
-                if (communityAdapter != null) communityAdapter.updateData(posts);
+                if (communityAdapter != null) {
+                    communityAdapter.updateDataWithUsers(posts, new ArrayList<>(), false, false);
+                }
             }
 
             @Override
             public void onDataAdded(List<CommunityPostDTO> posts) {
-                if (communityAdapter != null) communityAdapter.addData(posts);
+                if (communityAdapter != null) {
+                    communityAdapter.addData(posts);
+                }
             }
         });
+
         viewModel.setFilter(CommunityViewModel.FilterMode.POPULAR);
     }
 
@@ -108,8 +152,9 @@ public class HomeFragment extends Fragment {
         notificationManager.addListener(this::updateInboxBadge);
     }
 
-    /** ✅ 프로필 및 수신함 (애니메이션 포함) */
+    /** 프로필 및 수신함 */
     private void setupProfileAndInbox() {
+
         profileImage.setOnClickListener(v -> {
             androidx.viewpager2.widget.ViewPager2 viewPager =
                     requireActivity().findViewById(R.id.viewpager);
@@ -121,7 +166,7 @@ public class HomeFragment extends Fragment {
             startActivity(intent);
         });
 
-        // 뱃지 배경 설정
+        // 배지 배경
         GradientDrawable badgeBackground = new GradientDrawable();
         badgeBackground.setShape(GradientDrawable.RECTANGLE);
         badgeBackground.setColor(Color.parseColor("#FF4444"));
@@ -152,67 +197,7 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    private void loadDummyNotifications() {
-        List<NotificationDTO> todayNotifs = new ArrayList<>();
-
-        // 1. 스케줄 초대 알림 (전주)
-        todayNotifs.add(NotificationDTO.createScheduleInvite(
-                "1",
-                "전주",
-                "여행 일정에 참여해 주세요",
-                "9분전",
-                false,
-                2,
-                R.drawable.ic_schedule
-        ));
-
-        // 2. 팔로우 알림
-        todayNotifs.add(NotificationDTO.createFollow(
-                "2",
-                "위찬우",
-                "14분전",
-                false,
-                R.drawable.ic_user_add
-        ));
-
-        // 3. 댓글 알림
-        todayNotifs.add(NotificationDTO.createComment(
-                "3",
-                "위찬우",
-                "댓글을 확인해 주세요",
-                "19분전",
-                false,
-                2,
-                R.drawable.ic_comment
-        ));
-
-        List<NotificationDTO> recentNotifs = new ArrayList<>();
-
-        // 4. 스케줄 초대 알림 (부산)
-        recentNotifs.add(NotificationDTO.createScheduleInvite(
-                "4",
-                "부산",
-                "여행 일정에 참여해 주세요",
-                "9일",
-                true,
-                0,
-                R.drawable.ic_schedule
-        ));
-
-        // 5. 팔로우 알림
-        recentNotifs.add(NotificationDTO.createFollow(
-                "5",
-                "이민섭",
-                "14일",
-                true,
-                R.drawable.ic_user_add
-        ));
-
-        notificationManager.setTodayNotifications(todayNotifs);
-        notificationManager.setRecentNotifications(recentNotifs);
-    }
-
-    /** 시/도 버튼 */
+    /** 시·도 버튼 */
     private void setupProvinceButtons() {
         Button allButton = createRegionButton("전체", "ALL", true);
         allButton.setOnClickListener(v -> {
@@ -309,16 +294,17 @@ public class HomeFragment extends Fragment {
     private void updateProvinceButtonStates(Button selectedButton) {
         if (currentSelectedProvinceButton != null)
             updateButtonAppearance(currentSelectedProvinceButton, false);
-        updateButtonAppearance(selectedButton, true);
-        currentSelectedProvinceButton = selectedButton;
+
+        updateButtonAppearance(selected, true);
+        currentSelectedProvinceButton = selected;
     }
 
-    /** 시군구 버튼 상태 갱신 */
-    private void updateCityButtonStates(Button selectedButton) {
+    private void updateCityButtonStates(Button selected) {
         if (currentSelectedCityButton != null)
             updateButtonAppearance(currentSelectedCityButton, false);
-        updateButtonAppearance(selectedButton, true);
-        currentSelectedCityButton = selectedButton;
+
+        updateButtonAppearance(selected, true);
+        currentSelectedCityButton = selected;
     }
 
     /** 지역별 게시글 필터 */
@@ -331,20 +317,27 @@ public class HomeFragment extends Fragment {
         if (selectedProvinceCode.equals("ALL")) {
             filtered.addAll(allPosts);
         } else if (selectedCityCode.isEmpty()) {
-            for (CommunityPostDTO post : allPosts)
+            for (CommunityPostDTO post : allPosts) {
                 if (post.getProvinceCode().equals(selectedProvinceCode))
                     filtered.add(post);
+            }
         } else {
-            for (CommunityPostDTO post : allPosts)
+            for (CommunityPostDTO post : allPosts) {
                 if (post.getProvinceCode().equals(selectedProvinceCode)
                         && post.getCityCode().equals(selectedCityCode))
                     filtered.add(post);
+            }
         }
 
-        if (communityAdapter != null) communityAdapter.updateData(filtered);
+        // 인기순 정렬
+        filtered.sort((a, b) -> Integer.compare(b.getHeartCount(), a.getHeartCount()));
+
+        if (communityAdapter != null) {
+            communityAdapter.updateDataWithUsers(filtered, new ArrayList<>(), false, false);
+        }
     }
 
-    /** 메모리 RecyclerView */
+    //알람 스케줄 리사이클러뷰
     private void setupMemoryRecyclerView(RecyclerView memoryView) {
 
         alarmList = new ArrayList<>();
@@ -417,13 +410,17 @@ public class HomeFragment extends Fragment {
     /** 커뮤니티 스타일 RecyclerView */
     private void setupCommunityStyleRecyclerView(RecyclerView albumView) {
         albumView.setLayoutManager(
-                new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false));
+                new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false)
+        );
 
-        List<CommunityPostDTO> initialData = new ArrayList<>();
-        communityAdapter = new CommunityAdapter(initialData, (post, position) -> {
-            if (post != null)
-                Toast.makeText(getContext(), post.getTitle() + " 상세보기", Toast.LENGTH_SHORT).show();
-        });
+        List<CommunityPostDTO> initial = new ArrayList<>();
+
+        communityAdapter = new CommunityAdapter(
+                initial,
+                (post, pos) -> Toast.makeText(getContext(), post.getTitle() + " 상세보기", Toast.LENGTH_SHORT).show(),
+                () -> {}
+        );
+
         albumView.setAdapter(communityAdapter);
     }
 
@@ -435,7 +432,6 @@ public class HomeFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        // 화면으로 돌아올 때 뱃지 업데이트
         updateInboxBadge(notificationManager.getUnreadCount());
         loadUserAlarms(alarmList, alarmAdapter);
     }
@@ -444,8 +440,7 @@ public class HomeFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         if (viewModel != null) viewModel.destroy();
-        if (notificationManager != null) {
+        if (notificationManager != null)
             notificationManager.removeListener(this::updateInboxBadge);
-        }
     }
 }

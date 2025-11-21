@@ -7,6 +7,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.viewpager2.widget.ViewPager2;
 
+import com.example.tot.Notification.NotificationManager;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.ismaeldivita.chipnavigation.ChipNavigationBar;
@@ -14,19 +15,21 @@ import com.ismaeldivita.chipnavigation.ChipNavigationBar;
 public class MainActivity extends AppCompatActivity {
     private ViewPager2 viewPager;
     private ChipNavigationBar chipNav;
+
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
-       ;
+
         viewPager = findViewById(R.id.viewpager);
         chipNav = findViewById(R.id.navbar);
 
         ViewPagerAdapter adapter = new ViewPagerAdapter(this);
         viewPager.setAdapter(adapter);
         viewPager.setUserInputEnabled(false);
+
         // ChipNavigationBar 선택 리스너
         chipNav.setOnItemSelectedListener(new ChipNavigationBar.OnItemSelectedListener() {
             @Override
@@ -37,12 +40,12 @@ public class MainActivity extends AppCompatActivity {
                     viewPager.setCurrentItem(1);
                 } else if (id == R.id.community) {
                     viewPager.setCurrentItem(2);
-                }
-                else if (id == R.id.mypage) {
+                } else if (id == R.id.mypage) {
                     viewPager.setCurrentItem(3);
                 }
             }
         });
+
         // ViewPager 페이지 변경 리스너
         viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
@@ -64,8 +67,17 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
         chipNav.setItemSelected(R.id.home, true);
+
+        // ✅ Firestore 알림 리스너 시작
+        NotificationManager.getInstance().startListeningForNotifications();
     }
 
-    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // ✅ 알림 리스너 중지
+        NotificationManager.getInstance().stopListeningForNotifications();
+    }
 }
