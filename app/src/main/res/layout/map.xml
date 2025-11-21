@@ -58,16 +58,16 @@
                 android:id="@+id/zoom_in_button"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:src="@drawable/ic_add"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_zoom_in"
+                android:background="@drawable/rounded_corner_background"
                 android:contentDescription="확대" />
 
             <ImageButton
                 android:id="@+id/zoom_out_button"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:src="@drawable/ic_remove"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_zoom_out"
+                android:background="@drawable/rounded_corner_background"
                 android:contentDescription="축소" />
 
         </LinearLayout>
