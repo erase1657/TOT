@@ -5,15 +5,14 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
-import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -29,7 +28,6 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.ListenerRegistration;
-import com.google.firebase.firestore.QuerySnapshot;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -39,8 +37,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ScheduleSettingActivity extends AppCompatActivity {
 
@@ -52,16 +50,16 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private ScheduleItemAdapter scheduleItemAdapter;
     private List<String> dateList = new ArrayList<>();
     private ScheduleBottomSheet currentBottomSheet;
-    // ✅ 기존 일정 데이터 캐시
-    private final Map<String, List<ScheduleItemDTO>> localCache = new HashMap<>();
 
-    // ✅ 각 날짜별 문서 ID 캐시 (겹침 검사에서 자기 자신 제외용)
+    // 기존 일정 데이터 캐시
+    private final Map<String, List<ScheduleItemDTO>> localCache = new HashMap<>();
     private final Map<String, List<String>> localCacheDocIds = new HashMap<>();
 
     private Button btn_Menu, btn_Invite;
     private ImageButton btn_AddSchedule;
-    private ListenerRegistration currentListener; // 실시간 리스너
+    private ListenerRegistration currentListener;
     private ActivityResultLauncher<Intent> mapActivityLauncher;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -92,6 +90,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         setRvDate();
         setRvScheduleItem();
         generateScheduleDates(startDate, endDate);
+
         // Launcher 초기화
         mapActivityLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -106,42 +105,40 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                     }
                 });
 
-        btn_Menu.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                PopupMenu menu = new PopupMenu(ScheduleSettingActivity.this, v);
-                menu.getMenuInflater().inflate(R.menu.schedule_menu, menu.getMenu());
+        // ✅ 메뉴 버튼 - 스케줄 삭제 기능 포함
+        btn_Menu.setOnClickListener(v -> {
+            PopupMenu menu = new PopupMenu(ScheduleSettingActivity.this, v);
+            menu.getMenuInflater().inflate(R.menu.schedule_menu, menu.getMenu());
 
-                menu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
-                    @Override
-                    public boolean onMenuItemClick(MenuItem item) {
-                        int id = item.getItemId();
+            menu.setOnMenuItemClickListener(item -> {
+                int id = item.getItemId();
 
-                        if (id == R.id.menu_map) {
-                            showAllPlacesOnMap();
-                            return true;
-                        } else if (id == R.id.menu_album) {
-                            Intent intent = new Intent(ScheduleSettingActivity.this, ScheduleAlbumActivity.class);
-                            intent.putExtra("scheduleId", scheduleId);
-                            intent.putExtra("userUid", userUid);
-                            intent.putStringArrayListExtra("dateList", new ArrayList<>(dateList));
-                            startActivity(intent);
-                            return true;
-                        } else if (id == R.id.menu_delete) {
-                            Toast.makeText(ScheduleSettingActivity.this, "스케줄 삭제 클릭됨", Toast.LENGTH_SHORT).show();
-                            return true;
-                        }
-                        return false;
-                    }
-                });
-                menu.show();
-            }
+                if (id == R.id.menu_map) {
+                    showAllPlacesOnMap();
+                    return true;
+                } else if (id == R.id.menu_album) {
+                    Intent intent = new Intent(ScheduleSettingActivity.this, ScheduleAlbumActivity.class);
+                    intent.putExtra("scheduleId", scheduleId);
+                    intent.putExtra("userUid", userUid);
+                    intent.putStringArrayListExtra("dateList", new ArrayList<>(dateList));
+                    startActivity(intent);
+                    return true;
+                } else if (id == R.id.menu_delete) {
+                    // ✅ 스케줄 삭제 다이얼로그 표시
+                    showDeleteConfirmDialog();
+                    return true;
+                }
+                return false;
+            });
+            menu.show();
         });
+
         btn_Invite.setOnClickListener(v -> {
             InviteDialog dialog = new InviteDialog(ScheduleSettingActivity.this);
             dialog.show();
         });
-        // ✅ 일정 추가 버튼
+
+        // 일정 추가 버튼
         btn_AddSchedule.setOnClickListener(v -> {
             currentBottomSheet = new ScheduleBottomSheet(ScheduleSettingActivity.this);
             currentBottomSheet.setOnAddPlaceListener(this::openMapForPlaceSelection);
@@ -160,18 +157,14 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                         .collection("scheduleItem")
                         .add(item)
                         .addOnSuccessListener(docRef -> {
-                            String ScheduleItemId = docRef.getId(); // ← 🔥 새 일정의 문서 ID
-
+                            String scheduleItemId = docRef.getId();
                             Toast.makeText(this, "일정이 추가되었습니다.", Toast.LENGTH_SHORT).show();
 
-                            // =====================================================
-                            //  🔥🔥 알람 켜져 있다면 alarms 컬렉션도 생성한다!
-                            // =====================================================
+                            // 알람이 켜져 있다면 alarms 컬렉션도 생성
                             if (item.getAlarm()) {
-
                                 Map<String, Object> alarm = new HashMap<>();
                                 alarm.put("scheduleId", scheduleId);
-                                alarm.put("ScheduleItemId", ScheduleItemId);
+                                alarm.put("planId", scheduleItemId);
                                 alarm.put("title", item.getTitle());
                                 alarm.put("date", selectedDate);
                                 alarm.put("place", item.getPlaceName());
@@ -181,12 +174,10 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                                 db.collection("user")
                                         .document(userUid)
                                         .collection("alarms")
-                                        .document(ScheduleItemId)
+                                        .document(scheduleItemId)
                                         .set(alarm)
-                                        .addOnSuccessListener(a -> Log.d("Alarm", "알람 생성됨: " + ScheduleItemId))
-                                        .addOnFailureListener(e ->
-                                                Log.e("Alarm", "알람 저장 실패: " + e.getMessage())
-                                        );
+                                        .addOnSuccessListener(a -> Log.d("Alarm", "알람 생성됨: " + scheduleItemId))
+                                        .addOnFailureListener(e -> Log.e("Alarm", "알람 저장 실패: " + e.getMessage()));
                             }
                         })
                         .addOnFailureListener(e ->
@@ -195,6 +186,94 @@ public class ScheduleSettingActivity extends AppCompatActivity {
 
             currentBottomSheet.show();
         });
+    }
+
+    /**
+     * ✅ 스케줄 삭제 확인 다이얼로그
+     */
+    private void showDeleteConfirmDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("스케줄 삭제")
+                .setMessage("이 스케줄을 삭제하시겠습니까?\n스케줄 내 모든 일정과 알람이 함께 삭제됩니다.")
+                .setPositiveButton("삭제", (dialog, which) -> deleteSchedule())
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    /**
+     * ✅ 스케줄 완전 삭제 (모든 날짜의 일정 + 알람 + scheduleDate + schedule 문서)
+     */
+    private void deleteSchedule() {
+        if (userUid == null || scheduleId == null) return;
+
+        AtomicInteger deleteCount = new AtomicInteger(dateList.size());
+
+        // 각 날짜별로 처리
+        for (String dateKey : dateList) {
+            db.collection("user")
+                    .document(userUid)
+                    .collection("schedule")
+                    .document(scheduleId)
+                    .collection("scheduleDate")
+                    .document(dateKey)
+                    .collection("scheduleItem")
+                    .get()
+                    .addOnSuccessListener(querySnapshot -> {
+                        // 해당 날짜의 모든 일정 삭제
+                        for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                            String itemId = doc.getId();
+
+                            // scheduleItem 삭제
+                            doc.getReference().delete();
+
+                            // 해당 일정의 알람도 삭제
+                            db.collection("user")
+                                    .document(userUid)
+                                    .collection("alarms")
+                                    .document(itemId)
+                                    .delete()
+                                    .addOnSuccessListener(aVoid -> Log.d("Delete", "알람 삭제: " + itemId))
+                                    .addOnFailureListener(e -> Log.e("Delete", "알람 삭제 실패", e));
+                        }
+
+                        // scheduleDate 문서 삭제
+                        db.collection("user")
+                                .document(userUid)
+                                .collection("schedule")
+                                .document(scheduleId)
+                                .collection("scheduleDate")
+                                .document(dateKey)
+                                .delete();
+
+                        // 모든 날짜 처리 완료 시 스케줄 문서 삭제
+                        if (deleteCount.decrementAndGet() == 0) {
+                            db.collection("user")
+                                    .document(userUid)
+                                    .collection("schedule")
+                                    .document(scheduleId)
+                                    .delete()
+                                    .addOnSuccessListener(aVoid -> {
+                                        Toast.makeText(this, "스케줄이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                                        finish(); // 액티비티 종료
+                                    })
+                                    .addOnFailureListener(e ->
+                                            Toast.makeText(this, "삭제 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                                    );
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e("Delete", "일정 조회 실패: " + dateKey, e);
+                        if (deleteCount.decrementAndGet() == 0) {
+                            // 실패해도 스케줄 문서 삭제 시도
+                            db.collection("user")
+                                    .document(userUid)
+                                    .collection("schedule")
+                                    .document(scheduleId)
+                                    .delete();
+                            finish();
+                        }
+                    });
+        }
     }
 
     private void openMapForPlaceSelection() {
@@ -222,7 +301,6 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         mapActivityLauncher.launch(intent);
     }
 
-
     private void setRvDate() {
         dateAdapter = new DateAdapter(dateList, date -> {
             selectedDate = date;
@@ -238,16 +316,13 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         scheduleItemAdapter = new ScheduleItemAdapter((item, docID) -> {
             currentBottomSheet = new ScheduleBottomSheet(ScheduleSettingActivity.this);
             currentBottomSheet.setOnAddPlaceListener(this::openMapForPlaceSelection);
-            currentBottomSheet.showWithData(item, docID); // ✅ 수정 모드로 열기
+            currentBottomSheet.showWithData(item, docID);
             Toast.makeText(this, "클릭됨: " + item.getTitle(), Toast.LENGTH_SHORT).show();
         });
         rvScheduleItem.setLayoutManager(new LinearLayoutManager(this));
         rvScheduleItem.setAdapter(scheduleItemAdapter);
     }
 
-    /**
-     * ✅ 실시간 반영 (Firestore snapshot listener)
-     */
     private void listenScheduleItems(String dateKey) {
         if (currentListener != null) currentListener.remove();
 
@@ -260,39 +335,36 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                 .collection("scheduleItem")
                 .addSnapshotListener((snapshot, e) -> {
                     if (e != null || snapshot == null) {
-                        Log.e("Firestore", "❌ 실시간 데이터 수신 실패", e);
+                        Log.e("Firestore", "⌛ 실시간 데이터 수신 실패", e);
                         return;
                     }
 
                     List<ScheduleItemDTO> list = new ArrayList<>();
-                    List<String> docIds = new ArrayList<>(); // ✅ 문서 ID 리스트 추가됨
+                    List<String> docIds = new ArrayList<>();
 
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
                         ScheduleItemDTO item = doc.toObject(ScheduleItemDTO.class);
                         if (item != null) {
                             list.add(item);
-                            docIds.add(doc.getId()); // ✅ 문서 ID 함께 저장
+                            docIds.add(doc.getId());
                         }
                     }
 
-                    // 🔹 시작시간 기준 정렬
                     list.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
 
-                    // 🔹 캐시에 저장
                     localCache.put(dateKey, list);
-                    localCacheDocIds.put(dateKey, docIds); // ✅ 문서 ID 캐시 추가됨
+                    localCacheDocIds.put(dateKey, docIds);
 
-                    // 🔹 어댑터에 데이터 반영
                     scheduleItemAdapter.submitList(new ArrayList<>(list), docIds);
                     Log.d("Firestore", "⚡ 실시간 반영 완료: " + dateKey + " (" + list.size() + "개)");
                 });
     }
+
     private void launchMapWithAllPlaces(Map<String, List<ScheduleItemDTO>> itemsMap) {
         ArrayList<LatLng> sortedLocations = new ArrayList<>();
         ArrayList<Integer> dayList = new ArrayList<>();
         int dayIndex = 1;
 
-        // 정렬된 dateList를 기준으로 전체 리스트를 다시 만듦
         for (String dateKey : dateList) {
             List<ScheduleItemDTO> items = itemsMap.get(dateKey);
             if (items != null) {
@@ -316,11 +388,11 @@ public class ScheduleSettingActivity extends AppCompatActivity {
             startActivity(intent);
         }
     }
+
     private void showAllPlacesOnMap() {
         final Map<String, List<ScheduleItemDTO>> tempItemsMap = new HashMap<>();
         AtomicInteger pendingFetches = new AtomicInteger(dateList.size());
 
-        // 날짜 리스트를 정렬하여 순서를 보장
         Collections.sort(dateList);
 
         for (String dateKey : dateList) {
@@ -357,9 +429,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
             }
         }
     }
-    /**
-     * ✅ 여행기간 기반 날짜 문서 자동 생성
-     */
+
     private void generateScheduleDates(Timestamp start, Timestamp end) {
         long diffMillis = end.toDate().getTime() - start.toDate().getTime();
         int days = (int) TimeUnit.MILLISECONDS.toDays(diffMillis) + 1;
@@ -367,7 +437,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         Date current = start.toDate();
 
-        dateList.clear(); // 리스트 초기화
+        dateList.clear();
         for (int i = 0; i < days; i++) {
             Date date = new Date(current.getTime() + TimeUnit.DAYS.toMillis(i));
             String dateString = sdf.format(date);
@@ -388,7 +458,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                         if (!doc.exists()) {
                             doc.getReference().set(scheduleDate)
                                     .addOnSuccessListener(aVoid -> Log.d("Firestore", "✅ 날짜 문서 생성됨: " + dateString))
-                                    .addOnFailureListener(e -> Log.e("Firestore", "❌ 날짜 문서 생성 실패", e));
+                                    .addOnFailureListener(e -> Log.e("Firestore", "⌛ 날짜 문서 생성 실패", e));
                         }
                     });
         }
@@ -402,13 +472,11 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         }
     }
 
-    /** ✅ 날짜별 일정 캐시 반환 */
     public List<ScheduleItemDTO> getCachedItemsForDate(String dateKey) {
         return localCache.getOrDefault(dateKey, new ArrayList<>());
     }
 
-    /** ✅ 날짜별 문서 ID 캐시 반환 (겹침 검사용) */
-    public List<String> getCachedDocIdsForDate(String dateKey) { // ✅ 추가됨
+    public List<String> getCachedDocIdsForDate(String dateKey) {
         return localCacheDocIds.getOrDefault(dateKey, new ArrayList<>());
     }
 
@@ -429,5 +497,8 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     public String getScheduleId() {
         return scheduleId;
     }
-    public FirebaseFirestore getFirestore() {return db;}
+
+    public FirebaseFirestore getFirestore() {
+        return db;
+    }
 }

@@ -14,6 +14,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -26,10 +27,16 @@ import com.example.tot.Community.CommunityViewModel;
 import com.example.tot.Notification.NotificationActivity;
 import com.example.tot.Notification.NotificationManager;
 import com.example.tot.R;
+import com.example.tot.Schedule.ScheduleDTO;
 import com.google.firebase.Timestamp;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import de.hdodenhof.circleimageview.CircleImageView;
@@ -41,6 +48,7 @@ public class HomeFragment extends Fragment {
     private String selectedCityCode = "";
     private List<HomeAlarmDTO> alarmList;
     private HomeAlarmAdapter alarmAdapter;
+
     // UI
     private SwipeRefreshLayout swipeRefreshLayout;
     private LinearLayout provinceButtonContainer;
@@ -51,6 +59,8 @@ public class HomeFragment extends Fragment {
     private CircleImageView profileImage;
     private FrameLayout inboxContainer;
     private TextView inboxBadge;
+    private RecyclerView reMemory;
+    private LinearLayout noScheduleSection;
 
     // 데이터
     private CommunityAdapter communityAdapter;
@@ -79,9 +89,6 @@ public class HomeFragment extends Fragment {
         // 게시글 더미 로드 (테스트용)
         viewModel.loadDummyData();
         filterAlbums();
-
-        // 🔥 Firestore 실시간 알림 사용 → 더미 알림 제거
-        // loadDummyNotifications(); (삭제)
     }
 
     private void initViews(View view) {
@@ -92,6 +99,8 @@ public class HomeFragment extends Fragment {
         profileImage = view.findViewById(R.id.profileImage);
         inboxContainer = view.findViewById(R.id.inbox_container);
         inboxBadge = view.findViewById(R.id.inbox_badge);
+        reMemory = view.findViewById(R.id.re_memory);
+        noScheduleSection = view.findViewById(R.id.noScheduleSection);
     }
 
     /** 새로고침 설정 */
@@ -108,7 +117,6 @@ public class HomeFragment extends Fragment {
 
     /** 홈 데이터 새로고침 */
     private void refreshHomeData() {
-
         // 알림 새로고침
         if (notificationManager != null) {
             notificationManager.refresh();
@@ -119,6 +127,9 @@ public class HomeFragment extends Fragment {
             viewModel.loadDummyData();
             filterAlbums();
         }
+
+        // 다음 스케줄 새로고침
+        loadNextScheduleWithAllItems();
 
         // 애니메이션 후 완료
         swipeRefreshLayout.postDelayed(() -> {
@@ -154,7 +165,6 @@ public class HomeFragment extends Fragment {
 
     /** 프로필 및 수신함 */
     private void setupProfileAndInbox() {
-
         profileImage.setOnClickListener(v -> {
             androidx.viewpager2.widget.ViewPager2 viewPager =
                     requireActivity().findViewById(R.id.viewpager);
@@ -295,16 +305,16 @@ public class HomeFragment extends Fragment {
         if (currentSelectedProvinceButton != null)
             updateButtonAppearance(currentSelectedProvinceButton, false);
 
-        updateButtonAppearance(selected, true);
-        currentSelectedProvinceButton = selected;
+        updateButtonAppearance(selectedButton, true);
+        currentSelectedProvinceButton = selectedButton;
     }
 
-    private void updateCityButtonStates(Button selected) {
+    private void updateCityButtonStates(Button selectedButton) {
         if (currentSelectedCityButton != null)
             updateButtonAppearance(currentSelectedCityButton, false);
 
-        updateButtonAppearance(selected, true);
-        currentSelectedCityButton = selected;
+        updateButtonAppearance(selectedButton, true);
+        currentSelectedCityButton = selectedButton;
     }
 
     /** 지역별 게시글 필터 */
@@ -337,74 +347,215 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    //알람 스케줄 리사이클러뷰
+    /**
+     * ✅ 다음 스케줄 1개의 모든 일정 표시 (VERTICAL)
+     */
     private void setupMemoryRecyclerView(RecyclerView memoryView) {
-
         alarmList = new ArrayList<>();
         alarmAdapter = new HomeAlarmAdapter(alarmList);
 
+        // ✅ VERTICAL로 설정 (여러 일정을 세로로 나열)
         memoryView.setLayoutManager(
                 new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false)
         );
         memoryView.setAdapter(alarmAdapter);
 
         // 첫 로딩
-        loadUserAlarms(alarmList, alarmAdapter);
+        loadNextScheduleWithAllItems();
     }
-    private void loadUserAlarms(List<HomeAlarmDTO> items, HomeAlarmAdapter adapter) {
 
-        String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
-        if (uid == null) return;
+    /**
+     * ✅ 현재 시간 이후의 가장 가까운 스케줄 1개를 찾고,
+     *    그 스케줄에 속한 모든 일정을 표시
+     */
+    private void loadNextScheduleWithAllItems() {
+        String uid = FirebaseAuth.getInstance().getUid();
+        if (uid == null) {
+            showNoSchedule();
+            return;
+        }
 
-        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        Calendar now = Calendar.getInstance();
+        Timestamp currentTime = new Timestamp(now.getTime());
 
+        // 1️⃣ 사용자의 모든 스케줄 조회
         db.collection("user")
                 .document(uid)
-                .collection("alarms")
+                .collection("schedule")
                 .get()
-                .addOnSuccessListener(snapshot -> {
+                .addOnSuccessListener(scheduleSnapshot -> {
+                    List<ScheduleDTO> allSchedules = new ArrayList<>();
 
-                    items.clear();
-
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : snapshot) {
-
-                        String scheduleId = doc.getString("scheduleId");
-                        String scheduleItem = doc.getString("planId");   // 너가 저장할 때 planId로 저장하면 됨
-                        String title = doc.getString("title");
-                        String date = doc.getString("date");
-                        String place = doc.getString("place");
-
-                        Timestamp start = doc.getTimestamp("startTime");
-                        Timestamp end = doc.getTimestamp("endTime");
-
-                        HomeAlarmDTO dto = new HomeAlarmDTO(
-                                scheduleId,
-                                scheduleItem,
-                                title,
-                                date,
-                                place,
-                                start,
-                                end
-                        );
-
-                        items.add(dto);
+                    for (DocumentSnapshot doc : scheduleSnapshot.getDocuments()) {
+                        ScheduleDTO schedule = doc.toObject(ScheduleDTO.class);
+                        if (schedule != null) {
+                            allSchedules.add(schedule);
+                        }
                     }
-                    Collections.sort(items, (a, b) -> {
 
-                        // 1️⃣ 날짜 먼저 비교
-                        int dateCompare = a.getDate().compareTo(b.getDate());
-                        if (dateCompare != 0) return dateCompare;
+                    if (allSchedules.isEmpty()) {
+                        showNoSchedule();
+                        return;
+                    }
 
-                        // 2️⃣ 날짜가 같으면 시간 비교
-                        return a.getStartTime().compareTo(b.getStartTime());
-                    });
-                    adapter.notifyDataSetChanged();
+                    // 2️⃣ 스케줄을 시작 날짜 기준으로 정렬
+                    Collections.sort(allSchedules, (a, b) ->
+                            a.getStartDate().compareTo(b.getStartDate())
+                    );
+
+                    // 3️⃣ 현재 시간 이후의 가장 가까운 스케줄 찾기
+                    ScheduleDTO nextSchedule = null;
+                    for (ScheduleDTO schedule : allSchedules) {
+                        // 스케줄의 종료일이 현재 시간 이후인 경우
+                        if (schedule.getEndDate().compareTo(currentTime) >= 0) {
+                            nextSchedule = schedule;
+                            break;
+                        }
+                    }
+
+                    if (nextSchedule == null) {
+                        showNoSchedule();
+                        return;
+                    }
+
+                    // 4️⃣ 해당 스케줄의 모든 일정 로드
+                    loadAllItemsFromSchedule(uid, nextSchedule);
                 })
-                .addOnFailureListener(e ->
-                        Toast.makeText(getContext(),
-                                "알람 불러오기 실패: " + e.getMessage(),
-                                Toast.LENGTH_SHORT).show()
-                );
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(),
+                            "스케줄 불러오기 실패: " + e.getMessage(),
+                            Toast.LENGTH_SHORT).show();
+                    showNoSchedule();
+                });
+    }
+
+    /**
+     * ✅ 특정 스케줄의 모든 날짜에 있는 모든 일정을 로드
+     */
+    private void loadAllItemsFromSchedule(String uid, ScheduleDTO schedule) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // 스케줄 기간 내 모든 날짜 생성
+        List<String> dateList = generateDateList(schedule.getStartDate(), schedule.getEndDate());
+
+        if (dateList.isEmpty()) {
+            showNoSchedule();
+            return;
+        }
+
+        List<HomeAlarmDTO> allItems = new ArrayList<>();
+        final int[] remainingDates = {dateList.size()};
+
+        // 각 날짜별로 일정 조회
+        for (String dateKey : dateList) {
+            db.collection("user")
+                    .document(uid)
+                    .collection("schedule")
+                    .document(schedule.getScheduleId())
+                    .collection("scheduleDate")
+                    .document(dateKey)
+                    .collection("scheduleItem")
+                    .get()
+                    .addOnSuccessListener(itemSnapshot -> {
+                        for (DocumentSnapshot doc : itemSnapshot.getDocuments()) {
+                            String title = doc.getString("title");
+                            String placeName = doc.getString("placeName");
+                            Timestamp startTime = doc.getTimestamp("startTime");
+                            Timestamp endTime = doc.getTimestamp("endTime");
+
+                            if (title != null && startTime != null && endTime != null) {
+                                HomeAlarmDTO dto = new HomeAlarmDTO(
+                                        schedule.getScheduleId(),
+                                        doc.getId(),
+                                        title,
+                                        dateKey,
+                                        placeName,
+                                        startTime,
+                                        endTime
+                                );
+                                allItems.add(dto);
+                            }
+                        }
+
+                        remainingDates[0]--;
+
+                        // 모든 날짜 조회 완료
+                        if (remainingDates[0] == 0) {
+                            displayScheduleItems(allItems);
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        remainingDates[0]--;
+                        if (remainingDates[0] == 0) {
+                            displayScheduleItems(allItems);
+                        }
+                    });
+        }
+    }
+
+    /**
+     * ✅ 스케줄 기간 내 모든 날짜 생성 (yyyy-MM-dd)
+     */
+    private List<String> generateDateList(Timestamp start, Timestamp end) {
+        List<String> dates = new ArrayList<>();
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(start.toDate());
+
+        Date endDate = end.toDate();
+
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
+
+        while (!calendar.getTime().after(endDate)) {
+            dates.add(sdf.format(calendar.getTime()));
+            calendar.add(Calendar.DAY_OF_MONTH, 1);
+        }
+
+        return dates;
+    }
+
+    /**
+     * ✅ 일정 목록 표시 (날짜 + 시간 순 정렬)
+     */
+    private void displayScheduleItems(List<HomeAlarmDTO> items) {
+        if (items.isEmpty()) {
+            showNoSchedule();
+            return;
+        }
+
+        // 날짜 + 시간 기준 정렬
+        Collections.sort(items, (a, b) -> {
+            int dateCompare = a.getDate().compareTo(b.getDate());
+            if (dateCompare != 0) return dateCompare;
+            return a.getStartTime().compareTo(b.getStartTime());
+        });
+
+        // UI 업데이트
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                alarmList.clear();
+                alarmList.addAll(items);
+                alarmAdapter.notifyDataSetChanged();
+
+                reMemory.setVisibility(View.VISIBLE);
+                noScheduleSection.setVisibility(View.GONE);
+            });
+        }
+    }
+
+    /**
+     * ✅ 스케줄 없음 표시
+     */
+    private void showNoSchedule() {
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                alarmList.clear();
+                alarmAdapter.notifyDataSetChanged();
+
+                reMemory.setVisibility(View.GONE);
+                noScheduleSection.setVisibility(View.VISIBLE);
+            });
+        }
     }
 
     /** 커뮤니티 스타일 RecyclerView */
@@ -433,7 +584,7 @@ public class HomeFragment extends Fragment {
     public void onResume() {
         super.onResume();
         updateInboxBadge(notificationManager.getUnreadCount());
-        loadUserAlarms(alarmList, alarmAdapter);
+        loadNextScheduleWithAllItems();
     }
 
     @Override

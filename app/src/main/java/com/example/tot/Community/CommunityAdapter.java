@@ -1,6 +1,8 @@
 package com.example.tot.Community;
 
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,11 +14,16 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.example.tot.Follow.FollowActionHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
@@ -26,10 +33,13 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     private static final int VIEW_TYPE_POST = 1;
     private static final int VIEW_TYPE_MORE_USERS = 2;
 
-    private List<Object> items; // ✅ 사용자 + 게시글 혼합 리스트
+    private List<Object> items;
     private OnPostClickListener postClickListener;
     private OnMoreUsersClickListener moreUsersClickListener;
-    private boolean showUsers; // ✅ 사용자 검색 결과 표시 여부
+    private boolean showUsers;
+
+    private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
 
     public interface OnPostClickListener {
         void onPostClick(CommunityPostDTO post, int position);
@@ -44,30 +54,22 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         this.postClickListener = postClickListener;
         this.moreUsersClickListener = moreUsersClickListener;
         this.showUsers = false;
+        this.mAuth = FirebaseAuth.getInstance();
+        this.db = FirebaseFirestore.getInstance();
     }
 
-    /**
-     * ✅ 사용자 검색 결과와 게시글을 함께 표시
-     * @param posts 게시글 목록
-     * @param users 사용자 검색 결과 (최대 3명 또는 전체)
-     * @param showUsers 사용자 표시 여부
-     * @param showMoreButton 더보기 버튼 표시 여부 (4명 이상일 때만)
-     */
     public void updateDataWithUsers(List<CommunityPostDTO> posts, List<CommunityFragment.UserSearchResult> users, boolean showUsers, boolean showMoreButton) {
         this.items.clear();
         this.showUsers = showUsers;
 
         if (showUsers && !users.isEmpty()) {
-            // ✅ 사용자 검색 결과 추가
             this.items.addAll(users);
 
-            // ✅ "더보기" 버튼 추가 (4명 이상일 때만)
             if (showMoreButton) {
                 this.items.add("MORE_USERS");
             }
         }
 
-        // 게시글 추가
         if (posts != null) {
             this.items.addAll(posts);
         }
@@ -110,7 +112,7 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         Object item = items.get(position);
 
         if (holder instanceof UserViewHolder) {
-            ((UserViewHolder) holder).bind((CommunityFragment.UserSearchResult) item);
+            ((UserViewHolder) holder).bind((CommunityFragment.UserSearchResult) item, position);
         } else if (holder instanceof MoreUsersViewHolder) {
             ((MoreUsersViewHolder) holder).bind();
         } else if (holder instanceof PostViewHolder) {
@@ -144,6 +146,9 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         TextView tvNickname;
         TextView btnFollow;
 
+        boolean isFollowing = false;
+        String currentUserId;
+
         public UserViewHolder(@NonNull View itemView) {
             super(itemView);
             imgProfile = itemView.findViewById(R.id.img_profile);
@@ -151,14 +156,16 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             tvNickname = itemView.findViewById(R.id.tv_nickname);
             btnFollow = itemView.findViewById(R.id.btn_follow);
 
-            // ✅ 불필요한 요소 숨기기
+            // 불필요한 요소 숨기기
             itemView.findViewById(R.id.tv_follow_back).setVisibility(View.GONE);
             itemView.findViewById(R.id.btn_edit_nickname).setVisibility(View.GONE);
             itemView.findViewById(R.id.layout_nickname_edit).setVisibility(View.GONE);
             itemView.findViewById(R.id.btn_menu).setVisibility(View.GONE);
         }
 
-        public void bind(CommunityFragment.UserSearchResult user) {
+        public void bind(CommunityFragment.UserSearchResult user, int position) {
+            currentUserId = user.getUserId();
+
             tvUserName.setText(user.getNickname() != null ? user.getNickname() : "사용자");
 
             String statusMsg = user.getStatusMessage();
@@ -180,10 +187,8 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 imgProfile.setImageResource(R.drawable.ic_profile_default);
             }
 
-            // 팔로우 버튼 스타일링
-            btnFollow.setText("프로필 보기");
-            btnFollow.setBackgroundResource(R.drawable.button_style1);
-            btnFollow.setTextColor(0xFFFFFFFF);
+            // ✅ 팔로우 상태 로드
+            loadFollowStatus(user.getUserId());
 
             // 클릭 이벤트
             View.OnClickListener profileClickListener = v -> {
@@ -194,12 +199,145 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
             imgProfile.setOnClickListener(profileClickListener);
             tvUserName.setOnClickListener(profileClickListener);
-            btnFollow.setOnClickListener(profileClickListener);
+
+            // ✅ 팔로우 버튼 클릭
+            btnFollow.setOnClickListener(v -> {
+                if (isFollowing) {
+                    performUnfollow(user.getUserId(), position);
+                } else {
+                    performFollow(user.getUserId(), position);
+                }
+            });
+        }
+
+        /**
+         * ✅ 팔로우 상태 로드
+         */
+        private void loadFollowStatus(String targetUserId) {
+            if (mAuth.getCurrentUser() == null) {
+                updateFollowButton(false);
+                return;
+            }
+
+            String myUid = mAuth.getCurrentUser().getUid();
+
+            db.collection("user")
+                    .document(myUid)
+                    .collection("following")
+                    .document(targetUserId)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        isFollowing = doc.exists();
+                        updateFollowButton(isFollowing);
+                    })
+                    .addOnFailureListener(e -> {
+                        updateFollowButton(false);
+                    });
+        }
+
+        /**
+         * ✅ 팔로우 버튼 UI 업데이트 (FollowAdapter와 동일한 스타일)
+         */
+        private void updateFollowButton(boolean following) {
+            GradientDrawable btnBg = new GradientDrawable();
+            btnBg.setCornerRadius(dpToPx(10));
+
+            if (following) {
+                btnFollow.setText("팔로우 중");
+                btnBg.setColor(Color.parseColor("#E0E0E0"));
+                btnFollow.setTextColor(Color.parseColor("#666666"));
+            } else {
+                btnFollow.setText("팔로우");
+                btnBg.setColor(Color.parseColor("#575DFB"));
+                btnFollow.setTextColor(Color.parseColor("#FFFFFF"));
+            }
+
+            btnFollow.setBackground(btnBg);
+        }
+
+        /**
+         * ✅ 팔로우 실행
+         */
+        private void performFollow(String targetUserId, int position) {
+            if (mAuth.getCurrentUser() == null) {
+                Toast.makeText(itemView.getContext(), "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            String myUid = mAuth.getCurrentUser().getUid();
+
+            Map<String, Object> followData = new HashMap<>();
+            followData.put("followedAt", System.currentTimeMillis());
+
+            // 1. 내 following에 추가
+            db.collection("user")
+                    .document(myUid)
+                    .collection("following")
+                    .document(targetUserId)
+                    .set(followData)
+                    .addOnSuccessListener(aVoid -> {
+                        // 2. 상대방 follower에 추가
+                        db.collection("user")
+                                .document(targetUserId)
+                                .collection("follower")
+                                .document(myUid)
+                                .set(followData)
+                                .addOnSuccessListener(aVoid2 -> {
+                                    isFollowing = true;
+                                    updateFollowButton(true);
+
+                                    Toast.makeText(itemView.getContext(), "팔로우했습니다", Toast.LENGTH_SHORT).show();
+
+                                    // 3. 팔로우 알림 전송
+                                    FollowActionHelper.sendFollowNotification(targetUserId, myUid);
+                                });
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(itemView.getContext(), "팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                    });
+        }
+
+        /**
+         * ✅ 언팔로우 실행
+         */
+        private void performUnfollow(String targetUserId, int position) {
+            if (mAuth.getCurrentUser() == null) return;
+
+            String myUid = mAuth.getCurrentUser().getUid();
+
+            // 1. 내 following에서 삭제
+            db.collection("user")
+                    .document(myUid)
+                    .collection("following")
+                    .document(targetUserId)
+                    .delete()
+                    .addOnSuccessListener(aVoid -> {
+                        // 2. 상대방 follower에서 삭제
+                        db.collection("user")
+                                .document(targetUserId)
+                                .collection("follower")
+                                .document(myUid)
+                                .delete()
+                                .addOnSuccessListener(aVoid2 -> {
+                                    isFollowing = false;
+                                    updateFollowButton(false);
+
+                                    Toast.makeText(itemView.getContext(), "언팔로우했습니다", Toast.LENGTH_SHORT).show();
+                                });
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(itemView.getContext(), "언팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
+                    });
+        }
+
+        private int dpToPx(int dp) {
+            float density = itemView.getResources().getDisplayMetrics().density;
+            return Math.round(dp * density);
         }
     }
 
     /**
-     * ✅ "더보기" ViewHolder
+     * "더보기" ViewHolder
      */
     class MoreUsersViewHolder extends RecyclerView.ViewHolder {
         TextView tvMoreUsers;
