@@ -26,8 +26,10 @@ import com.example.tot.Notification.NotificationActivity;
 import com.example.tot.Notification.NotificationDTO;
 import com.example.tot.Notification.NotificationManager;
 import com.example.tot.R;
+import com.google.firebase.Timestamp;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import de.hdodenhof.circleimageview.CircleImageView;
@@ -37,7 +39,8 @@ public class HomeFragment extends Fragment {
     // 지역 코드
     private String selectedProvinceCode = "ALL";
     private String selectedCityCode = "";
-
+    private List<HomeAlarmDTO> alarmList;
+    private HomeAlarmAdapter alarmAdapter;
     // UI
     private LinearLayout provinceButtonContainer;
     private LinearLayout cityButtonContainer;
@@ -343,19 +346,72 @@ public class HomeFragment extends Fragment {
 
     /** 메모리 RecyclerView */
     private void setupMemoryRecyclerView(RecyclerView memoryView) {
+
+        alarmList = new ArrayList<>();
+        alarmAdapter = new HomeAlarmAdapter(alarmList);
+
         memoryView.setLayoutManager(
-                new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false));
+                new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false)
+        );
+        memoryView.setAdapter(alarmAdapter);
 
-        List<HomeScheduleDTO> items = new ArrayList<>();
-        items.add(new HomeScheduleDTO("회의", "2025.10.15", "Room 6-205", "12:00", "13:05", R.drawable.ic_location_point));
-        items.add(new HomeScheduleDTO("스터디", "2025.10.20", "Room 3-102", "15:00", "17:00", R.drawable.ic_location_point));
-        items.add(new HomeScheduleDTO("약속", "2025.10.22", "Room 7-301", "18:30", "20:00", R.drawable.ic_location_point));
+        // 첫 로딩
+        loadUserAlarms(alarmList, alarmAdapter);
+    }
+    private void loadUserAlarms(List<HomeAlarmDTO> items, HomeAlarmAdapter adapter) {
 
-        HomeScheduleAdapter scheduleAdapter = new HomeScheduleAdapter(items);
-        memoryView.setAdapter(scheduleAdapter);
+        String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+        if (uid == null) return;
 
-        androidx.recyclerview.widget.SnapHelper snapHelper = new androidx.recyclerview.widget.LinearSnapHelper();
-        snapHelper.attachToRecyclerView(memoryView);
+        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+
+        db.collection("user")
+                .document(uid)
+                .collection("alarms")
+                .get()
+                .addOnSuccessListener(snapshot -> {
+
+                    items.clear();
+
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : snapshot) {
+
+                        String scheduleId = doc.getString("scheduleId");
+                        String scheduleItem = doc.getString("planId");   // 너가 저장할 때 planId로 저장하면 됨
+                        String title = doc.getString("title");
+                        String date = doc.getString("date");
+                        String place = doc.getString("place");
+
+                        Timestamp start = doc.getTimestamp("startTime");
+                        Timestamp end = doc.getTimestamp("endTime");
+
+                        HomeAlarmDTO dto = new HomeAlarmDTO(
+                                scheduleId,
+                                scheduleItem,
+                                title,
+                                date,
+                                place,
+                                start,
+                                end
+                        );
+
+                        items.add(dto);
+                    }
+                    Collections.sort(items, (a, b) -> {
+
+                        // 1️⃣ 날짜 먼저 비교
+                        int dateCompare = a.getDate().compareTo(b.getDate());
+                        if (dateCompare != 0) return dateCompare;
+
+                        // 2️⃣ 날짜가 같으면 시간 비교
+                        return a.getStartTime().compareTo(b.getStartTime());
+                    });
+                    adapter.notifyDataSetChanged();
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(getContext(),
+                                "알람 불러오기 실패: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show()
+                );
     }
 
     /** 커뮤니티 스타일 RecyclerView */
@@ -381,6 +437,7 @@ public class HomeFragment extends Fragment {
         super.onResume();
         // 화면으로 돌아올 때 뱃지 업데이트
         updateInboxBadge(notificationManager.getUnreadCount());
+        loadUserAlarms(alarmList, alarmAdapter);
     }
 
     @Override

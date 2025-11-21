@@ -1,6 +1,5 @@
 package com.example.tot.Schedule.ScheduleSetting;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
 import android.view.LayoutInflater;
@@ -12,6 +11,7 @@ import android.widget.NumberPicker;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.tot.Home.HomeAlarmDTO;
 import com.example.tot.R;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
@@ -20,9 +20,10 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
 
-import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ScheduleBottomSheet {
 
@@ -205,9 +206,42 @@ public class ScheduleBottomSheet {
             ScheduleItemDTO newItem = new ScheduleItemDTO(title, startTimestamp, endTimestamp, location, placeName, alarmIsOn);
 
             if (isEditMode && editingDocId != null && context instanceof ScheduleSettingActivity) {
+
                 ScheduleSettingActivity act = (ScheduleSettingActivity) context;
                 FirebaseFirestore db = FirebaseFirestore.getInstance();
 
+                // 1) 입력된 값 (수정되었을 수도 있음)
+                String newTitle = et_Title.getText().toString().trim();
+                Timestamp newStart = startTimestamp;
+                Timestamp newEnd = endTimestamp;
+                boolean newAlarm = alarmIsOn;
+
+                // 2) 기존 값 유지 처리
+                // --- 장소 이름 ---
+                String newPlaceName = tv_PlaceAddress.getText().toString();
+                if (newPlaceName.equals("장소")) {
+                    newPlaceName = editingItem.getPlaceName(); // 기존 값 유지
+                }
+
+                // --- 좌표(GeoPoint) ---
+                GeoPoint newLocation;
+                if (selectedLatLng != null) {
+                    newLocation = new GeoPoint(selectedLatLng.latitude, selectedLatLng.longitude);
+                } else {
+                    newLocation = editingItem.getPlace(); // 기존 값 유지
+                }
+
+                // 3) Firestore update 필드 구성
+                Map<String, Object> updateData = new HashMap<>();
+                updateData.put("title", newTitle);
+                updateData.put("startTime", newStart);
+                updateData.put("endTime", newEnd);
+                updateData.put("placeName", newPlaceName);
+                updateData.put("place", newLocation);
+                updateData.put("alarm", newAlarm);
+
+                // 4) Firestore 업데이트
+                String finalNewPlaceName = newPlaceName;
                 db.collection("user")
                         .document(act.getUserUid())
                         .collection("schedule")
@@ -216,8 +250,59 @@ public class ScheduleBottomSheet {
                         .document(act.getSelectedDate())
                         .collection("scheduleItem")
                         .document(editingDocId)
-                        .set(newItem)
+                        .update(updateData)
                         .addOnSuccessListener(aVoid -> {
+
+                            // =========================
+                            // 🔥 alarms 컬렉션 반영
+                            // =========================
+
+                            boolean oldAlarm = editingItem.getAlarm();
+
+                            // (1) 알람 OFF → ON
+                            if (!oldAlarm && newAlarm) {
+
+                                Map<String, Object> alarmData = new HashMap<>();
+                                alarmData.put("scheduleId", act.getScheduleId());
+                                alarmData.put("planId", editingDocId);
+                                alarmData.put("title", newTitle);
+                                alarmData.put("date", act.getSelectedDate());
+                                alarmData.put("place", finalNewPlaceName);
+                                alarmData.put("startTime", newStart);
+                                alarmData.put("endTime", newEnd);
+
+                                db.collection("user")
+                                        .document(act.getUserUid())
+                                        .collection("alarms")
+                                        .document(editingDocId)
+                                        .set(alarmData);
+                            }
+
+                            // (2) 알람 ON → OFF
+                            if (oldAlarm && !newAlarm) {
+                                db.collection("user")
+                                        .document(act.getUserUid())
+                                        .collection("alarms")
+                                        .document(editingDocId)
+                                        .delete();
+                            }
+
+                            // (3) 알람 ON 유지 → 알람 정보도 업데이트해줌
+                            if (oldAlarm && newAlarm) {
+
+                                Map<String, Object> alarmUpdate = new HashMap<>();
+                                alarmUpdate.put("title", newTitle);
+                                alarmUpdate.put("place", finalNewPlaceName);
+                                alarmUpdate.put("startTime", newStart);
+                                alarmUpdate.put("endTime", newEnd);
+
+                                db.collection("user")
+                                        .document(act.getUserUid())
+                                        .collection("alarms")
+                                        .document(editingDocId)
+                                        .update(alarmUpdate);
+                            }
+
                             Toast.makeText(context, "일정이 수정되었습니다.", Toast.LENGTH_SHORT).show();
                             dialog.dismiss();
                         })
@@ -230,7 +315,42 @@ public class ScheduleBottomSheet {
             }
         });
     }
+    private void saveAlarmToUserCollection(FirebaseFirestore db, ScheduleSettingActivity act,
+                                           String ScheduleItem, ScheduleItemDTO item) {
 
+        String uid = act.getUserUid();
+        String scheduleId = act.getScheduleId();
+        String date = act.getSelectedDate();
+
+        // 알람 문서 데이터 구성
+        HomeAlarmDTO alarm = new HomeAlarmDTO(
+                scheduleId,
+                ScheduleItem,
+                item.getTitle(),
+                date,
+                item.getPlaceName(),
+                item.getStartTime(),
+                item.getEndTime()
+        );
+
+        db.collection("user")
+                .document(uid)
+                .collection("alarms")
+                .document(ScheduleItem)
+                .set(alarm);
+    }
+    private void deleteAlarmFromUserCollection(FirebaseFirestore db,
+                                               ScheduleSettingActivity act,
+                                               String ScheduleItemId) {
+
+        String uid = act.getUserUid();
+
+        db.collection("user")
+                .document(uid)
+                .collection("alarms")
+                .document(ScheduleItemId)
+                .delete();
+    }
 
     private void setupNumberPicker(NumberPicker picker, int min, int max) {
         picker.setMinValue(min);

@@ -10,14 +10,15 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
+import com.google.firebase.Timestamp;
 
 import java.util.List;
 
-public class HomeScheduleAdapter extends RecyclerView.Adapter<HomeScheduleAdapter.ViewHolder> {
+public class HomeAlarmAdapter extends RecyclerView.Adapter<HomeAlarmAdapter.ViewHolder> {
 
-    private List<HomeScheduleDTO> items;
+    private List<HomeAlarmDTO> items;
 
-    public HomeScheduleAdapter(List<HomeScheduleDTO> items) {
+    public HomeAlarmAdapter(List<HomeAlarmDTO> items) {
         this.items = items;
     }
 
@@ -38,26 +39,36 @@ public class HomeScheduleAdapter extends RecyclerView.Adapter<HomeScheduleAdapte
 
     @NonNull
     @Override
-    public HomeScheduleAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public HomeAlarmAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_schedule_home, parent, false);
+                .inflate(R.layout.item_home_alarm, parent, false);
         return new ViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        HomeScheduleDTO item = items.get(position);
+        HomeAlarmDTO item = items.get(position);
         holder.title.setText(item.getTitle());
         holder.date.setText(item.getDate());
-        holder.location.setText(item.getRoom());
-        holder.startTime.setText(item.getStartTime());
-        holder.endTime.setText(item.getEndTime());
+        holder.location.setText(item.getPlace());
+        holder.startTime.setText(formatTime(item.getStartTime()));
+        holder.endTime.setText(formatTime(item.getEndTime()));
 
-        if (item.getLocationIconResId() != 0) {
-            holder.locationIcon.setImageResource(item.getLocationIconResId());
+        if (item.getPlace() == null || item.getPlace().isEmpty()) {
+            holder.locationIcon.setVisibility(View.GONE);
+            holder.location.setVisibility(View.GONE);
+        } else {
+            holder.locationIcon.setVisibility(View.VISIBLE);
+            holder.location.setVisibility(View.VISIBLE);
+            holder.location.setText(item.getPlace());
         }
-    }
 
+    }
+    private String formatTime(Timestamp ts) {
+        if (ts == null) return "";
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm");
+        return sdf.format(ts.toDate());
+    }
     @Override
     public int getItemCount() {
         return items != null ? items.size() : 0;

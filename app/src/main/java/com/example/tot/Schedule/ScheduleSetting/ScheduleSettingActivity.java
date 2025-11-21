@@ -160,7 +160,34 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                         .collection("scheduleItem")
                         .add(item)
                         .addOnSuccessListener(docRef -> {
+                            String ScheduleItemId = docRef.getId(); // ← 🔥 새 일정의 문서 ID
+
                             Toast.makeText(this, "일정이 추가되었습니다.", Toast.LENGTH_SHORT).show();
+
+                            // =====================================================
+                            //  🔥🔥 알람 켜져 있다면 alarms 컬렉션도 생성한다!
+                            // =====================================================
+                            if (item.getAlarm()) {
+
+                                Map<String, Object> alarm = new HashMap<>();
+                                alarm.put("scheduleId", scheduleId);
+                                alarm.put("ScheduleItemId", ScheduleItemId);
+                                alarm.put("title", item.getTitle());
+                                alarm.put("date", selectedDate);
+                                alarm.put("place", item.getPlaceName());
+                                alarm.put("startTime", item.getStartTime());
+                                alarm.put("endTime", item.getEndTime());
+
+                                db.collection("user")
+                                        .document(userUid)
+                                        .collection("alarms")
+                                        .document(ScheduleItemId)
+                                        .set(alarm)
+                                        .addOnSuccessListener(a -> Log.d("Alarm", "알람 생성됨: " + ScheduleItemId))
+                                        .addOnFailureListener(e ->
+                                                Log.e("Alarm", "알람 저장 실패: " + e.getMessage())
+                                        );
+                            }
                         })
                         .addOnFailureListener(e ->
                                 Toast.makeText(this, "일정 추가 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show());
