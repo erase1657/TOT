@@ -29,11 +29,11 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
     }
 
     public ScheduleAdapter(List<ScheduleDTO> scheduleList) {
-        this.scheduleList = scheduleList != null ? scheduleList : new ArrayList<>();
+        this.scheduleList = scheduleList != null ? new ArrayList<>(scheduleList) : new ArrayList<>();
     }
 
     public ScheduleAdapter(List<ScheduleDTO> scheduleList, OnScheduleClickListener clickListener) {
-        this.scheduleList = scheduleList != null ? scheduleList : new ArrayList<>();
+        this.scheduleList = scheduleList != null ? new ArrayList<>(scheduleList) : new ArrayList<>();
         this.clickListener = clickListener;
     }
 
@@ -83,10 +83,9 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
      * 스케줄 데이터 업데이트 메서드
      */
     public void updateData(List<ScheduleDTO> newScheduleList) {
+        List<ScheduleDTO> copiedList = newScheduleList != null ? new ArrayList<>(newScheduleList) : new ArrayList<>();
         this.scheduleList.clear();
-        if (newScheduleList != null) {
-            this.scheduleList.addAll(newScheduleList);
-        }
+        this.scheduleList.addAll(copiedList);
         notifyDataSetChanged();
     }
 
