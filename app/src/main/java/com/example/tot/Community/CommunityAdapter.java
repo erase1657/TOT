@@ -1,8 +1,7 @@
 package com.example.tot.Community;
 
 import android.content.Intent;
-import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,21 +13,20 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.example.tot.Follow.FollowActionHelper;
+import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
+    private static final String TAG = "CommunityAdapter";
     private static final int VIEW_TYPE_USER = 0;
     private static final int VIEW_TYPE_POST = 1;
     private static final int VIEW_TYPE_MORE_USERS = 2;
@@ -137,9 +135,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
     }
 
-    /**
-     * ✅ 사용자 검색 결과 ViewHolder
-     */
     class UserViewHolder extends RecyclerView.ViewHolder {
         CircleImageView imgProfile;
         TextView tvUserName;
@@ -147,6 +142,7 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         TextView btnFollow;
 
         boolean isFollowing = false;
+        boolean isFollower = false;
         String currentUserId;
 
         public UserViewHolder(@NonNull View itemView) {
@@ -156,7 +152,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             tvNickname = itemView.findViewById(R.id.tv_nickname);
             btnFollow = itemView.findViewById(R.id.btn_follow);
 
-            // 불필요한 요소 숨기기
             itemView.findViewById(R.id.tv_follow_back).setVisibility(View.GONE);
             itemView.findViewById(R.id.btn_edit_nickname).setVisibility(View.GONE);
             itemView.findViewById(R.id.layout_nickname_edit).setVisibility(View.GONE);
@@ -176,7 +171,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 tvNickname.setVisibility(View.GONE);
             }
 
-            // 프로필 이미지
             if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isEmpty()) {
                 Glide.with(itemView.getContext())
                         .load(user.getProfileImageUrl())
@@ -187,10 +181,12 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 imgProfile.setImageResource(R.drawable.ic_profile_default);
             }
 
-            // ✅ 팔로우 상태 로드
-            loadFollowStatus(user.getUserId());
+            FollowButtonHelper.checkFollowStatus(user.getUserId(), (following, follower) -> {
+                isFollowing = following;
+                isFollower = follower;
+                FollowButtonHelper.updateFollowButton(btnFollow, isFollowing, isFollower);
+            });
 
-            // 클릭 이벤트
             View.OnClickListener profileClickListener = v -> {
                 Intent intent = new Intent(itemView.getContext(), UserProfileActivity.class);
                 intent.putExtra("userId", user.getUserId());
@@ -200,145 +196,29 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             imgProfile.setOnClickListener(profileClickListener);
             tvUserName.setOnClickListener(profileClickListener);
 
-            // ✅ 팔로우 버튼 클릭
             btnFollow.setOnClickListener(v -> {
-                if (isFollowing) {
-                    performUnfollow(user.getUserId(), position);
-                } else {
-                    performFollow(user.getUserId(), position);
-                }
+                FollowButtonHelper.handleFollowButtonClick(
+                        itemView.getContext(),
+                        user.getUserId(),
+                        isFollowing,
+                        isFollower,
+                        new FollowButtonHelper.FollowActionCallback() {
+                            @Override
+                            public void onSuccess(boolean nowFollowing) {
+                                isFollowing = nowFollowing;
+                                FollowButtonHelper.updateFollowButton(btnFollow, isFollowing, isFollower);
+                            }
+
+                            @Override
+                            public void onFailure(String message) {
+                                Toast.makeText(itemView.getContext(), message, Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                );
             });
-        }
-
-        /**
-         * ✅ 팔로우 상태 로드
-         */
-        private void loadFollowStatus(String targetUserId) {
-            if (mAuth.getCurrentUser() == null) {
-                updateFollowButton(false);
-                return;
-            }
-
-            String myUid = mAuth.getCurrentUser().getUid();
-
-            db.collection("user")
-                    .document(myUid)
-                    .collection("following")
-                    .document(targetUserId)
-                    .get()
-                    .addOnSuccessListener(doc -> {
-                        isFollowing = doc.exists();
-                        updateFollowButton(isFollowing);
-                    })
-                    .addOnFailureListener(e -> {
-                        updateFollowButton(false);
-                    });
-        }
-
-        /**
-         * ✅ 팔로우 버튼 UI 업데이트 (FollowAdapter와 동일한 스타일)
-         */
-        private void updateFollowButton(boolean following) {
-            GradientDrawable btnBg = new GradientDrawable();
-            btnBg.setCornerRadius(dpToPx(10));
-
-            if (following) {
-                btnFollow.setText("팔로우 중");
-                btnBg.setColor(Color.parseColor("#E0E0E0"));
-                btnFollow.setTextColor(Color.parseColor("#666666"));
-            } else {
-                btnFollow.setText("팔로우");
-                btnBg.setColor(Color.parseColor("#575DFB"));
-                btnFollow.setTextColor(Color.parseColor("#FFFFFF"));
-            }
-
-            btnFollow.setBackground(btnBg);
-        }
-
-        /**
-         * ✅ 팔로우 실행
-         */
-        private void performFollow(String targetUserId, int position) {
-            if (mAuth.getCurrentUser() == null) {
-                Toast.makeText(itemView.getContext(), "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            String myUid = mAuth.getCurrentUser().getUid();
-
-            Map<String, Object> followData = new HashMap<>();
-            followData.put("followedAt", System.currentTimeMillis());
-
-            // 1. 내 following에 추가
-            db.collection("user")
-                    .document(myUid)
-                    .collection("following")
-                    .document(targetUserId)
-                    .set(followData)
-                    .addOnSuccessListener(aVoid -> {
-                        // 2. 상대방 follower에 추가
-                        db.collection("user")
-                                .document(targetUserId)
-                                .collection("follower")
-                                .document(myUid)
-                                .set(followData)
-                                .addOnSuccessListener(aVoid2 -> {
-                                    isFollowing = true;
-                                    updateFollowButton(true);
-
-                                    Toast.makeText(itemView.getContext(), "팔로우했습니다", Toast.LENGTH_SHORT).show();
-
-                                    // 3. 팔로우 알림 전송
-                                    FollowActionHelper.sendFollowNotification(targetUserId, myUid);
-                                });
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(itemView.getContext(), "팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
-                    });
-        }
-
-        /**
-         * ✅ 언팔로우 실행
-         */
-        private void performUnfollow(String targetUserId, int position) {
-            if (mAuth.getCurrentUser() == null) return;
-
-            String myUid = mAuth.getCurrentUser().getUid();
-
-            // 1. 내 following에서 삭제
-            db.collection("user")
-                    .document(myUid)
-                    .collection("following")
-                    .document(targetUserId)
-                    .delete()
-                    .addOnSuccessListener(aVoid -> {
-                        // 2. 상대방 follower에서 삭제
-                        db.collection("user")
-                                .document(targetUserId)
-                                .collection("follower")
-                                .document(myUid)
-                                .delete()
-                                .addOnSuccessListener(aVoid2 -> {
-                                    isFollowing = false;
-                                    updateFollowButton(false);
-
-                                    Toast.makeText(itemView.getContext(), "언팔로우했습니다", Toast.LENGTH_SHORT).show();
-                                });
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(itemView.getContext(), "언팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
-                    });
-        }
-
-        private int dpToPx(int dp) {
-            float density = itemView.getResources().getDisplayMetrics().density;
-            return Math.round(dp * density);
         }
     }
 
-    /**
-     * "더보기" ViewHolder
-     */
     class MoreUsersViewHolder extends RecyclerView.ViewHolder {
         TextView tvMoreUsers;
 
@@ -356,9 +236,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
     }
 
-    /**
-     * 게시글 ViewHolder (기존 유지)
-     */
     class PostViewHolder extends RecyclerView.ViewHolder {
         CircleImageView imgProfile;
         TextView txtUserName;
@@ -368,6 +245,11 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         TextView txtHeartCount;
         ImageView imgComment;
         TextView txtCommentCount;
+        TextView btnFollow;
+
+        boolean isFollowing = false;
+        boolean isFollower = false;
+        String currentPostAuthorId;
 
         public PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -379,18 +261,30 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             txtHeartCount = itemView.findViewById(R.id.txt_heart_count);
             imgComment = itemView.findViewById(R.id.img_comment);
             txtCommentCount = itemView.findViewById(R.id.txt_comment_count);
+            btnFollow = itemView.findViewById(R.id.btn_follow);
         }
 
         public void bind(CommunityPostDTO post, int position) {
             if (post == null) return;
 
-            if (post.getUserProfileImage() != 0) {
+            currentPostAuthorId = post.getUserId();
+            String currentUid = mAuth.getCurrentUser() != null ? mAuth.getCurrentUser().getUid() : null;
+
+            // ✅ Firestore에서 가져온 프로필 이미지 URL 사용
+            if (post.getProfileImageUrl() != null && !post.getProfileImageUrl().isEmpty()) {
+                Glide.with(itemView.getContext())
+                        .load(post.getProfileImageUrl())
+                        .placeholder(R.drawable.ic_profile_default)
+                        .error(R.drawable.ic_profile_default)
+                        .into(imgProfile);
+            } else if (post.getUserProfileImage() != 0) {
                 imgProfile.setImageResource(post.getUserProfileImage());
             } else {
                 imgProfile.setImageResource(R.drawable.ic_profile_default);
             }
 
-            txtUserName.setText(post.getUserName() != null ? post.getUserName() : "익명");
+            // ✅ 작성자 이름 표시 (더 이상 "익명"이 아님)
+            txtUserName.setText(post.getUserName() != null ? post.getUserName() : "사용자");
             txtPostTitle.setText(post.getTitle() != null ? post.getTitle() : "");
 
             if (post.getPostImage() != 0) {
@@ -404,11 +298,44 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             txtHeartCount.setText(formatCount(post.getHeartCount()));
             txtCommentCount.setText(post.getCommentCount() + "개");
 
+            if (currentUid != null && currentUid.equals(currentPostAuthorId)) {
+                btnFollow.setVisibility(View.GONE);
+            } else {
+                btnFollow.setVisibility(View.VISIBLE);
+
+                FollowButtonHelper.checkFollowStatus(currentPostAuthorId, (following, follower) -> {
+                    isFollowing = following;
+                    isFollower = follower;
+                    FollowButtonHelper.updateFollowButton(btnFollow, isFollowing, isFollower);
+                });
+
+                btnFollow.setOnClickListener(v -> {
+                    FollowButtonHelper.handleFollowButtonClick(
+                            itemView.getContext(),
+                            currentPostAuthorId,
+                            isFollowing,
+                            isFollower,
+                            new FollowButtonHelper.FollowActionCallback() {
+                                @Override
+                                public void onSuccess(boolean nowFollowing) {
+                                    isFollowing = nowFollowing;
+                                    FollowButtonHelper.updateFollowButton(btnFollow, isFollowing, isFollower);
+                                }
+
+                                @Override
+                                public void onFailure(String message) {
+                                    Toast.makeText(itemView.getContext(), message, Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                    );
+                });
+            }
+
             imgProfile.setOnClickListener(v -> {
                 String userId = post.getUserId();
                 if (userId == null || userId.isEmpty()) {
                     Toast.makeText(itemView.getContext(),
-                            "프로필 정보가 없는 사용자입니다 (더미 데이터)",
+                            "프로필 정보가 없는 사용자입니다",
                             Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -422,7 +349,7 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 String userId = post.getUserId();
                 if (userId == null || userId.isEmpty()) {
                     Toast.makeText(itemView.getContext(),
-                            "프로필 정보가 없는 사용자입니다 (더미 데이터)",
+                            "프로필 정보가 없는 사용자입니다",
                             Toast.LENGTH_SHORT).show();
                     return;
                 }

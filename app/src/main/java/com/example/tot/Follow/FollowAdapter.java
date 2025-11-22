@@ -2,7 +2,6 @@ package com.example.tot.Follow;
 
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -121,12 +120,14 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
 
             tvUserName.setText(user.getUserName());
 
+            // Follow Back 표시 (내 프로필 & 팔로워 모드 & 내가 팔로우 안함)
             if (isFollowerMode && isMyProfile && !user.isFollowing()) {
                 tvFollowBack.setVisibility(View.VISIBLE);
             } else {
                 tvFollowBack.setVisibility(View.GONE);
             }
 
+            // 별명 표시 (내 프로필일 때만)
             if (isMyProfile) {
                 String nickname = user.getNickname();
                 if (nickname != null && !nickname.trim().isEmpty()) {
@@ -141,8 +142,10 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                 btnEditNickname.setVisibility(View.GONE);
             }
 
-            updateFollowButton(user);
+            // ✅ FollowButtonHelper로 버튼 업데이트
+            FollowButtonHelper.updateFollowButton(btnFollow, user.isFollowing(), user.isFollower());
 
+            // 메뉴 버튼 (팔로워 모드 & 내 프로필)
             if (isFollowerMode && isMyProfile) {
                 btnMenu.setVisibility(View.VISIBLE);
             } else {
@@ -152,55 +155,9 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
             setupClickListeners(user, position);
         }
 
-        private void updateFollowButton(FollowUserDTO user) {
-            GradientDrawable btnBg = new GradientDrawable();
-            btnBg.setCornerRadius(dpToPx(10));
-
-            if (isMyProfile) {
-                if (isFollowerMode) {
-                    if (user.isFollowing()) {
-                        btnFollow.setText("팔로우 중");
-                        btnBg.setColor(0xFFE0E0E0);
-                        btnFollow.setTextColor(0xFF666666);
-                    } else {
-                        btnFollow.setText("맞 팔로우");
-                        btnBg.setColor(0xFF575DFB);
-                        btnFollow.setTextColor(0xFFFFFFFF);
-                    }
-                } else {
-                    if (user.isFollowing()) {
-                        btnFollow.setText("팔로우 중");
-                        btnBg.setColor(0xFFE0E0E0);
-                        btnFollow.setTextColor(0xFF666666);
-                    } else {
-                        btnFollow.setText("팔로우");
-                        btnBg.setColor(0xFF575DFB);
-                        btnFollow.setTextColor(0xFFFFFFFF);
-                    }
-                }
-            } else {
-                if (user.isFollower() && user.isFollowing()) {
-                    btnFollow.setText("팔로우 중");
-                    btnBg.setColor(0xFFE0E0E0);
-                    btnFollow.setTextColor(0xFF666666);
-                } else if (user.isFollower()) {
-                    btnFollow.setText("맞 팔로우");
-                    btnBg.setColor(0xFF575DFB);
-                    btnFollow.setTextColor(0xFFFFFFFF);
-                } else {
-                    btnFollow.setText("팔로우");
-                    btnBg.setColor(0xFF575DFB);
-                    btnFollow.setTextColor(0xFFFFFFFF);
-                }
-            }
-
-            btnFollow.setBackground(btnBg);
-        }
-
         private void setupClickListeners(FollowUserDTO user, int position) {
             imgProfile.setOnClickListener(v -> {
                 String userId = user.getUserId();
-                // ✅ userId가 없는 더미 데이터는 Toast만 표시하고 화면 전환 안 함
                 if (userId == null || userId.isEmpty()) {
                     Toast.makeText(itemView.getContext(),
                             "프로필 정보가 없는 사용자입니다 (더미 데이터)",
@@ -213,7 +170,6 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                 itemView.getContext().startActivity(intent);
             });
 
-            // tvUserName 클릭 시에도 동일한 처리
             tvUserName.setOnClickListener(v -> {
                 String userId = user.getUserId();
                 if (userId == null || userId.isEmpty()) {
@@ -246,10 +202,12 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                 return false;
             });
 
+            // ✅ FollowButtonHelper로 클릭 처리
             btnFollow.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onFollowClick(user, position);
-                    updateFollowButton(user);
+                    // 상태 변경 후 UI 업데이트
+                    FollowButtonHelper.updateFollowButton(btnFollow, user.isFollowing(), user.isFollower());
                 }
             });
 
@@ -318,11 +276,6 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
             });
 
             popup.show();
-        }
-
-        private int dpToPx(int dp) {
-            float density = itemView.getResources().getDisplayMetrics().density;
-            return Math.round(dp * density);
         }
     }
 }

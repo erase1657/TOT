@@ -1,7 +1,6 @@
 package com.example.tot.MyPage;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputFilter;
@@ -24,8 +23,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.example.tot.Authentication.LoginActivity;
 import com.example.tot.Authentication.UserDTO;
-import com.example.tot.Follow.FollowActionHelper;
 import com.example.tot.Follow.FollowActivity;
+import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleDTO;
 import com.google.firebase.auth.FirebaseAuth;
@@ -33,9 +32,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
@@ -77,7 +74,6 @@ public class MyPageFragment extends Fragment {
     private String originalStatus;
     private String originalLocation;
 
-    // 팔로워/팔로잉 수 (Firestore에서 로드)
     private int followerCount = 0;
     private int followingCount = 0;
     private boolean isCountsLoaded = false;
@@ -132,7 +128,6 @@ public class MyPageFragment extends Fragment {
         initViews(view);
         determineProfileMode();
 
-        // 팔로우 카운트를 먼저 로드한 후 프로필 로드
         loadFollowCounts(() -> {
             loadProfileData();
         });
@@ -201,16 +196,12 @@ public class MyPageFragment extends Fragment {
         }
     }
 
-    /**
-     * ✅ 팔로워/팔로잉 수를 Firestore에서 먼저 로드
-     */
     private void loadFollowCounts(Runnable onComplete) {
         if (targetUserId == null || targetUserId.isEmpty()) {
             if (onComplete != null) onComplete.run();
             return;
         }
 
-        // 팔로워 수 로드
         db.collection("user")
                 .document(targetUserId)
                 .collection("follower")
@@ -225,7 +216,6 @@ public class MyPageFragment extends Fragment {
                     checkCountsLoadedAndUpdate(onComplete);
                 });
 
-        // 팔로잉 수 로드
         db.collection("user")
                 .document(targetUserId)
                 .collection("following")
@@ -241,9 +231,6 @@ public class MyPageFragment extends Fragment {
                 });
     }
 
-    /**
-     * ✅ 두 카운트 로딩이 모두 완료되면 UI 업데이트 및 콜백 실행
-     */
     private void checkCountsLoadedAndUpdate(Runnable onComplete) {
         if (!isCountsLoaded) {
             isCountsLoaded = true;
@@ -335,55 +322,14 @@ public class MyPageFragment extends Fragment {
             return;
         }
 
-        String myUid = currentUser.getUid();
-
-        db.collection("user")
-                .document(myUid)
-                .collection("following")
-                .document(targetUserId)
-                .get()
-                .addOnSuccessListener(doc -> {
-                    isFollowing = doc.exists();
-                    updateFollowUI();
-                });
-
-        db.collection("user")
-                .document(targetUserId)
-                .collection("following")
-                .document(myUid)
-                .get()
-                .addOnSuccessListener(doc -> {
-                    isFollower = doc.exists();
-                    updateFollowUI();
-                });
+        // ✅ FollowButtonHelper로 상태 확인 및 UI 업데이트
+        FollowButtonHelper.checkFollowStatus(targetUserId, (following, follower) -> {
+            isFollowing = following;
+            isFollower = follower;
+            FollowButtonHelper.updateFollowButton(btnFollowButton, isFollowing, isFollower);
+        });
     }
 
-    private void updateFollowUI() {
-        if (!isMyProfile) {
-            btnFollowButton.setVisibility(View.VISIBLE);
-            if (isFollowing && isFollower) {
-                btnFollowButton.setText("맞팔로우");
-                btnFollowButton.setBackgroundResource(R.drawable.button_style2);
-                btnFollowButton.setTextColor(0xFF6366F1);
-            } else if (isFollowing) {
-                btnFollowButton.setText("팔로우 중");
-                btnFollowButton.setBackgroundResource(R.drawable.button_style2);
-                btnFollowButton.setTextColor(0xFF6366F1);
-            } else if (isFollower) {
-                btnFollowButton.setText("맞 팔로우");
-                btnFollowButton.setBackgroundResource(R.drawable.button_style1);
-                btnFollowButton.setTextColor(0xFFFFFFFF);
-            } else {
-                btnFollowButton.setText("팔로우");
-                btnFollowButton.setBackgroundResource(R.drawable.button_style1);
-                btnFollowButton.setTextColor(0xFFFFFFFF);
-            }
-        }
-    }
-
-    /**
-     * ✅ 팔로워/팔로잉 수 UI 업데이트 (Firestore 값 사용)
-     */
     private void updateFollowCounts() {
         tvFollowersCount.setText(String.valueOf(followerCount));
         tvFollowingCount.setText(String.valueOf(followingCount));
@@ -430,7 +376,35 @@ public class MyPageFragment extends Fragment {
             }
         });
 
-        btnFollowButton.setOnClickListener(v -> toggleFollow());
+        // ✅ FollowButtonHelper로 클릭 처리
+        btnFollowButton.setOnClickListener(v -> {
+            FollowButtonHelper.handleFollowButtonClick(
+                    requireContext(),
+                    targetUserId,
+                    isFollowing,
+                    isFollower,
+                    new FollowButtonHelper.FollowActionCallback() {
+                        @Override
+                        public void onSuccess(boolean nowFollowing) {
+                            isFollowing = nowFollowing;
+                            FollowButtonHelper.updateFollowButton(btnFollowButton, isFollowing, isFollower);
+
+                            // 팔로워 수 업데이트
+                            if (nowFollowing) {
+                                followerCount++;
+                            } else {
+                                if (followerCount > 0) followerCount--;
+                            }
+                            updateFollowCounts();
+                        }
+
+                        @Override
+                        public void onFailure(String message) {
+                            Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+            );
+        });
 
         imgProfile.setOnClickListener(v -> {
             if (isMyProfile) {
@@ -469,118 +443,8 @@ public class MyPageFragment extends Fragment {
         }
     }
 
-    private void toggleFollow() {
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser == null) {
-            Toast.makeText(getContext(), "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (isFollowing) {
-            performUnfollow();
-        } else {
-            performFollow();
-        }
-    }
-
-    /**
-     * ✅ 팔로우 실행 (양방향 처리)
-     */
-    private void performFollow() {
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser == null || targetUserId == null) return;
-
-        String myUid = currentUser.getUid();
-
-        Map<String, Object> followData = new HashMap<>();
-        followData.put("followedAt", System.currentTimeMillis());
-
-        // ✅ 1. 내 following에 추가
-        db.collection("user")
-                .document(myUid)
-                .collection("following")
-                .document(targetUserId)
-                .set(followData)
-                .addOnSuccessListener(aVoid -> {
-                    // ✅ 2. 상대방 follower에 추가
-                    db.collection("user")
-                            .document(targetUserId)
-                            .collection("follower")
-                            .document(myUid)
-                            .set(followData)
-                            .addOnSuccessListener(aVoid2 -> {
-                                isFollowing = true;
-                                updateFollowUI();
-
-                                // 팔로워 수 즉시 증가
-                                followerCount++;
-                                updateFollowCounts();
-
-                                String message = isFollower ? "맞팔로우했습니다" : "팔로우했습니다";
-                                Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
-                                FollowActionHelper.sendFollowNotification(targetUserId, myUid);
-                            })
-                            .addOnFailureListener(e -> {
-                                Log.e(TAG, "❌ 상대방 follower 추가 실패", e);
-                            });
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ 팔로우 실패", e);
-                    Toast.makeText(getContext(), "팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
-                });
-    }
-
-    /**
-     * ✅ 언팔로우 실행 (양방향 처리)
-     */
-    private void performUnfollow() {
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser == null || targetUserId == null) return;
-
-        String myUid = currentUser.getUid();
-
-        new AlertDialog.Builder(requireContext())
-                .setTitle("언팔로우")
-                .setMessage("정말 언팔로우하시겠습니까?")
-                .setPositiveButton("예", (dialog, which) -> {
-                    // ✅ 1. 내 following에서 삭제
-                    db.collection("user")
-                            .document(myUid)
-                            .collection("following")
-                            .document(targetUserId)
-                            .delete()
-                            .addOnSuccessListener(aVoid -> {
-                                // ✅ 2. 상대방 follower에서 삭제
-                                db.collection("user")
-                                        .document(targetUserId)
-                                        .collection("follower")
-                                        .document(myUid)
-                                        .delete()
-                                        .addOnSuccessListener(aVoid2 -> {
-                                            isFollowing = false;
-                                            updateFollowUI();
-
-                                            // 팔로워 수 즉시 감소
-                                            if (followerCount > 0) followerCount--;
-                                            updateFollowCounts();
-
-                                            Toast.makeText(getContext(), "언팔로우했습니다", Toast.LENGTH_SHORT).show();
-                                        })
-                                        .addOnFailureListener(e -> {
-                                            Log.e(TAG, "❌ 상대방 follower 삭제 실패", e);
-                                        });
-                            })
-                            .addOnFailureListener(e -> {
-                                Log.e(TAG, "❌ 언팔로우 실패", e);
-                                Toast.makeText(getContext(), "언팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
-                            });
-                })
-                .setNegativeButton("아니오", null)
-                .show();
-    }
-
     private void showLogoutDialog() {
-        new AlertDialog.Builder(requireContext())
+        new android.app.AlertDialog.Builder(requireContext())
                 .setTitle("로그아웃")
                 .setMessage("정말 로그아웃 하시겠습니까?")
                 .setPositiveButton("예", (dialog, which) -> performLogout())

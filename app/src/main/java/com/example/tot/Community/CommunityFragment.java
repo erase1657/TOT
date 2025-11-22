@@ -28,7 +28,9 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CommunityFragment extends Fragment {
 
@@ -86,7 +88,6 @@ public class CommunityFragment extends Fragment {
         setupFilterButtons();
         setupSearch();
 
-        // 글쓰기 버튼 - 스케줄 선택 다이얼로그 표시
         btnWrite.setOnClickListener(v -> {
             ScheduleSelectionDialogFragment dialog = new ScheduleSelectionDialogFragment();
             dialog.show(getParentFragmentManager(), "ScheduleSelection");
@@ -109,25 +110,17 @@ public class CommunityFragment extends Fragment {
         recyclerView.setLayoutManager(layoutManager);
 
         filteredPosts = new ArrayList<>();
-        adapter = new CommunityAdapter(filteredPosts, new CommunityAdapter.OnPostClickListener() {
-            @Override
-            public void onPostClick(CommunityPostDTO post, int position) {
-                // Firestore 게시글 클릭 - 상세화면으로 이동
-                if (post.getScheduleId() != null && post.getUserId() != null) {
-                    Intent intent = new Intent(getContext(), PostDetailActivity.class);
-                    intent.putExtra("scheduleId", post.getScheduleId());
-                    intent.putExtra("authorUid", post.getUserId());
-                    startActivity(intent);
-                } else {
-                    Toast.makeText(getContext(), "게시글 정보를 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
-                }
+        adapter = new CommunityAdapter(filteredPosts, (post, position) -> {
+            if (post.getScheduleId() != null && post.getUserId() != null) {
+                Intent intent = new Intent(getContext(), PostDetailActivity.class);
+                intent.putExtra("scheduleId", post.getScheduleId());
+                intent.putExtra("authorUid", post.getUserId());
+                intent.putExtra("postId", post.getPostId());
+                startActivity(intent);
+            } else {
+                Toast.makeText(getContext(), "게시글 정보를 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
             }
-        }, new CommunityAdapter.OnMoreUsersClickListener() {
-            @Override
-            public void onMoreUsersClick() {
-                showAllUsers();
-            }
-        });
+        }, () -> showAllUsers());
 
         recyclerView.setAdapter(adapter);
 
@@ -183,29 +176,17 @@ public class CommunityFragment extends Fragment {
         int textSelected = 0xFFFFFFFF;
         int textUnselected = 0xFF000000;
 
-        if (currentFilter == FilterMode.POPULAR) {
-            btnPopular.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorSelected));
-            btnPopular.setTextColor(textSelected);
-        } else {
-            btnPopular.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorUnselected));
-            btnPopular.setTextColor(textUnselected);
-        }
+        btnPopular.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                currentFilter == FilterMode.POPULAR ? colorSelected : colorUnselected));
+        btnPopular.setTextColor(currentFilter == FilterMode.POPULAR ? textSelected : textUnselected);
 
-        if (currentFilter == FilterMode.ALL) {
-            btnAll.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorSelected));
-            btnAll.setTextColor(textSelected);
-        } else {
-            btnAll.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorUnselected));
-            btnAll.setTextColor(textUnselected);
-        }
+        btnAll.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                currentFilter == FilterMode.ALL ? colorSelected : colorUnselected));
+        btnAll.setTextColor(currentFilter == FilterMode.ALL ? textSelected : textUnselected);
 
-        if (currentFilter == FilterMode.FRIENDS) {
-            btnFriends.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorSelected));
-            btnFriends.setTextColor(textSelected);
-        } else {
-            btnFriends.setBackgroundTintList(android.content.res.ColorStateList.valueOf(colorUnselected));
-            btnFriends.setTextColor(textUnselected);
-        }
+        btnFriends.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                currentFilter == FilterMode.FRIENDS ? colorSelected : colorUnselected));
+        btnFriends.setTextColor(currentFilter == FilterMode.FRIENDS ? textSelected : textUnselected);
     }
 
     private void setupSearch() {
@@ -240,8 +221,6 @@ public class CommunityFragment extends Fragment {
     }
 
     private void searchUsersInFirestore(String query) {
-        Log.d(TAG, "🔍 사용자 검색 시작: " + query);
-
         db.collection("user")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
@@ -263,12 +242,9 @@ public class CommunityFragment extends Fragment {
                         }
                     }
 
-                    Log.d(TAG, "✅ 검색 결과: " + allUserSearchResults.size() + "명");
-
                     applyFilterWithUsers();
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ 사용자 검색 실패", e);
                     Toast.makeText(getContext(), "검색 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
                     applyFilter();
                 });
@@ -276,42 +252,24 @@ public class CommunityFragment extends Fragment {
 
     private void applyFilterWithUsers() {
         List<CommunityPostDTO> filtered = filterPosts();
-
         List<UserSearchResult> limitedUsers = allUserSearchResults.size() > 3
                 ? allUserSearchResults.subList(0, 3)
                 : allUserSearchResults;
-
         boolean showMoreButton = allUserSearchResults.size() >= 4;
 
-        adapter.updateDataWithUsers(
-                getPagedPosts(filtered, 0),
-                limitedUsers,
-                !searchQuery.isEmpty(),
-                showMoreButton
-        );
-
+        adapter.updateDataWithUsers(getPagedPosts(filtered, 0), limitedUsers, !searchQuery.isEmpty(), showMoreButton);
         isLastPage = (PAGE_SIZE >= filtered.size());
     }
 
     private void showAllUsers() {
-        Log.d(TAG, "📋 전체 사용자 표시: " + allUserSearchResults.size() + "명");
-
         List<CommunityPostDTO> filtered = filterPosts();
-
-        adapter.updateDataWithUsers(
-                getPagedPosts(filtered, 0),
-                allUserSearchResults,
-                !searchQuery.isEmpty(),
-                false
-        );
-
+        adapter.updateDataWithUsers(getPagedPosts(filtered, 0), allUserSearchResults, !searchQuery.isEmpty(), false);
         Toast.makeText(getContext(), allUserSearchResults.size() + "명의 사용자", Toast.LENGTH_SHORT).show();
     }
 
     private void applyFilter() {
         List<CommunityPostDTO> filtered = filterPosts();
         List<CommunityPostDTO> pagedPosts = getPagedPosts(filtered, 0);
-
         adapter.updateDataWithUsers(pagedPosts, new ArrayList<>(), false, false);
         isLastPage = (PAGE_SIZE >= filtered.size());
     }
@@ -320,17 +278,8 @@ public class CommunityFragment extends Fragment {
         List<CommunityPostDTO> filtered = new ArrayList<>();
 
         for (CommunityPostDTO post : allPosts) {
-            boolean matchFilter = false;
-
-            switch (currentFilter) {
-                case POPULAR:
-                case ALL:
-                    matchFilter = true;
-                    break;
-                case FRIENDS:
-                    matchFilter = post.isFriend();
-                    break;
-            }
+            boolean matchFilter = (currentFilter == FilterMode.ALL || currentFilter == FilterMode.POPULAR) ||
+                    (currentFilter == FilterMode.FRIENDS && post.isFriend());
 
             if (matchFilter) {
                 filtered.add(post);
@@ -349,11 +298,9 @@ public class CommunityFragment extends Fragment {
         }
 
         if (currentFilter == FilterMode.POPULAR) {
-            Collections.sort(filtered, (o1, o2) ->
-                    Integer.compare(o2.getHeartCount(), o1.getHeartCount()));
+            Collections.sort(filtered, (o1, o2) -> Integer.compare(o2.getHeartCount(), o1.getHeartCount()));
         } else {
-            Collections.sort(filtered, (o1, o2) ->
-                    Long.compare(o2.getCreatedAt(), o1.getCreatedAt()));
+            Collections.sort(filtered, (o1, o2) -> Long.compare(o2.getCreatedAt(), o1.getCreatedAt()));
         }
 
         return filtered;
@@ -375,7 +322,7 @@ public class CommunityFragment extends Fragment {
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             currentPage++;
-            List<CommunityPostDTO> filtered = getCurrentFilteredList();
+            List<CommunityPostDTO> filtered = filterPosts();
             List<CommunityPostDTO> nextPage = getPagedPosts(filtered, currentPage);
 
             if (nextPage.isEmpty()) {
@@ -386,10 +333,6 @@ public class CommunityFragment extends Fragment {
 
             isLoading = false;
         }, 500);
-    }
-
-    private List<CommunityPostDTO> getCurrentFilteredList() {
-        return filterPosts();
     }
 
     private void resetPagination() {
@@ -409,7 +352,9 @@ public class CommunityFragment extends Fragment {
                 .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    allPosts = new ArrayList<>();
+                    // ✅ 버그 수정: Map 대신 List로 직접 관리
+                    List<CommunityPostDTO> tempPosts = new ArrayList<>();
+                    Map<String, String> authorUidMap = new HashMap<>();
 
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         String postId = doc.getString("postId");
@@ -432,18 +377,71 @@ public class CommunityFragment extends Fragment {
                             post.setCommentCount(commentCount != null ? commentCount.intValue() : 0);
                             post.setCreatedAt(createdAt != null ? createdAt : 0);
 
-                            allPosts.add(post);
+                            tempPosts.add(post);
+                            authorUidMap.put(postId, authorUid);
                         }
                     }
 
-                    Log.d(TAG, "✅ Firestore 게시글 로드 완료: " + allPosts.size() + "개");
-                    applyFilter();
+                    loadAuthorInfoBatch(tempPosts, authorUidMap);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Firestore 게시글 로드 실패", e);
                     allPosts = new ArrayList<>();
                     applyFilter();
                 });
+    }
+
+    /**
+     * ✅ 수정: 각 게시글별로 작성자 정보 로드
+     */
+    private void loadAuthorInfoBatch(List<CommunityPostDTO> posts, Map<String, String> authorUidMap) {
+        if (posts.isEmpty()) {
+            allPosts = new ArrayList<>();
+            applyFilter();
+            return;
+        }
+
+        final int[] loadedCount = {0};
+        final int totalCount = posts.size();
+
+        for (CommunityPostDTO post : posts) {
+            String authorUid = authorUidMap.get(post.getPostId());
+
+            if (authorUid == null) {
+                loadedCount[0]++;
+                if (loadedCount[0] == totalCount) {
+                    allPosts = new ArrayList<>(posts);
+                    applyFilter();
+                }
+                continue;
+            }
+
+            db.collection("user").document(authorUid)
+                    .get()
+                    .addOnSuccessListener(userDoc -> {
+                        if (userDoc.exists()) {
+                            String nickname = userDoc.getString("nickname");
+                            String profileImageUrl = userDoc.getString("profileImageUrl");
+
+                            post.setUserName(nickname != null ? nickname : "사용자");
+                            post.setProfileImageUrl(profileImageUrl);
+                        }
+
+                        loadedCount[0]++;
+                        if (loadedCount[0] == totalCount) {
+                            allPosts = new ArrayList<>(posts);
+                            Log.d(TAG, "✅ 모든 작성자 정보 로드 완료: " + allPosts.size() + "개");
+                            applyFilter();
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        loadedCount[0]++;
+                        if (loadedCount[0] == totalCount) {
+                            allPosts = new ArrayList<>(posts);
+                            applyFilter();
+                        }
+                    });
+        }
     }
 
     @Override
