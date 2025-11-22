@@ -1,7 +1,3 @@
-// 🔥 기존 startListeningForNotifications() 삭제
-// 🔥 기존 stopListeningForNotifications() 삭제
-// ➕ NotificationManager의 initialLoad() 호출로 교체
-
 package com.example.tot;
 
 import android.annotation.SuppressLint;
@@ -32,7 +28,6 @@ public class MainActivity extends AppCompatActivity {
         viewPager.setAdapter(adapter);
         viewPager.setUserInputEnabled(false);
 
-        // ChipNavigationBar 선택 리스너
         chipNav.setOnItemSelectedListener(id -> {
             if (id == R.id.home) {
                 viewPager.setCurrentItem(0);
@@ -45,7 +40,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // ViewPager 페이지 변경 리스너
         viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
@@ -69,14 +63,14 @@ public class MainActivity extends AppCompatActivity {
 
         chipNav.setItemSelected(R.id.home, true);
 
-        // ✅ 기존 startListeningForNotifications() → initialLoad() 로 변경
+        // ✅ 초기 로드 (실시간 리스너 시작)
         NotificationManager.getInstance().initialLoad();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // ❌ 실시간 리스너가 없으므로 stop 호출 필요 없음
-        // NotificationManager.getInstance().stopListeningForNotifications();
+        // ✅ 실시간 리스너 정리
+        NotificationManager.getInstance().stopListening();
     }
 }

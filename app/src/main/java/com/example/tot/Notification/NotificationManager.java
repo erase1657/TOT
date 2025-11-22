@@ -4,37 +4,44 @@ import android.content.Context;
 import android.util.Log;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.ListenerRegistration;
 
+import com.example.tot.R;
+
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Date;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 
 /**
  * 알림 관리 싱글톤 클래스
- * ✅ 1단계: 실시간 리스너 제거, get()으로 변경
- * ✅ 2단계: 로컬 캐시 추가 (SharedPreferences)
- * ✅ Firestore 쓰기 최소화 (읽음 처리는 로컬만)
+ * ✅ Firestore 알림 컬렉션 완전 제거
+ * ✅ follower 컬렉션 변경사항을 실시간 감지하여 로컬 알림 생성
+ * ✅ 로컬 캐시만 사용 (SharedPreferences)
  */
 public class NotificationManager {
 
     private static final String TAG = "NotificationManager";
+    private static final int MAX_CACHED_NOTIFICATIONS = 100;
 
     private static NotificationManager instance;
     private List<NotificationDTO> todayNotifications;
     private List<NotificationDTO> recentNotifications;
     private List<UnreadCountListener> listeners;
 
-    // ✅ 로컬 캐시
     private NotificationCache cache;
     private Context appContext;
 
-    // Firestore
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
+
+    // ✅ follower 컬렉션 실시간 리스너
+    private ListenerRegistration followerListener;
+    private boolean isListening = false;
 
     public interface UnreadCountListener {
         void onUnreadCountChanged(int count);
@@ -65,17 +72,41 @@ public class NotificationManager {
     }
 
     /**
-     * ✅ 1단계: 실시간 리스너 제거, 필요할 때만 로드
-     * ✅ 2단계: 로컬 캐시 먼저 로드 후 Firestore에서 새 알림만 가져오기
+     * ✅ 초기 로드 (앱 시작시 한 번만 호출)
      */
-    public void loadNotificationsFromCache() {
+    public void initialLoad() {
         if (cache == null) {
             Log.w(TAG, "⚠️ Cache가 초기화되지 않았습니다");
             return;
         }
 
-        // 1. 로컬 캐시에서 먼저 로드 (빠른 UI 표시)
+        Log.d(TAG, "🚀 초기 알림 로드 시작");
+
+        // 1. 로컬 캐시 먼저 로드
+        loadNotificationsFromCache();
+
+        // 2. follower 컬렉션 실시간 감지 시작
+        startListeningForFollowers();
+    }
+
+    /**
+     * ✅ 로컬 캐시에서 알림 로드
+     */
+    private void loadNotificationsFromCache() {
+        if (cache == null) {
+            Log.w(TAG, "⚠️ Cache가 초기화되지 않았습니다");
+            return;
+        }
+
         List<NotificationDTO> cached = cache.loadNotifications();
+
+        // ✅ 최대 개수 제한
+        if (cached.size() > MAX_CACHED_NOTIFICATIONS) {
+            cached = cached.subList(0, MAX_CACHED_NOTIFICATIONS);
+            cache.saveNotifications(cached);
+            Log.d(TAG, "🗑️ 오래된 알림 자동 삭제");
+        }
+
         splitNotifications(cached);
         notifyUnreadCountChanged();
 
@@ -83,64 +114,125 @@ public class NotificationManager {
     }
 
     /**
-     * ✅ Firestore에서 새 알림만 가져오기 (실시간 리스너 제거)
+     * ✅ follower 컬렉션 실시간 감지 (새 팔로워 → 로컬 알림 생성)
      */
-    public void loadNewNotificationsFromFirestore() {
-        if (mAuth.getCurrentUser() == null) {
-            Log.w(TAG, "⚠️ 사용자가 로그인하지 않았습니다");
-            return;
-        }
-
-        if (cache == null) {
-            Log.w(TAG, "⚠️ Cache가 초기화되지 않았습니다");
+    private void startListeningForFollowers() {
+        if (isListening || mAuth.getCurrentUser() == null) {
             return;
         }
 
         String userId = mAuth.getCurrentUser().getUid();
+
+        // ✅ 마지막 확인 시간 이후의 팔로워만 감지
         long lastCheck = cache.getLastCheckTime();
 
-        Log.d(TAG, "🔄 Firestore에서 새 알림 확인 (마지막 확인: " + lastCheck + ")");
+        Log.d(TAG, "👂 follower 컬렉션 실시간 감지 시작 (마지막 확인: " + lastCheck + ")");
 
-        // ✅ get()으로 변경 (실시간 리스너 제거)
-        db.collection("notifications")
-                .whereEqualTo("recipientId", userId)
-                .whereGreaterThan("createdAt", lastCheck)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(50)
-                .get()  // ✅ addSnapshotListener() → get()
-                .addOnSuccessListener(snapshots -> {
-                    if (snapshots == null || snapshots.isEmpty()) {
-                        Log.d(TAG, "✅ 새 알림 없음");
+        followerListener = db.collection("user")
+                .document(userId)
+                .collection("follower")
+                .addSnapshotListener((snapshots, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "❌ follower 리스너 오류", error);
                         return;
                     }
 
-                    List<NotificationDTO> newNotifications = new ArrayList<>();
+                    if (snapshots == null || snapshots.getDocumentChanges().isEmpty()) {
+                        return;
+                    }
 
-                    for (DocumentSnapshot doc : snapshots.getDocuments()) {
-                        NotificationDTO notification = parseNotification(doc);
-                        if (notification != null) {
-                            newNotifications.add(notification);
+                    // ✅ 새로 추가된 팔로워만 처리
+                    for (DocumentChange change : snapshots.getDocumentChanges()) {
+                        if (change.getType() == DocumentChange.Type.ADDED) {
+                            DocumentSnapshot doc = change.getDocument();
+                            Long followedAt = doc.getLong("followedAt");
+
+                            // 마지막 확인 시간 이후의 팔로워만 알림 생성
+                            if (followedAt != null && followedAt > lastCheck) {
+                                String followerId = doc.getId();
+                                createLocalFollowNotification(followerId, followedAt);
+                            }
                         }
                     }
 
-                    if (!newNotifications.isEmpty()) {
-                        // 로컬 캐시에 새 알림 추가
-                        cache.addNewNotifications(newNotifications);
+                    // 마지막 확인 시간 업데이트
+                    cache.setLastCheckTime(System.currentTimeMillis());
+                });
 
-                        // 메모리에도 반영
-                        List<NotificationDTO> allNotifications = cache.loadNotifications();
-                        splitNotifications(allNotifications);
+        isListening = true;
+    }
 
-                        // 마지막 확인 시간 업데이트
-                        cache.setLastCheckTime(System.currentTimeMillis());
+    /**
+     * ✅ 로컬 팔로우 알림 생성 (Firestore 쓰기 없음)
+     */
+    private void createLocalFollowNotification(String followerId, long followedAt) {
+        // 팔로워 정보 조회 (닉네임)
+        db.collection("user")
+                .document(followerId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (!doc.exists()) return;
 
-                        Log.d(TAG, "✅ 새 알림 " + newNotifications.size() + "개 추가");
-                        notifyUnreadCountChanged();
+                    String nickname = doc.getString("nickname");
+                    if (nickname == null || nickname.isEmpty()) {
+                        nickname = "사용자";
                     }
+
+                    // ✅ 로컬 알림 생성
+                    NotificationDTO notification = NotificationDTO.createFollow(
+                            "follow_" + followerId + "_" + followedAt,
+                            nickname,
+                            getTimeDisplay(followedAt),
+                            false,
+                            R.drawable.ic_user_add,
+                            followerId,
+                            followedAt
+                    );
+
+                    // 캐시에 추가
+                    List<NotificationDTO> current = cache.loadNotifications();
+                    current.add(0, notification);
+
+                    // 최대 개수 제한
+                    if (current.size() > MAX_CACHED_NOTIFICATIONS) {
+                        current = current.subList(0, MAX_CACHED_NOTIFICATIONS);
+                    }
+
+                    cache.saveNotifications(current);
+
+                    // UI 업데이트
+                    splitNotifications(current);
+                    notifyUnreadCountChanged();
+
+                    Log.d(TAG, "✅ 로컬 팔로우 알림 생성: " + nickname);
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ 알림 로드 실패", e);
+                    Log.e(TAG, "❌ 팔로워 정보 조회 실패", e);
                 });
+    }
+
+    /**
+     * ✅ 시간 표시 문자열 생성
+     */
+    private String getTimeDisplay(long timestamp) {
+        long diff = System.currentTimeMillis() - timestamp;
+        long seconds = diff / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        long days = hours / 24;
+
+        if (seconds < 60) {
+            return "방금";
+        } else if (minutes < 60) {
+            return minutes + "분 전";
+        } else if (hours < 24) {
+            return hours + "시간 전";
+        } else if (days < 7) {
+            return days + "일 전";
+        } else {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd", Locale.getDefault());
+            return sdf.format(new Date(timestamp));
+        }
     }
 
     /**
@@ -154,9 +246,7 @@ public class NotificationManager {
         long oneDayAgo = now - (24 * 60 * 60 * 1000);
 
         for (NotificationDTO notification : notifications) {
-            // createdAt을 추가해야 하므로 임시로 현재 시간 사용
-            // TODO: NotificationDTO에 createdAt 필드 추가
-            long createdAt = now; // 임시
+            long createdAt = notification.getCreatedAt();
 
             if (createdAt >= oneDayAgo) {
                 todayNotifications.add(notification);
@@ -166,103 +256,6 @@ public class NotificationManager {
         }
 
         Log.d(TAG, "📊 분류 완료: 오늘 " + todayNotifications.size() + "개, 최근 " + recentNotifications.size() + "개");
-    }
-
-    /**
-     * ✅ Firestore 문서를 NotificationDTO로 변환
-     */
-    private NotificationDTO parseNotification(DocumentSnapshot doc) {
-        try {
-            String type = doc.getString("type");
-            String id = doc.getId();
-            String title = doc.getString("title");
-            String content = doc.getString("content");
-            String timeDisplay = doc.getString("timeDisplay");
-            Boolean isRead = doc.getBoolean("isRead");
-            String userName = doc.getString("userName");
-            String userId = doc.getString("senderId");
-
-            if (type == null) {
-                Log.w(TAG, "⚠️ 알림 타입이 null입니다: " + id);
-                return null;
-            }
-
-            NotificationDTO.NotificationType notifType;
-            switch (type) {
-                case "FOLLOW":
-                    notifType = NotificationDTO.NotificationType.FOLLOW;
-                    break;
-                case "SCHEDULE_INVITE":
-                    notifType = NotificationDTO.NotificationType.SCHEDULE_INVITE;
-                    break;
-                case "COMMENT":
-                    notifType = NotificationDTO.NotificationType.COMMENT;
-                    break;
-                default:
-                    Log.w(TAG, "⚠️ 알 수 없는 알림 타입: " + type);
-                    return null;
-            }
-
-            return new NotificationDTO.Builder(id, notifType)
-                    .title(title != null ? title : "")
-                    .content(content != null ? content : "")
-                    .timeDisplay(timeDisplay != null ? timeDisplay : "방금")
-                    .isRead(isRead != null ? isRead : false)
-                    .userName(userName != null ? userName : "")
-                    .userId(userId != null ? userId : "")
-                    .iconResId(getIconForType(notifType))
-                    .build();
-
-        } catch (Exception e) {
-            Log.e(TAG, "❌ 알림 파싱 실패", e);
-            return null;
-        }
-    }
-
-    /**
-     * ✅ 타입별 아이콘 리소스 반환
-     */
-    private int getIconForType(NotificationDTO.NotificationType type) {
-        switch (type) {
-            case FOLLOW:
-                return com.example.tot.R.drawable.ic_user_add;
-            case SCHEDULE_INVITE:
-                return com.example.tot.R.drawable.ic_schedule;
-            case COMMENT:
-                return com.example.tot.R.drawable.ic_comment;
-            default:
-                return com.example.tot.R.drawable.ic_alarm;
-        }
-    }
-
-    /**
-     * ✅ Firestore에 팔로우 알림 추가 (쓰기는 여전히 필요)
-     */
-    public void addFollowNotification(String recipientId, String senderName, String senderId) {
-        if (recipientId == null || recipientId.isEmpty()) {
-            Log.w(TAG, "⚠️ 수신자 ID가 null입니다");
-            return;
-        }
-
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("type", "FOLLOW");
-        notification.put("recipientId", recipientId);
-        notification.put("senderId", senderId);
-        notification.put("userName", senderName);
-        notification.put("title", senderName + " 님이 회원님을 팔로우했습니다");
-        notification.put("content", "프로필을 확인해 주세요");
-        notification.put("timeDisplay", "방금");
-        notification.put("isRead", false);
-        notification.put("createdAt", System.currentTimeMillis());
-
-        db.collection("notifications")
-                .add(notification)
-                .addOnSuccessListener(docRef -> {
-                    Log.d(TAG, "✅ 팔로우 알림 전송 성공: " + recipientId);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ 팔로우 알림 전송 실패", e);
-                });
     }
 
     public void addListener(UnreadCountListener listener) {
@@ -286,31 +279,48 @@ public class NotificationManager {
     }
 
     /**
-     * ✅ 읽음 처리 - 로컬만 업데이트 (Firestore 쓰기 제거)
+     * ✅ 읽음 처리 - 로컬만 업데이트
      */
     public void markAsRead(String notificationId) {
-        // 로컬 캐시에서만 읽음 처리
         if (cache != null) {
             cache.markAsReadLocal(notificationId);
         }
 
-        // 메모리에서도 읽음 처리
+        boolean found = false;
         for (NotificationDTO notif : todayNotifications) {
             if (notif.getId().equals(notificationId)) {
                 notif.setRead(true);
-                notifyUnreadCountChanged();
-                return;
-            }
-        }
-        for (NotificationDTO notif : recentNotifications) {
-            if (notif.getId().equals(notificationId)) {
-                notif.setRead(true);
-                notifyUnreadCountChanged();
-                return;
+                found = true;
+                break;
             }
         }
 
+        if (!found) {
+            for (NotificationDTO notif : recentNotifications) {
+                if (notif.getId().equals(notificationId)) {
+                    notif.setRead(true);
+                    break;
+                }
+            }
+        }
+
+        notifyUnreadCountChanged();
         Log.d(TAG, "✅ 로컬 알림 읽음 처리: " + notificationId);
+    }
+
+    /**
+     * ✅ 특정 알림 삭제 (스와이프 삭제 지원)
+     */
+    public void deleteNotification(String notificationId) {
+        if (cache != null) {
+            cache.deleteNotification(notificationId);
+        }
+
+        todayNotifications.removeIf(notif -> notif.getId().equals(notificationId));
+        recentNotifications.removeIf(notif -> notif.getId().equals(notificationId));
+
+        notifyUnreadCountChanged();
+        Log.d(TAG, "🗑️ 알림 삭제: " + notificationId);
     }
 
     public int getUnreadCount() {
@@ -339,23 +349,26 @@ public class NotificationManager {
             cache.clearCache();
         }
         notifyUnreadCountChanged();
+        Log.d(TAG, "🗑️ 모든 알림 삭제");
     }
 
     /**
-     * ✅ 새로고침 - 로컬 캐시 먼저 로드 후 Firestore 확인
+     * ✅ 새로고침 (로컬 캐시 재로드)
      */
     public void refresh() {
         Log.d(TAG, "🔄 알림 새로고침 시작");
         loadNotificationsFromCache();
-        loadNewNotificationsFromFirestore();
     }
 
     /**
-     * ✅ 초기 로드 (앱 시작시 호출)
+     * ✅ 리스너 정리
      */
-    public void initialLoad() {
-        Log.d(TAG, "🚀 초기 알림 로드 시작");
-        loadNotificationsFromCache();
-        loadNewNotificationsFromFirestore();
+    public void stopListening() {
+        if (followerListener != null) {
+            followerListener.remove();
+            followerListener = null;
+            isListening = false;
+            Log.d(TAG, "🛑 follower 리스너 해제");
+        }
     }
 }

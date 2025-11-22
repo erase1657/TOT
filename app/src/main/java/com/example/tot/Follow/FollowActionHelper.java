@@ -4,52 +4,29 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.tot.Notification.NotificationManager;
-import com.google.firebase.firestore.FirebaseFirestore;
-
 /**
- * 팔로우 관련 공통 동작을 도와주는 헬퍼 클래스.
- * 현재는 팔로우 알림 전송 로직을 중앙집중화해서
- * 다양한 화면에서 재사용할 수 있도록 한다.
+ * 팔로우 관련 공통 동작을 도와주는 헬퍼 클래스
+ * ✅ Firestore 알림 저장 제거
+ * ✅ NotificationManager가 실시간 감지하므로 별도 알림 전송 불필요
  */
 public final class FollowActionHelper {
 
     private static final String TAG = "FollowActionHelper";
-    private static final FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     private FollowActionHelper() {
         // no-op
     }
 
     /**
-     * Firestore 알림 컬렉션에 팔로우 알림을 추가한다.
-     * recipientUserId: 팔로우를 받은 사용자 (알림 수신자)
-     * senderUserId: 팔로우를 수행한 사용자 (알림 발신자)
+     * ✅ 팔로우 알림 전송 (더 이상 사용하지 않음)
+     * NotificationManager가 follower 컬렉션을 실시간 감지하므로
+     * 팔로우 관계만 Firestore에 저장하면 자동으로 알림 생성됨
      */
+    @Deprecated
     public static void sendFollowNotification(@NonNull String recipientUserId,
                                               @NonNull String senderUserId) {
-        if (recipientUserId.isEmpty() || senderUserId.isEmpty()) {
-            Log.w(TAG, "sendFollowNotification: invalid user ids");
-            return;
-        }
-
-        db.collection("user")
-                .document(senderUserId)
-                .get()
-                .addOnSuccessListener(doc -> {
-                    String nickname = doc.getString("nickname");
-                    if (nickname == null || nickname.trim().isEmpty()) {
-                        nickname = "사용자";
-                    }
-
-                    NotificationManager.getInstance()
-                            .addFollowNotification(recipientUserId, nickname, senderUserId);
-
-                    Log.d(TAG, "팔로우 알림 전송 성공: sender=" + senderUserId
-                            + ", recipient=" + recipientUserId);
-                })
-                .addOnFailureListener(e ->
-                        Log.e(TAG, "팔로우 알림 전송 실패: 내 정보 로드 오류", e));
+        // ✅ 더 이상 Firestore에 알림을 저장하지 않음
+        // NotificationManager의 실시간 리스너가 자동으로 감지
+        Log.d(TAG, "⚠️ sendFollowNotification은 더 이상 필요하지 않습니다 (실시간 감지)");
     }
 }
-

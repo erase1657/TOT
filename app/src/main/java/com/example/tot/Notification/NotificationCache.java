@@ -14,6 +14,7 @@ import java.util.List;
 /**
  * 알림 로컬 캐시 관리 클래스
  * SharedPreferences를 사용하여 알림 데이터를 로컬에 저장/로드
+ * ✅ 개별 삭제 기능 추가
  */
 public class NotificationCache {
 
@@ -96,6 +97,19 @@ public class NotificationCache {
     }
 
     /**
+     * ✅ 특정 알림 삭제 (스와이프 삭제)
+     */
+    public void deleteNotification(String notificationId) {
+        List<NotificationDTO> notifications = loadNotifications();
+        boolean removed = notifications.removeIf(n -> n.getId().equals(notificationId));
+
+        if (removed) {
+            saveNotifications(notifications);
+            Log.d(TAG, "✅ 로컬 알림 삭제: " + notificationId);
+        }
+    }
+
+    /**
      * 새 알림을 기존 목록에 추가
      */
     public void addNewNotifications(List<NotificationDTO> newNotifications) {
@@ -111,7 +125,7 @@ public class NotificationCache {
                 }
             }
             if (!isDuplicate) {
-                existing.add(0, newNotif); // 최신 알림을 맨 앞에 추가
+                existing.add(0, newNotif);
             }
         }
 

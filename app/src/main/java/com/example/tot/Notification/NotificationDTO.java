@@ -17,8 +17,9 @@ public class NotificationDTO {
     private boolean isRead;
     private int unreadCount;
     private String userName;
-    private String userId; // ✅ 추가: 팔로우 기능을 위한 사용자 ID
+    private String userId;
     private int iconResId;
+    private long createdAt; // ✅ 추가: 알림 생성 시간 (정렬/필터용)
 
     private NotificationDTO(Builder builder) {
         this.id = builder.id;
@@ -31,15 +32,17 @@ public class NotificationDTO {
         this.userName = builder.userName;
         this.userId = builder.userId;
         this.iconResId = builder.iconResId;
+        this.createdAt = builder.createdAt;
     }
 
     /**
-     * ✅ 스케줄 초대 알림 생성 (userId 추가)
+     * ✅ 스케줄 초대 알림 생성
      */
     public static NotificationDTO createScheduleInvite(String id, String scheduleName,
                                                        String content, String timeDisplay,
                                                        boolean isRead, int unreadCount,
-                                                       int iconResId, String userId) {
+                                                       int iconResId, String userId,
+                                                       long createdAt) {
         return new Builder(id, NotificationType.SCHEDULE_INVITE)
                 .title(scheduleName + " 여행 일정에 초대되었습니다")
                 .content(content)
@@ -48,15 +51,17 @@ public class NotificationDTO {
                 .unreadCount(unreadCount)
                 .iconResId(iconResId)
                 .userId(userId)
+                .createdAt(createdAt)
                 .build();
     }
 
     /**
-     * ✅ 팔로우 알림 생성 (userId 추가)
+     * ✅ 팔로우 알림 생성
      */
     public static NotificationDTO createFollow(String id, String userName,
                                                String timeDisplay, boolean isRead,
-                                               int iconResId, String userId) {
+                                               int iconResId, String userId,
+                                               long createdAt) {
         return new Builder(id, NotificationType.FOLLOW)
                 .userName(userName)
                 .userId(userId)
@@ -65,16 +70,18 @@ public class NotificationDTO {
                 .timeDisplay(timeDisplay)
                 .isRead(isRead)
                 .iconResId(iconResId)
+                .createdAt(createdAt)
                 .build();
     }
 
     /**
-     * ✅ 댓글 알림 생성 (userId 추가)
+     * ✅ 댓글 알림 생성
      */
     public static NotificationDTO createComment(String id, String userName,
                                                 String content, String timeDisplay,
                                                 boolean isRead, int unreadCount,
-                                                int iconResId, String userId) {
+                                                int iconResId, String userId,
+                                                long createdAt) {
         return new Builder(id, NotificationType.COMMENT)
                 .userName(userName)
                 .userId(userId)
@@ -84,6 +91,7 @@ public class NotificationDTO {
                 .isRead(isRead)
                 .unreadCount(unreadCount)
                 .iconResId(iconResId)
+                .createdAt(createdAt)
                 .build();
     }
 
@@ -98,10 +106,12 @@ public class NotificationDTO {
         private String userName;
         private String userId;
         private int iconResId;
+        private long createdAt;
 
         public Builder(String id, NotificationType type) {
             this.id = id;
             this.type = type;
+            this.createdAt = System.currentTimeMillis(); // 기본값: 현재 시간
         }
 
         public Builder title(String title) {
@@ -144,6 +154,11 @@ public class NotificationDTO {
             return this;
         }
 
+        public Builder createdAt(long createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
         public NotificationDTO build() {
             return new NotificationDTO(this);
         }
@@ -159,10 +174,12 @@ public class NotificationDTO {
     public boolean isRead() { return isRead; }
     public int getUnreadCount() { return unreadCount; }
     public String getUserName() { return userName; }
-    public String getUserId() { return userId; } // ✅ 추가
+    public String getUserId() { return userId; }
     public int getIconResId() { return iconResId; }
+    public long getCreatedAt() { return createdAt; } // ✅ 추가
 
     // Setters
     public void setRead(boolean read) { isRead = read; }
     public void setUnreadCount(int count) { unreadCount = count; }
+    public void setCreatedAt(long createdAt) { this.createdAt = createdAt; } // ✅ 추가
 }
