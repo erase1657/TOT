@@ -10,6 +10,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -372,6 +373,19 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 updateHeartIcon(post.isLiked());
                 txtHeartCount.setText(formatCount(post.getHeartCount()));
             });
+
+            View.OnClickListener commentClickListener = v -> {
+                if (post.getPostId() != null) {
+                    if (itemView.getContext() instanceof AppCompatActivity) {
+                        CommentsBottomSheetFragment bottomSheet = CommentsBottomSheetFragment.newInstance(post.getPostId());
+                        bottomSheet.show(((AppCompatActivity) itemView.getContext()).getSupportFragmentManager(), bottomSheet.getTag());
+                    }
+                } else {
+                    Toast.makeText(itemView.getContext(), "게시글 정보를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
+                }
+            };
+
+            imgComment.setOnClickListener(commentClickListener);
 
             itemView.setOnClickListener(v -> {
                 if (postClickListener != null) {
