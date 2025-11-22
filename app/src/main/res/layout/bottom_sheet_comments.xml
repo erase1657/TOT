@@ -8,7 +8,7 @@
     app:behavior_hideable="true"
     app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
 
-    <!-- 상단 핸들 및 타이틀 -->
+    <!-- 상단 핸들 -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -20,16 +20,6 @@
             android:layout_height="4dp"
             android:layout_gravity="center_horizontal"
             android:background="@drawable/bottom_sheet_handle" />
-
-        <TextView
-            android:id="@+id/tv_comment_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="댓글 0개"
-            android:textColor="@android:color/black"
-            android:textSize="16sp"
-            android:textStyle="bold" />
 
     </FrameLayout>
 

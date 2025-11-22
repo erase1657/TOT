@@ -8,7 +8,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -40,7 +39,6 @@ public class CommentsBottomSheetFragment extends BottomSheetDialogFragment {
     private RecyclerView rvComments;
     private EditText etComment;
     private Button btnSendComment;
-    private TextView tvCommentCount;
 
     private CommentAdapter commentAdapter;
     private List<CommentDTO> commentList = new ArrayList<>();
@@ -74,7 +72,6 @@ public class CommentsBottomSheetFragment extends BottomSheetDialogFragment {
         rvComments = view.findViewById(R.id.rv_comments);
         etComment = view.findViewById(R.id.et_comment);
         btnSendComment = view.findViewById(R.id.btn_send_comment);
-        tvCommentCount = view.findViewById(R.id.tv_comment_count);
 
         setupRecyclerView();
         loadComments();
@@ -107,7 +104,6 @@ public class CommentsBottomSheetFragment extends BottomSheetDialogFragment {
                         commentList.add(comment);
                     }
                     commentAdapter.notifyDataSetChanged();
-                    updateCommentCount();
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error loading comments", e);
@@ -180,9 +176,5 @@ public class CommentsBottomSheetFragment extends BottomSheetDialogFragment {
                     Log.e(TAG, "Error deleting comment", e);
                     Toast.makeText(getContext(), "댓글 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show();
                 });
-    }
-
-    private void updateCommentCount() {
-        tvCommentCount.setText("댓글 " + commentList.size() + "개");
     }
 }
