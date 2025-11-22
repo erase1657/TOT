@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.example.tot.R;
 import com.google.firebase.Timestamp;
+import com.google.firebase.auth.FirebaseAuth;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -25,10 +26,21 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.CommentV
 
     private final Context context;
     private final List<CommentDTO> commentList;
+    private final String currentUserId;
+    private OnDeleteButtonClickListener onDeleteButtonClickListener;
+
+    public interface OnDeleteButtonClickListener {
+        void onDeleteClick(CommentDTO comment);
+    }
+
+    public void setOnDeleteButtonClickListener(OnDeleteButtonClickListener listener) {
+        this.onDeleteButtonClickListener = listener;
+    }
 
     public CommentAdapter(Context context, List<CommentDTO> commentList) {
         this.context = context;
         this.commentList = commentList;
+        this.currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
     }
 
     @NonNull
@@ -42,6 +54,17 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.CommentV
     public void onBindViewHolder(@NonNull CommentViewHolder holder, int position) {
         CommentDTO comment = commentList.get(position);
         holder.bind(comment);
+
+        if (currentUserId != null && currentUserId.equals(comment.getUid())) {
+            holder.deleteTextView.setVisibility(View.VISIBLE);
+            holder.deleteTextView.setOnClickListener(v -> {
+                if (onDeleteButtonClickListener != null) {
+                    onDeleteButtonClickListener.onDeleteClick(comment);
+                }
+            });
+        } else {
+            holder.deleteTextView.setVisibility(View.GONE);
+        }
     }
 
     @Override
@@ -54,6 +77,7 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.CommentV
         TextView nicknameTextView;
         TextView timestampTextView;
         TextView contentTextView;
+        TextView deleteTextView;
 
         public CommentViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -61,6 +85,7 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.CommentV
             nicknameTextView = itemView.findViewById(R.id.tv_nickname);
             timestampTextView = itemView.findViewById(R.id.tv_timestamp);
             contentTextView = itemView.findViewById(R.id.tv_comment_content);
+            deleteTextView = itemView.findViewById(R.id.tv_delete_comment);
         }
 
         void bind(CommentDTO comment) {

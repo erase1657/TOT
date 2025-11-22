@@ -13,6 +13,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -87,6 +88,9 @@ public class CommentsBottomSheetFragment extends BottomSheetDialogFragment {
         commentAdapter = new CommentAdapter(getContext(), commentList);
         rvComments.setLayoutManager(new LinearLayoutManager(getContext()));
         rvComments.setAdapter(commentAdapter);
+        commentAdapter.setOnDeleteButtonClickListener(comment -> {
+            showDeleteConfirmDialog(comment);
+        });
     }
 
     private void loadComments() {
@@ -149,6 +153,33 @@ public class CommentsBottomSheetFragment extends BottomSheetDialogFragment {
                 Toast.makeText(getContext(), "사용자 정보를 찾을 수 없어 댓글을 등록할 수 없습니다.", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void showDeleteConfirmDialog(CommentDTO comment) {
+        new AlertDialog.Builder(getContext())
+                .setTitle("댓글 삭제")
+                .setMessage("이 댓글을 삭제하시겠습니까?")
+                .setPositiveButton("삭제", (dialog, which) -> deleteComment(comment))
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void deleteComment(CommentDTO comment) {
+        if (postId == null || comment.getCommentId() == null) {
+            Toast.makeText(getContext(), "오류: 댓글 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        communityPostsRef.document(postId).collection("comments").document(comment.getCommentId())
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "댓글이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                    loadComments(); // 댓글 목록 새로고침
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error deleting comment", e);
+                    Toast.makeText(getContext(), "댓글 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void updateCommentCount() {
