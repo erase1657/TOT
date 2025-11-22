@@ -29,8 +29,10 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class CommunityFragment extends Fragment {
 
@@ -62,10 +64,14 @@ public class CommunityFragment extends Fragment {
 
     private List<UserSearchResult> allUserSearchResults = new ArrayList<>();
 
+    // ✅ 팔로우 관계 저장 (친구 필터용)
+    private Set<String> followingSet = new HashSet<>();
+    private Set<String> followerSet = new HashSet<>();
+
     enum FilterMode {
         POPULAR,
         ALL,
-        FRIENDS
+        FRIENDS  // ✅ 팔로워 + 팔로잉 + 본인
     }
 
     public CommunityFragment() {
@@ -93,7 +99,8 @@ public class CommunityFragment extends Fragment {
             dialog.show(getParentFragmentManager(), "ScheduleSelection");
         });
 
-        loadFirestorePosts();
+        // ✅ 팔로우 관계 먼저 로드 후 게시글 로드
+        loadFollowRelations(() -> loadFirestorePosts());
     }
 
     private void initViews(View view) {
@@ -274,18 +281,92 @@ public class CommunityFragment extends Fragment {
         isLastPage = (PAGE_SIZE >= filtered.size());
     }
 
+    /**
+     * ✅ 팔로우 관계 로드 (친구 필터용)
+     */
+    private void loadFollowRelations(Runnable onComplete) {
+        String currentUid = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
+        if (currentUid == null) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+
+        final int[] loadCount = {0};
+
+        // 팔로잉 로드
+        db.collection("user")
+                .document(currentUid)
+                .collection("following")
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    followingSet.clear();
+                    for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                        followingSet.add(doc.getId());
+                    }
+                    Log.d(TAG, "✅ 팔로잉 로드 완료: " + followingSet.size() + "명");
+                    loadCount[0]++;
+                    if (loadCount[0] == 2 && onComplete != null) onComplete.run();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 팔로잉 로드 실패", e);
+                    loadCount[0]++;
+                    if (loadCount[0] == 2 && onComplete != null) onComplete.run();
+                });
+
+        // 팔로워 로드
+        db.collection("user")
+                .document(currentUid)
+                .collection("follower")
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    followerSet.clear();
+                    for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                        followerSet.add(doc.getId());
+                    }
+                    Log.d(TAG, "✅ 팔로워 로드 완료: " + followerSet.size() + "명");
+                    loadCount[0]++;
+                    if (loadCount[0] == 2 && onComplete != null) onComplete.run();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 팔로워 로드 실패", e);
+                    loadCount[0]++;
+                    if (loadCount[0] == 2 && onComplete != null) onComplete.run();
+                });
+    }
+
+    /**
+     * ✅ 게시글 필터링 (친구 필터 포함)
+     */
     private List<CommunityPostDTO> filterPosts() {
         List<CommunityPostDTO> filtered = new ArrayList<>();
+        String currentUid = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
 
         for (CommunityPostDTO post : allPosts) {
-            boolean matchFilter = (currentFilter == FilterMode.ALL || currentFilter == FilterMode.POPULAR) ||
-                    (currentFilter == FilterMode.FRIENDS && post.isFriend());
+            boolean matchFilter = false;
+
+            switch (currentFilter) {
+                case POPULAR:
+                case ALL:
+                    matchFilter = true;
+                    break;
+                case FRIENDS:
+                    // ✅ 친구 필터: 본인 + 팔로워 + 팔로잉
+                    String postAuthorId = post.getUserId();
+                    if (postAuthorId != null) {
+                        boolean isMyPost = currentUid != null && postAuthorId.equals(currentUid);
+                        boolean isFollowing = followingSet.contains(postAuthorId);
+                        boolean isFollower = followerSet.contains(postAuthorId);
+                        matchFilter = isMyPost || isFollowing || isFollower;
+                    }
+                    break;
+            }
 
             if (matchFilter) {
                 filtered.add(post);
             }
         }
 
+        // 검색어 필터링
         if (!searchQuery.isEmpty()) {
             List<CommunityPostDTO> searchFiltered = new ArrayList<>();
             for (CommunityPostDTO post : filtered) {
@@ -297,6 +378,7 @@ public class CommunityFragment extends Fragment {
             filtered = searchFiltered;
         }
 
+        // 정렬
         if (currentFilter == FilterMode.POPULAR) {
             Collections.sort(filtered, (o1, o2) -> Integer.compare(o2.getHeartCount(), o1.getHeartCount()));
         } else {
@@ -352,7 +434,6 @@ public class CommunityFragment extends Fragment {
                 .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    // ✅ 버그 수정: Map 대신 List로 직접 관리
                     List<CommunityPostDTO> tempPosts = new ArrayList<>();
                     Map<String, String> authorUidMap = new HashMap<>();
 
@@ -391,9 +472,6 @@ public class CommunityFragment extends Fragment {
                 });
     }
 
-    /**
-     * ✅ 수정: 각 게시글별로 작성자 정보 로드
-     */
     private void loadAuthorInfoBatch(List<CommunityPostDTO> posts, Map<String, String> authorUidMap) {
         if (posts.isEmpty()) {
             allPosts = new ArrayList<>();
@@ -403,6 +481,7 @@ public class CommunityFragment extends Fragment {
 
         final int[] loadedCount = {0};
         final int totalCount = posts.size();
+        String currentUid = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
 
         for (CommunityPostDTO post : posts) {
             String authorUid = authorUidMap.get(post.getPostId());
@@ -414,6 +493,17 @@ public class CommunityFragment extends Fragment {
                     applyFilter();
                 }
                 continue;
+            }
+
+            // ✅ 좋아요 상태 확인
+            if (currentUid != null) {
+                communityPostsRef.document(post.getPostId())
+                        .collection("likes")
+                        .document(currentUid)
+                        .get()
+                        .addOnSuccessListener(likeDoc -> {
+                            post.setLiked(likeDoc.exists());
+                        });
             }
 
             db.collection("user").document(authorUid)
@@ -447,7 +537,8 @@ public class CommunityFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        loadFirestorePosts();
+        // ✅ 팔로우 관계 갱신 후 게시글 다시 로드
+        loadFollowRelations(() -> loadFirestorePosts());
     }
 
     @Override

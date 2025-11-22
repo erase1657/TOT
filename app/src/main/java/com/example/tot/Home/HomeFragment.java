@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
@@ -23,11 +24,9 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.tot.Community.CommunityAdapter;
 import com.example.tot.Community.CommunityPostDTO;
-import com.example.tot.Community.CommunityViewModel;
 import com.example.tot.Notification.NotificationActivity;
 import com.example.tot.Notification.NotificationManager;
 import com.example.tot.R;
-import com.example.tot.Schedule.ScheduleDTO;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -37,11 +36,15 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class HomeFragment extends Fragment {
+
+    private static final String TAG = "HomeFragment";
 
     // 지역 코드
     private String selectedProvinceCode = "ALL";
@@ -64,10 +67,14 @@ public class HomeFragment extends Fragment {
 
     // 데이터
     private CommunityAdapter communityAdapter;
-    private CommunityViewModel viewModel;
+    private List<CommunityPostDTO> allCommunityPosts = new ArrayList<>();
 
     // 알림 관리자
     private NotificationManager notificationManager;
+
+    // Firestore
+    private FirebaseFirestore db;
+    private FirebaseAuth auth;
 
     public HomeFragment() {
         super(R.layout.fragment_home);
@@ -77,8 +84,10 @@ public class HomeFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        db = FirebaseFirestore.getInstance();
+        auth = FirebaseAuth.getInstance();
+
         initViews(view);
-        initViewModel();
         setupNotificationManager();
         setupSwipeRefresh();
         setupProvinceButtons();
@@ -86,9 +95,8 @@ public class HomeFragment extends Fragment {
         setupCommunityStyleRecyclerView(view.findViewById(R.id.re_album));
         setupProfileAndInbox();
 
-        // 게시글 더미 로드 (테스트용)
-        viewModel.loadDummyData();
-        filterAlbums();
+        // ✅ Firestore에서 게시글 로드
+        loadCommunityPostsFromFirestore();
     }
 
     private void initViews(View view) {
@@ -122,11 +130,8 @@ public class HomeFragment extends Fragment {
             notificationManager.refresh();
         }
 
-        // 게시글 더미 재로드
-        if (viewModel != null) {
-            viewModel.loadDummyData();
-            filterAlbums();
-        }
+        // ✅ 커뮤니티 게시글 새로고침
+        loadCommunityPostsFromFirestore();
 
         // 다음 스케줄 새로고침
         loadNextScheduleWithAllItems();
@@ -136,26 +141,6 @@ public class HomeFragment extends Fragment {
             swipeRefreshLayout.setRefreshing(false);
             Toast.makeText(getContext(), "새로고침 완료", Toast.LENGTH_SHORT).show();
         }, 1000);
-    }
-
-    private void initViewModel() {
-        viewModel = new CommunityViewModel(new CommunityViewModel.DataCallback() {
-            @Override
-            public void onDataChanged(List<CommunityPostDTO> posts) {
-                if (communityAdapter != null) {
-                    communityAdapter.updateDataWithUsers(posts, new ArrayList<>(), false, false);
-                }
-            }
-
-            @Override
-            public void onDataAdded(List<CommunityPostDTO> posts) {
-                if (communityAdapter != null) {
-                    communityAdapter.addData(posts);
-                }
-            }
-        });
-
-        viewModel.setFilter(CommunityViewModel.FilterMode.POPULAR);
     }
 
     private void setupNotificationManager() {
@@ -317,29 +302,170 @@ public class HomeFragment extends Fragment {
         currentSelectedCityButton = selectedButton;
     }
 
-    /** 지역별 게시글 필터 */
-    private void filterAlbums() {
-        if (viewModel == null) return;
+    /**
+     * ✅ Firestore에서 커뮤니티 게시글 로드 (인기순)
+     */
+    private void loadCommunityPostsFromFirestore() {
+        if (auth.getCurrentUser() == null) {
+            allCommunityPosts.clear();
+            filterAlbums();
+            return;
+        }
 
-        List<CommunityPostDTO> allPosts = viewModel.getAllPosts();
+        db.collection("public")
+                .document("community")
+                .collection("posts")
+                .orderBy("heartCount", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<CommunityPostDTO> tempPosts = new ArrayList<>();
+                    Map<String, String> authorUidMap = new HashMap<>();
+
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        String postId = doc.getString("postId");
+                        String authorUid = doc.getString("authorUid");
+                        String scheduleId = doc.getString("scheduleId");
+                        String title = doc.getString("title");
+                        String locationName = doc.getString("locationName");
+                        Long heartCount = doc.getLong("heartCount");
+                        Long commentCount = doc.getLong("commentCount");
+                        Long createdAt = doc.getLong("createdAt");
+
+                        if (postId != null && authorUid != null && scheduleId != null) {
+                            CommunityPostDTO post = new CommunityPostDTO();
+                            post.setPostId(postId);
+                            post.setUserId(authorUid);
+                            post.setScheduleId(scheduleId);
+                            post.setTitle(title != null ? title : "");
+                            post.setRegionTag(locationName != null ? locationName : "");
+                            post.setHeartCount(heartCount != null ? heartCount.intValue() : 0);
+                            post.setCommentCount(commentCount != null ? commentCount.intValue() : 0);
+                            post.setCreatedAt(createdAt != null ? createdAt : 0);
+
+                            // TODO: 스케줄에 지역 정보(provinceCode, cityCode) 저장 후 여기서 설정
+                            // 현재는 지역 필터를 위한 코드가 없으므로 빈 값으로 설정
+                            post.setProvinceCode("");
+                            post.setCityCode("");
+
+                            tempPosts.add(post);
+                            authorUidMap.put(postId, authorUid);
+                        }
+                    }
+
+                    loadAuthorInfoForPosts(tempPosts, authorUidMap);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 커뮤니티 게시글 로드 실패", e);
+                    allCommunityPosts.clear();
+                    filterAlbums();
+                });
+    }
+
+    private void loadAuthorInfoForPosts(List<CommunityPostDTO> posts, Map<String, String> authorUidMap) {
+        if (posts.isEmpty()) {
+            allCommunityPosts = new ArrayList<>();
+            filterAlbums();
+            return;
+        }
+
+        final int[] loadedCount = {0};
+        final int totalCount = posts.size();
+        String currentUid = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
+
+        for (CommunityPostDTO post : posts) {
+            String authorUid = authorUidMap.get(post.getPostId());
+
+            if (authorUid == null) {
+                loadedCount[0]++;
+                if (loadedCount[0] == totalCount) {
+                    allCommunityPosts = new ArrayList<>(posts);
+                    filterAlbums();
+                }
+                continue;
+            }
+
+            // 좋아요 상태 확인
+            if (currentUid != null) {
+                db.collection("public")
+                        .document("community")
+                        .collection("posts")
+                        .document(post.getPostId())
+                        .collection("likes")
+                        .document(currentUid)
+                        .get()
+                        .addOnSuccessListener(likeDoc -> {
+                            post.setLiked(likeDoc.exists());
+                        });
+            }
+
+            db.collection("user").document(authorUid)
+                    .get()
+                    .addOnSuccessListener(userDoc -> {
+                        if (userDoc.exists()) {
+                            String nickname = userDoc.getString("nickname");
+                            String profileImageUrl = userDoc.getString("profileImageUrl");
+
+                            post.setUserName(nickname != null ? nickname : "사용자");
+                            post.setProfileImageUrl(profileImageUrl);
+                        }
+
+                        loadedCount[0]++;
+                        if (loadedCount[0] == totalCount) {
+                            allCommunityPosts = new ArrayList<>(posts);
+                            Log.d(TAG, "✅ 홈 화면 게시글 로드 완료: " + allCommunityPosts.size() + "개");
+                            filterAlbums();
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        loadedCount[0]++;
+                        if (loadedCount[0] == totalCount) {
+                            allCommunityPosts = new ArrayList<>(posts);
+                            filterAlbums();
+                        }
+                    });
+        }
+    }
+
+    /**
+     * ✅ 지역별 게시글 필터
+     * TODO: 스케줄 기반의 게시글을 지역별로 필터링하려면
+     *       각 스케줄에 provinceCode, cityCode 정보를 저장하고
+     *       게시글 생성 시 해당 정보를 같이 저장해야 함
+     */
+    private void filterAlbums() {
+        if (allCommunityPosts == null) return;
+
         List<CommunityPostDTO> filtered = new ArrayList<>();
 
         if (selectedProvinceCode.equals("ALL")) {
-            filtered.addAll(allPosts);
-        } else if (selectedCityCode.isEmpty()) {
-            for (CommunityPostDTO post : allPosts) {
-                if (post.getProvinceCode().equals(selectedProvinceCode))
-                    filtered.add(post);
-            }
+            // ✅ 전체 보기: 모든 게시글 표시
+            filtered.addAll(allCommunityPosts);
         } else {
-            for (CommunityPostDTO post : allPosts) {
-                if (post.getProvinceCode().equals(selectedProvinceCode)
-                        && post.getCityCode().equals(selectedCityCode))
-                    filtered.add(post);
+            // TODO: 지역 필터 구현
+            // 현재는 스케줄에 지역 정보가 없으므로 전체 게시글 표시
+            // 지역 정보 저장 후 아래 주석 해제하여 사용
+            /*
+            if (selectedCityCode.isEmpty()) {
+                // 시/도만 선택된 경우
+                for (CommunityPostDTO post : allCommunityPosts) {
+                    if (post.getProvinceCode().equals(selectedProvinceCode)) {
+                        filtered.add(post);
+                    }
+                }
+            } else {
+                // 시/도 + 시군구 선택된 경우
+                for (CommunityPostDTO post : allCommunityPosts) {
+                    if (post.getProvinceCode().equals(selectedProvinceCode)
+                            && post.getCityCode().equals(selectedCityCode)) {
+                        filtered.add(post);
+                    }
+                }
             }
+            */
+            filtered.addAll(allCommunityPosts);
         }
 
-        // 인기순 정렬
+        // 인기순 정렬 (이미 Firestore에서 정렬되어 오지만 한 번 더 정렬)
         filtered.sort((a, b) -> Integer.compare(b.getHeartCount(), a.getHeartCount()));
 
         if (communityAdapter != null) {
@@ -354,7 +480,6 @@ public class HomeFragment extends Fragment {
         alarmList = new ArrayList<>();
         alarmAdapter = new HomeAlarmAdapter(alarmList);
 
-        // ✅ VERTICAL로 설정 (여러 일정을 세로로 나열)
         memoryView.setLayoutManager(
                 new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false)
         );
@@ -369,13 +494,12 @@ public class HomeFragment extends Fragment {
      *    그 스케줄에 속한 모든 일정을 표시
      */
     private void loadNextScheduleWithAllItems() {
-        String uid = FirebaseAuth.getInstance().getUid();
+        String uid = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
         if (uid == null) {
             showNoSchedule();
             return;
         }
 
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
         Calendar now = Calendar.getInstance();
         Timestamp currentTime = new Timestamp(now.getTime());
 
@@ -385,12 +509,15 @@ public class HomeFragment extends Fragment {
                 .collection("schedule")
                 .get()
                 .addOnSuccessListener(scheduleSnapshot -> {
-                    List<ScheduleDTO> allSchedules = new ArrayList<>();
+                    List<ScheduleData> allSchedules = new ArrayList<>();
 
                     for (DocumentSnapshot doc : scheduleSnapshot.getDocuments()) {
-                        ScheduleDTO schedule = doc.toObject(ScheduleDTO.class);
-                        if (schedule != null) {
-                            allSchedules.add(schedule);
+                        String scheduleId = doc.getId();
+                        Timestamp startDate = doc.getTimestamp("startDate");
+                        Timestamp endDate = doc.getTimestamp("endDate");
+
+                        if (startDate != null && endDate != null) {
+                            allSchedules.add(new ScheduleData(scheduleId, startDate, endDate));
                         }
                     }
 
@@ -401,14 +528,13 @@ public class HomeFragment extends Fragment {
 
                     // 2️⃣ 스케줄을 시작 날짜 기준으로 정렬
                     Collections.sort(allSchedules, (a, b) ->
-                            a.getStartDate().compareTo(b.getStartDate())
+                            a.startDate.compareTo(b.startDate)
                     );
 
                     // 3️⃣ 현재 시간 이후의 가장 가까운 스케줄 찾기
-                    ScheduleDTO nextSchedule = null;
-                    for (ScheduleDTO schedule : allSchedules) {
-                        // 스케줄의 종료일이 현재 시간 이후인 경우
-                        if (schedule.getEndDate().compareTo(currentTime) >= 0) {
+                    ScheduleData nextSchedule = null;
+                    for (ScheduleData schedule : allSchedules) {
+                        if (schedule.endDate.compareTo(currentTime) >= 0) {
                             nextSchedule = schedule;
                             break;
                         }
@@ -433,11 +559,9 @@ public class HomeFragment extends Fragment {
     /**
      * ✅ 특정 스케줄의 모든 날짜에 있는 모든 일정을 로드
      */
-    private void loadAllItemsFromSchedule(String uid, ScheduleDTO schedule) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-
+    private void loadAllItemsFromSchedule(String uid, ScheduleData schedule) {
         // 스케줄 기간 내 모든 날짜 생성
-        List<String> dateList = generateDateList(schedule.getStartDate(), schedule.getEndDate());
+        List<String> dateList = generateDateList(schedule.startDate, schedule.endDate);
 
         if (dateList.isEmpty()) {
             showNoSchedule();
@@ -452,7 +576,7 @@ public class HomeFragment extends Fragment {
             db.collection("user")
                     .document(uid)
                     .collection("schedule")
-                    .document(schedule.getScheduleId())
+                    .document(schedule.scheduleId)
                     .collection("scheduleDate")
                     .document(dateKey)
                     .collection("scheduleItem")
@@ -466,7 +590,7 @@ public class HomeFragment extends Fragment {
 
                             if (title != null && startTime != null && endTime != null) {
                                 HomeAlarmDTO dto = new HomeAlarmDTO(
-                                        schedule.getScheduleId(),
+                                        schedule.scheduleId,
                                         doc.getId(),
                                         title,
                                         dateKey,
@@ -585,13 +709,28 @@ public class HomeFragment extends Fragment {
         super.onResume();
         updateInboxBadge(notificationManager.getUnreadCount());
         loadNextScheduleWithAllItems();
+        loadCommunityPostsFromFirestore(); // ✅ 게시글 다시 로드
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        if (viewModel != null) viewModel.destroy();
         if (notificationManager != null)
             notificationManager.removeListener(this::updateInboxBadge);
+    }
+
+    /**
+     * ✅ 스케줄 데이터 클래스
+     */
+    private static class ScheduleData {
+        String scheduleId;
+        Timestamp startDate;
+        Timestamp endDate;
+
+        ScheduleData(String scheduleId, Timestamp startDate, Timestamp endDate) {
+            this.scheduleId = scheduleId;
+            this.startDate = startDate;
+            this.endDate = endDate;
+        }
     }
 }

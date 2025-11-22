@@ -17,10 +17,13 @@ import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
@@ -270,7 +273,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             currentPostAuthorId = post.getUserId();
             String currentUid = mAuth.getCurrentUser() != null ? mAuth.getCurrentUser().getUid() : null;
 
-            // ✅ Firestore에서 가져온 프로필 이미지 URL 사용
             if (post.getProfileImageUrl() != null && !post.getProfileImageUrl().isEmpty()) {
                 Glide.with(itemView.getContext())
                         .load(post.getProfileImageUrl())
@@ -283,7 +285,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 imgProfile.setImageResource(R.drawable.ic_profile_default);
             }
 
-            // ✅ 작성자 이름 표시 (더 이상 "익명"이 아님)
             txtUserName.setText(post.getUserName() != null ? post.getUserName() : "사용자");
             txtPostTitle.setText(post.getTitle() != null ? post.getTitle() : "");
 
@@ -359,10 +360,92 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 itemView.getContext().startActivity(intent);
             });
 
+            // ✅ 하트 클릭 이벤트 - Firestore 연동
             imgHeart.setOnClickListener(v -> {
-                post.toggleLike();
-                updateHeartIcon(post.isLiked());
-                txtHeartCount.setText(formatCount(post.getHeartCount()));
+                if (currentUid == null) {
+                    Toast.makeText(itemView.getContext(), "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                String postId = post.getPostId();
+                if (postId == null || postId.isEmpty()) {
+                    Toast.makeText(itemView.getContext(), "게시글 정보를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                imgHeart.setEnabled(false);
+
+                if (post.isLiked()) {
+                    // ✅ 좋아요 취소
+                    db.collection("public")
+                            .document("community")
+                            .collection("posts")
+                            .document(postId)
+                            .collection("likes")
+                            .document(currentUid)
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                db.collection("public")
+                                        .document("community")
+                                        .collection("posts")
+                                        .document(postId)
+                                        .update("heartCount", FieldValue.increment(-1))
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            post.setLiked(false);
+                                            post.setHeartCount(post.getHeartCount() - 1);
+                                            updateHeartIcon(false);
+                                            txtHeartCount.setText(formatCount(post.getHeartCount()));
+                                            imgHeart.setEnabled(true);
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "❌ 좋아요 카운트 감소 실패", e);
+                                            Toast.makeText(itemView.getContext(), "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
+                                            imgHeart.setEnabled(true);
+                                        });
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ 좋아요 삭제 실패", e);
+                                Toast.makeText(itemView.getContext(), "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
+                                imgHeart.setEnabled(true);
+                            });
+                } else {
+                    // ✅ 좋아요 추가
+                    Map<String, Object> likeData = new HashMap<>();
+                    likeData.put("userId", currentUid);
+                    likeData.put("timestamp", System.currentTimeMillis());
+
+                    db.collection("public")
+                            .document("community")
+                            .collection("posts")
+                            .document(postId)
+                            .collection("likes")
+                            .document(currentUid)
+                            .set(likeData)
+                            .addOnSuccessListener(aVoid -> {
+                                db.collection("public")
+                                        .document("community")
+                                        .collection("posts")
+                                        .document(postId)
+                                        .update("heartCount", FieldValue.increment(1))
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            post.setLiked(true);
+                                            post.setHeartCount(post.getHeartCount() + 1);
+                                            updateHeartIcon(true);
+                                            txtHeartCount.setText(formatCount(post.getHeartCount()));
+                                            imgHeart.setEnabled(true);
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "❌ 좋아요 카운트 증가 실패", e);
+                                            Toast.makeText(itemView.getContext(), "좋아요 실패", Toast.LENGTH_SHORT).show();
+                                            imgHeart.setEnabled(true);
+                                        });
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ 좋아요 추가 실패", e);
+                                Toast.makeText(itemView.getContext(), "좋아요 실패", Toast.LENGTH_SHORT).show();
+                                imgHeart.setEnabled(true);
+                            });
+                }
             });
 
             itemView.setOnClickListener(v -> {
