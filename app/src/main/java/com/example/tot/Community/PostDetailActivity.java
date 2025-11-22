@@ -34,6 +34,7 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -615,50 +616,47 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         mMap.clear();
 
         LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        PolylineOptions polylineOptions = new PolylineOptions().width(10).color(Color.parseColor("#575DFB"));
 
         communityPostsRef.document(postId)
                 .collection("scheduleDate")
                 .document(dateKey)
                 .collection("scheduleItem")
+                .orderBy("startTime")
                 .get()
                 .addOnSuccessListener(snap -> {
 
-                    boolean hasMarkers = false;
-
+                    List<LatLng> points = new ArrayList<>();
                     for (DocumentSnapshot doc : snap.getDocuments()) {
-
                         GeoPoint geoPoint = doc.getGeoPoint("place");
-
                         if (geoPoint != null) {
-
-                            LatLng latLng = new LatLng(
-                                    geoPoint.getLatitude(),
-                                    geoPoint.getLongitude()
-                            );
-
-                            mMap.addMarker(
-                                    new MarkerOptions()
-                                            .position(latLng)
-                                            .title(doc.getString("placeName"))
-                                            .icon(
-                                                    BitmapDescriptorFactory.defaultMarker(
-                                                            BitmapDescriptorFactory.HUE_AZURE
-                                                    )
-                                            )
-                            );
-
+                            LatLng latLng = new LatLng(geoPoint.getLatitude(), geoPoint.getLongitude());
+                            points.add(latLng);
                             builder.include(latLng);
-                            hasMarkers = true;
+
+                            mMap.addMarker(new MarkerOptions()
+                                    .position(latLng)
+                                    .title(doc.getString("placeName"))
+                                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
                         }
                     }
 
-                    if (hasMarkers) {
+                    if (points.size() > 1) {
+                        mMap.addPolyline(polylineOptions.addAll(points));
+                    }
+
+                    if (!points.isEmpty()) {
                         try {
-                            mMap.animateCamera(
-                                    CameraUpdateFactory.newLatLngBounds(builder.build(), 100)
-                            );
-                        } catch (Exception e) {
+                            if (points.size() > 1) {
+                                LatLngBounds bounds = builder.build();
+                                mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+                            } else {
+                                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(points.get(0), 15f));
+                            }
+                        } catch (IllegalStateException e) {
                             Log.e(TAG, "지도 카메라 이동 실패", e);
+                            // Fallback to zoom on the first point if bounds fail
+                            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(points.get(0), 10f));
                         }
                     }
                 });
