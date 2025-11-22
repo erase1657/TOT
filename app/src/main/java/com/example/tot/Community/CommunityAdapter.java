@@ -18,6 +18,7 @@ import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -115,6 +116,14 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             ((MoreUsersViewHolder) holder).bind();
         } else if (holder instanceof PostViewHolder) {
             ((PostViewHolder) holder).bind((CommunityPostDTO) item, position);
+        }
+    }
+
+    @Override
+    public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewRecycled(holder);
+        if (holder instanceof PostViewHolder) {
+            ((PostViewHolder) holder).cleanupListener();
         }
     }
 
@@ -250,6 +259,7 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         boolean isFollowing = false;
         boolean isFollower = false;
         String currentPostAuthorId;
+        private ListenerRegistration commentListener;
 
         public PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -270,7 +280,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             currentPostAuthorId = post.getUserId();
             String currentUid = mAuth.getCurrentUser() != null ? mAuth.getCurrentUser().getUid() : null;
 
-            // ✅ Firestore에서 가져온 프로필 이미지 URL 사용
             if (post.getProfileImageUrl() != null && !post.getProfileImageUrl().isEmpty()) {
                 Glide.with(itemView.getContext())
                         .load(post.getProfileImageUrl())
@@ -283,7 +292,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 imgProfile.setImageResource(R.drawable.ic_profile_default);
             }
 
-            // ✅ 작성자 이름 표시 (더 이상 "익명"이 아님)
             txtUserName.setText(post.getUserName() != null ? post.getUserName() : "사용자");
             txtPostTitle.setText(post.getTitle() != null ? post.getTitle() : "");
 
@@ -296,7 +304,7 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
             updateHeartIcon(post.isLiked());
             txtHeartCount.setText(formatCount(post.getHeartCount()));
-            txtCommentCount.setText(post.getCommentCount() + "개");
+            startCommentCountListener(post.getPostId());
 
             if (currentUid != null && currentUid.equals(currentPostAuthorId)) {
                 btnFollow.setVisibility(View.GONE);
@@ -370,6 +378,38 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                     postClickListener.onPostClick(post, getAdapterPosition());
                 }
             });
+        }
+
+        private void startCommentCountListener(String postId) {
+            cleanupListener();
+
+            if (postId == null || postId.isEmpty()) {
+                txtCommentCount.setText("0개");
+                return;
+            }
+
+            commentListener = db.collection("public").document("community")
+                    .collection("posts").document(postId).collection("comments")
+                    .addSnapshotListener((snapshots, error) -> {
+                        if (error != null) {
+                            Log.w(TAG, "Listen failed for comment count.", error);
+                            txtCommentCount.setText("0개");
+                            return;
+                        }
+
+                        if (snapshots != null) {
+                            txtCommentCount.setText(snapshots.size() + "개");
+                        } else {
+                            txtCommentCount.setText("0개");
+                        }
+                    });
+        }
+
+        public void cleanupListener() {
+            if (commentListener != null) {
+                commentListener.remove();
+                commentListener = null;
+            }
         }
 
         private void updateHeartIcon(boolean isLiked) {
