@@ -138,7 +138,14 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         layoutAuthor.findViewById(R.id.btn_menu).setVisibility(View.GONE);
 
         btnBack.setOnClickListener(v -> finish());
-        btnComment.setOnClickListener(v -> Toast.makeText(this, "댓글 기능 준비중", Toast.LENGTH_SHORT).show());
+        btnComment.setOnClickListener(v -> {
+            if (postId != null) {
+                CommentsBottomSheetFragment bottomSheet = CommentsBottomSheetFragment.newInstance(postId);
+                bottomSheet.show(getSupportFragmentManager(), bottomSheet.getTag());
+            } else {
+                Toast.makeText(this, "게시글 정보를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
+            }
+        });
         btnHeart.setOnClickListener(v -> toggleHeart());
         btnEdit.setOnClickListener(v -> editPost());
         btnDelete.setOnClickListener(v -> showDeleteConfirmDialog());
