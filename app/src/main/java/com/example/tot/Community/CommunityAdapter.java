@@ -13,6 +13,8 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.signature.ObjectKey;
 import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
@@ -174,9 +176,13 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 tvNickname.setVisibility(View.GONE);
             }
 
+            // ✅ Firestore에서 실시간 프로필 이미지 로드
             if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isEmpty()) {
                 Glide.with(itemView.getContext())
                         .load(user.getProfileImageUrl())
+                        .diskCacheStrategy(DiskCacheStrategy.NONE)
+                        .skipMemoryCache(true)
+                        .signature(new ObjectKey(System.currentTimeMillis()))
                         .placeholder(R.drawable.ic_profile_default)
                         .error(R.drawable.ic_profile_default)
                         .into(imgProfile);
@@ -273,9 +279,13 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             currentPostAuthorId = post.getUserId();
             String currentUid = mAuth.getCurrentUser() != null ? mAuth.getCurrentUser().getUid() : null;
 
+            // ✅ Firestore에서 실시간 프로필 이미지 로드
             if (post.getProfileImageUrl() != null && !post.getProfileImageUrl().isEmpty()) {
                 Glide.with(itemView.getContext())
                         .load(post.getProfileImageUrl())
+                        .diskCacheStrategy(DiskCacheStrategy.NONE)
+                        .skipMemoryCache(true)
+                        .signature(new ObjectKey(System.currentTimeMillis()))
                         .placeholder(R.drawable.ic_profile_default)
                         .error(R.drawable.ic_profile_default)
                         .into(imgProfile);
@@ -360,7 +370,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 itemView.getContext().startActivity(intent);
             });
 
-            // ✅ 하트 클릭 이벤트 - Firestore 연동
             imgHeart.setOnClickListener(v -> {
                 if (currentUid == null) {
                     Toast.makeText(itemView.getContext(), "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
@@ -376,7 +385,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 imgHeart.setEnabled(false);
 
                 if (post.isLiked()) {
-                    // ✅ 좋아요 취소
                     db.collection("public")
                             .document("community")
                             .collection("posts")
@@ -409,7 +417,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                                 imgHeart.setEnabled(true);
                             });
                 } else {
-                    // ✅ 좋아요 추가
                     Map<String, Object> likeData = new HashMap<>();
                     likeData.put("userId", currentUid);
                     likeData.put("timestamp", System.currentTimeMillis());

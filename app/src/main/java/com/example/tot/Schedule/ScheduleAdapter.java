@@ -132,8 +132,21 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
                 // tvDateRange에 날짜 범위 표시
                 tvDateRange.setText(String.format("%s~%s", startDateStr, endDateStr));
 
-                // D-Day 계산
-                long diff = startDate.getTime() - System.currentTimeMillis();
+                // D-Day 계산 (시간을 제외하고 날짜만 비교)
+                java.util.Calendar startCal = java.util.Calendar.getInstance();
+                startCal.setTime(startDate);
+                startCal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+                startCal.set(java.util.Calendar.MINUTE, 0);
+                startCal.set(java.util.Calendar.SECOND, 0);
+                startCal.set(java.util.Calendar.MILLISECOND, 0);
+
+                java.util.Calendar todayCal = java.util.Calendar.getInstance();
+                todayCal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+                todayCal.set(java.util.Calendar.MINUTE, 0);
+                todayCal.set(java.util.Calendar.SECOND, 0);
+                todayCal.set(java.util.Calendar.MILLISECOND, 0);
+
+                long diff = startCal.getTimeInMillis() - todayCal.getTimeInMillis();
                 long days = TimeUnit.MILLISECONDS.toDays(diff);
 
                 // tvDate에 D-Day 표시
@@ -142,7 +155,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
                 } else if (days == 0) {
                     tvDate.setText("D-DAY");
                 } else {
-                    tvDate.setText(String.format(Locale.getDefault(), "D-%d", days + 1));
+                    tvDate.setText(String.format(Locale.getDefault(), "D-%d", days));
                 }
             } else {
                 tvDateRange.setText("날짜 정보 없음");

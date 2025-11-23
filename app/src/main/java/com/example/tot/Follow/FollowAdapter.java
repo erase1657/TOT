@@ -17,8 +17,12 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.signature.ObjectKey;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -112,22 +116,17 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
         public void bind(FollowUserDTO user, int position) {
             if (user == null) return;
 
-            if (user.getProfileImage() != 0) {
-                imgProfile.setImageResource(user.getProfileImage());
-            } else {
-                imgProfile.setImageResource(R.drawable.ic_profile_default);
-            }
-
             tvUserName.setText(user.getUserName());
 
-            // Follow Back 표시 (내 프로필 & 팔로워 모드 & 내가 팔로우 안함)
+            // ✅ Firestore에서 실시간 프로필 이미지 로드
+            loadProfileImageFromFirestore(user.getUserId());
+
             if (isFollowerMode && isMyProfile && !user.isFollowing()) {
                 tvFollowBack.setVisibility(View.VISIBLE);
             } else {
                 tvFollowBack.setVisibility(View.GONE);
             }
 
-            // 별명 표시 (내 프로필일 때만)
             if (isMyProfile) {
                 String nickname = user.getNickname();
                 if (nickname != null && !nickname.trim().isEmpty()) {
@@ -142,10 +141,8 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                 btnEditNickname.setVisibility(View.GONE);
             }
 
-            // ✅ FollowButtonHelper로 버튼 업데이트
             FollowButtonHelper.updateFollowButton(btnFollow, user.isFollowing(), user.isFollower());
 
-            // 메뉴 버튼 (팔로워 모드 & 내 프로필)
             if (isFollowerMode && isMyProfile) {
                 btnMenu.setVisibility(View.VISIBLE);
             } else {
@@ -153,6 +150,41 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
             }
 
             setupClickListeners(user, position);
+        }
+
+        /**
+         * ✅ Firestore에서 실시간 프로필 이미지 URL 로드
+         */
+        private void loadProfileImageFromFirestore(String userId) {
+            if (userId == null || userId.isEmpty()) {
+                imgProfile.setImageResource(R.drawable.ic_profile_default);
+                return;
+            }
+
+            FirebaseFirestore.getInstance()
+                    .collection("user")
+                    .document(userId)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        if (doc.exists()) {
+                            String profileUrl = doc.getString("profileImageUrl");
+                            if (profileUrl != null && !profileUrl.isEmpty()) {
+                                Glide.with(itemView.getContext())
+                                        .load(profileUrl)
+                                        .diskCacheStrategy(DiskCacheStrategy.NONE)
+                                        .skipMemoryCache(true)
+                                        .signature(new ObjectKey(System.currentTimeMillis()))
+                                        .placeholder(R.drawable.ic_profile_default)
+                                        .error(R.drawable.ic_profile_default)
+                                        .into(imgProfile);
+                            } else {
+                                imgProfile.setImageResource(R.drawable.ic_profile_default);
+                            }
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        imgProfile.setImageResource(R.drawable.ic_profile_default);
+                    });
         }
 
         private void setupClickListeners(FollowUserDTO user, int position) {
@@ -202,11 +234,9 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                 return false;
             });
 
-            // ✅ FollowButtonHelper로 클릭 처리
             btnFollow.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onFollowClick(user, position);
-                    // 상태 변경 후 UI 업데이트
                     FollowButtonHelper.updateFollowButton(btnFollow, user.isFollowing(), user.isFollower());
                 }
             });
