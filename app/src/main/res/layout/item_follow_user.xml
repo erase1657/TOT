@@ -14,11 +14,11 @@
         android:id="@+id/img_profile"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:src="@drawable/ic_profile_default"
         app:civ_border_width="2dp"
         app:civ_border_color="#FFE5E7EB"
         android:clickable="true"
         android:focusable="true" />
+    <!-- ✅ android:src 제거 (코드에서만 설정) -->
 
     <!-- 정보 영역 -->
     <LinearLayout

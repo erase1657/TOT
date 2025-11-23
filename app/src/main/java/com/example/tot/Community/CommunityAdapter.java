@@ -14,7 +14,6 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.signature.ObjectKey;
 import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
@@ -140,6 +139,24 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
     }
 
+    /**
+     * ✅ 프로필 이미지 로드 헬퍼 메서드
+     * - 캐시 활성화로 깜빡임 방지
+     * - 메모리 캐시 사용
+     */
+    private void loadProfileImage(ImageView imageView, String profileUrl) {
+        if (profileUrl != null && !profileUrl.isEmpty()) {
+            Glide.with(imageView.getContext())
+                    .load(profileUrl)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL) // ✅ 디스크 캐시 활성화
+                    .placeholder(R.drawable.ic_profile_default)
+                    .error(R.drawable.ic_profile_default)
+                    .into(imageView);
+        } else {
+            imageView.setImageResource(R.drawable.ic_profile_default);
+        }
+    }
+
     class UserViewHolder extends RecyclerView.ViewHolder {
         CircleImageView imgProfile;
         TextView tvUserName;
@@ -176,19 +193,8 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 tvNickname.setVisibility(View.GONE);
             }
 
-            // ✅ Firestore에서 실시간 프로필 이미지 로드
-            if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isEmpty()) {
-                Glide.with(itemView.getContext())
-                        .load(user.getProfileImageUrl())
-                        .diskCacheStrategy(DiskCacheStrategy.NONE)
-                        .skipMemoryCache(true)
-                        .signature(new ObjectKey(System.currentTimeMillis()))
-                        .placeholder(R.drawable.ic_profile_default)
-                        .error(R.drawable.ic_profile_default)
-                        .into(imgProfile);
-            } else {
-                imgProfile.setImageResource(R.drawable.ic_profile_default);
-            }
+            // ✅ 캐시 활성화된 이미지 로드
+            loadProfileImage(imgProfile, user.getProfileImageUrl());
 
             FollowButtonHelper.checkFollowStatus(user.getUserId(), (following, follower) -> {
                 isFollowing = following;
@@ -279,21 +285,8 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             currentPostAuthorId = post.getUserId();
             String currentUid = mAuth.getCurrentUser() != null ? mAuth.getCurrentUser().getUid() : null;
 
-            // ✅ Firestore에서 실시간 프로필 이미지 로드
-            if (post.getProfileImageUrl() != null && !post.getProfileImageUrl().isEmpty()) {
-                Glide.with(itemView.getContext())
-                        .load(post.getProfileImageUrl())
-                        .diskCacheStrategy(DiskCacheStrategy.NONE)
-                        .skipMemoryCache(true)
-                        .signature(new ObjectKey(System.currentTimeMillis()))
-                        .placeholder(R.drawable.ic_profile_default)
-                        .error(R.drawable.ic_profile_default)
-                        .into(imgProfile);
-            } else if (post.getUserProfileImage() != 0) {
-                imgProfile.setImageResource(post.getUserProfileImage());
-            } else {
-                imgProfile.setImageResource(R.drawable.ic_profile_default);
-            }
+            // ✅ 캐시 활성화된 이미지 로드
+            loadProfileImage(imgProfile, post.getProfileImageUrl());
 
             txtUserName.setText(post.getUserName() != null ? post.getUserName() : "사용자");
             txtPostTitle.setText(post.getTitle() != null ? post.getTitle() : "");

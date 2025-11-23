@@ -19,7 +19,6 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.signature.ObjectKey;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -85,6 +84,42 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
         notifyDataSetChanged();
     }
 
+    /**
+     * ✅ 프로필 이미지 로드 헬퍼 메서드
+     * - 캐시 활성화로 깜빡임 방지
+     */
+    private void loadProfileImage(CircleImageView imageView, String userId) {
+        if (userId == null || userId.isEmpty()) {
+            imageView.setImageResource(R.drawable.ic_profile_default);
+            return;
+        }
+
+        FirebaseFirestore.getInstance()
+                .collection("user")
+                .document(userId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        String profileUrl = doc.getString("profileImageUrl");
+                        if (profileUrl != null && !profileUrl.isEmpty()) {
+                            Glide.with(imageView.getContext())
+                                    .load(profileUrl)
+                                    .diskCacheStrategy(DiskCacheStrategy.ALL) // ✅ 캐시 활성화
+                                    .placeholder(R.drawable.ic_profile_default)
+                                    .error(R.drawable.ic_profile_default)
+                                    .into(imageView);
+                        } else {
+                            imageView.setImageResource(R.drawable.ic_profile_default);
+                        }
+                    } else {
+                        imageView.setImageResource(R.drawable.ic_profile_default);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    imageView.setImageResource(R.drawable.ic_profile_default);
+                });
+    }
+
     class ViewHolder extends RecyclerView.ViewHolder {
         CircleImageView imgProfile;
         TextView tvUserName;
@@ -118,8 +153,8 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
 
             tvUserName.setText(user.getUserName());
 
-            // ✅ Firestore에서 실시간 프로필 이미지 로드
-            loadProfileImageFromFirestore(user.getUserId());
+            // ✅ 캐시 활성화된 이미지 로드
+            loadProfileImage(imgProfile, user.getUserId());
 
             if (isFollowerMode && isMyProfile && !user.isFollowing()) {
                 tvFollowBack.setVisibility(View.VISIBLE);
@@ -150,41 +185,6 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
             }
 
             setupClickListeners(user, position);
-        }
-
-        /**
-         * ✅ Firestore에서 실시간 프로필 이미지 URL 로드
-         */
-        private void loadProfileImageFromFirestore(String userId) {
-            if (userId == null || userId.isEmpty()) {
-                imgProfile.setImageResource(R.drawable.ic_profile_default);
-                return;
-            }
-
-            FirebaseFirestore.getInstance()
-                    .collection("user")
-                    .document(userId)
-                    .get()
-                    .addOnSuccessListener(doc -> {
-                        if (doc.exists()) {
-                            String profileUrl = doc.getString("profileImageUrl");
-                            if (profileUrl != null && !profileUrl.isEmpty()) {
-                                Glide.with(itemView.getContext())
-                                        .load(profileUrl)
-                                        .diskCacheStrategy(DiskCacheStrategy.NONE)
-                                        .skipMemoryCache(true)
-                                        .signature(new ObjectKey(System.currentTimeMillis()))
-                                        .placeholder(R.drawable.ic_profile_default)
-                                        .error(R.drawable.ic_profile_default)
-                                        .into(imgProfile);
-                            } else {
-                                imgProfile.setImageResource(R.drawable.ic_profile_default);
-                            }
-                        }
-                    })
-                    .addOnFailureListener(e -> {
-                        imgProfile.setImageResource(R.drawable.ic_profile_default);
-                    });
         }
 
         private void setupClickListeners(FollowUserDTO user, int position) {
