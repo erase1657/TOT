@@ -272,12 +272,11 @@ public class NotificationActivity extends AppCompatActivity {
                 break;
 
             case COMMENT:
-                // ✅ 댓글 알림 클릭 시 PostDetailActivity로 이동
+                // ✅ 댓글 알림 클릭 시 PostDetailActivity로 이동 + 댓글창 자동 열기
                 String postId = notification.getPostId();
                 if (postId != null && !postId.isEmpty()) {
-                    // 게시글 정보 조회 후 PostDetailActivity로 이동
-                    openPostDetailFromComment(postId);
-                    Log.d(TAG, "✅ 게시글 상세 화면으로 이동: " + postId);
+                    openPostDetailWithComments(postId);
+                    Log.d(TAG, "✅ 게시글 상세 화면으로 이동 (댓글창 자동 열기): " + postId);
                 } else {
                     Toast.makeText(this, "게시글 정보를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
                 }
@@ -286,9 +285,9 @@ public class NotificationActivity extends AppCompatActivity {
     }
 
     /**
-     * ✅ 댓글 알림에서 게시글 상세 화면으로 이동
+     * ✅ 댓글 알림에서 게시글 상세 화면으로 이동 + 댓글창 자동 열기
      */
-    private void openPostDetailFromComment(String postId) {
+    private void openPostDetailWithComments(String postId) {
         db.collection("public")
                 .document("community")
                 .collection("posts")
@@ -308,6 +307,8 @@ public class NotificationActivity extends AppCompatActivity {
                         intent.putExtra("scheduleId", scheduleId);
                         intent.putExtra("authorUid", authorUid);
                         intent.putExtra("postId", postId);
+                        // ✅ 댓글창을 자동으로 열도록 플래그 추가
+                        intent.putExtra("openComments", true);
                         startActivity(intent);
                     } else {
                         Toast.makeText(this, "게시글 정보가 올바르지 않습니다", Toast.LENGTH_SHORT).show();

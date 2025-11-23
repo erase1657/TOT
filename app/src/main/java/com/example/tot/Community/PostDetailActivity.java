@@ -3,6 +3,8 @@ package com.example.tot.Community;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -87,6 +89,9 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
     private ListenerRegistration postListener;
 
+    // ✅ 댓글창 자동 열기 플래그
+    private boolean shouldOpenComments = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -103,6 +108,9 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         scheduleId = getIntent().getStringExtra("scheduleId");
         authorUid = getIntent().getStringExtra("authorUid");
         postId = getIntent().getStringExtra("postId");
+
+        // ✅ 댓글창 자동 열기 플래그 확인
+        shouldOpenComments = getIntent().getBooleanExtra("openComments", false);
 
         initViews();
         setupMap();
@@ -140,20 +148,26 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         btnBack.setOnClickListener(v -> finish());
 
         // ✅ 댓글 버튼 - 바텀시트 열기
-        btnComment.setOnClickListener(v -> {
-            if (postId != null) {
-                CommentsBottomSheetFragment bottomSheet = CommentsBottomSheetFragment.newInstance(postId);
-                bottomSheet.show(getSupportFragmentManager(), bottomSheet.getTag());
-            } else {
-                Toast.makeText(this, "게시글 정보를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
-            }
-        });
+        btnComment.setOnClickListener(v -> openCommentsBottomSheet());
 
         btnHeart.setOnClickListener(v -> toggleHeart());
         btnEdit.setOnClickListener(v -> editPost());
         btnDelete.setOnClickListener(v -> showDeleteConfirmDialog());
 
         rvScheduleItems.setLayoutManager(new LinearLayoutManager(this));
+    }
+
+    /**
+     * ✅ 댓글 바텀시트 열기 (공통 메서드)
+     */
+    private void openCommentsBottomSheet() {
+        if (postId != null) {
+            CommentsBottomSheetFragment bottomSheet = CommentsBottomSheetFragment.newInstance(postId);
+            bottomSheet.show(getSupportFragmentManager(), bottomSheet.getTag());
+            Log.d(TAG, "✅ 댓글 바텀시트 열기: " + postId);
+        } else {
+            Toast.makeText(this, "게시글 정보를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void setupMap() {
@@ -269,6 +283,15 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                         generateDateList(new Date(startDateLong), new Date(endDateLong));
                         setupDayButtons();
                         loadDayDataFromPublic(0);
+                    }
+
+                    // ✅ 데이터 로드 완료 후 댓글창 자동 열기
+                    if (shouldOpenComments) {
+                        // UI가 완전히 로드된 후 댓글창 열기 (500ms 딜레이)
+                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                            openCommentsBottomSheet();
+                            shouldOpenComments = false; // 한 번만 실행되도록
+                        }, 500);
                     }
                 });
     }
