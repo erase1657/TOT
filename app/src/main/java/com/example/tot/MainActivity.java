@@ -8,8 +8,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.tot.Notification.NotificationManager;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.ismaeldivita.chipnavigation.ChipNavigationBar;
 
 public class MainActivity extends AppCompatActivity {
@@ -30,23 +28,18 @@ public class MainActivity extends AppCompatActivity {
         viewPager.setAdapter(adapter);
         viewPager.setUserInputEnabled(false);
 
-        // ChipNavigationBar 선택 리스너
-        chipNav.setOnItemSelectedListener(new ChipNavigationBar.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(int id) {
-                if (id == R.id.home) {
-                    viewPager.setCurrentItem(0);
-                } else if (id == R.id.schedule) {
-                    viewPager.setCurrentItem(1);
-                } else if (id == R.id.community) {
-                    viewPager.setCurrentItem(2);
-                } else if (id == R.id.mypage) {
-                    viewPager.setCurrentItem(3);
-                }
+        chipNav.setOnItemSelectedListener(id -> {
+            if (id == R.id.home) {
+                viewPager.setCurrentItem(0);
+            } else if (id == R.id.schedule) {
+                viewPager.setCurrentItem(1);
+            } else if (id == R.id.community) {
+                viewPager.setCurrentItem(2);
+            } else if (id == R.id.mypage) {
+                viewPager.setCurrentItem(3);
             }
         });
 
-        // ViewPager 페이지 변경 리스너
         viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
@@ -70,14 +63,14 @@ public class MainActivity extends AppCompatActivity {
 
         chipNav.setItemSelected(R.id.home, true);
 
-        // ✅ Firestore 알림 리스너 시작
-        NotificationManager.getInstance().startListeningForNotifications();
+        // ✅ 초기 로드 (실시간 리스너 시작)
+        NotificationManager.getInstance().initialLoad();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // ✅ 알림 리스너 중지
-        NotificationManager.getInstance().stopListeningForNotifications();
+        // ✅ 실시간 리스너 정리
+        NotificationManager.getInstance().stopListening();
     }
 }

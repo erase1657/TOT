@@ -1,26 +1,27 @@
 package com.example.tot.Community;
 
 public class CommunityPostDTO {
-    private String postId;           // 게시글 ID
-    private String userId;           // 작성자 ID
-    private String userName;         // 작성자 이름
-    private int userProfileImage;    // 작성자 프로필 이미지
-    private String title;            // 게시글 제목
-    private int postImage;           // 게시글 이미지
-    private int heartCount;          // 좋아요 수
-    private int commentCount;        // 댓글 수
-    private String regionTag;        // 지역 태그 (예: "서울", "부산")
-    private String provinceCode;     // 시/도 코드 (서버 연동용)
-    private String cityCode;         // 시군구 코드 (서버 연동용)
-    private long createdAt;          // 작성 시간 (타임스탬프)
-    private boolean isFriend;        // 친구 여부
-    private boolean isLiked;         // 현재 사용자가 좋아요 했는지 여부
+    private String postId;
+    private String userId;
+    private String scheduleId;
+    private String authorUid;
+    private String userName;
+    private int userProfileImage;
+    private String profileImageUrl; // ✅ Firestore에서 가져온 프로필 이미지 URL
+    private String title;
+    private int postImage;
+    private int heartCount;
+    private int commentCount;
+    private String regionTag;
+    private String provinceCode;
+    private String cityCode;
+    private long createdAt;
+    private boolean isFriend;
+    private boolean isLiked;
 
-    // 기본 생성자
     public CommunityPostDTO() {
     }
 
-    // 전체 생성자
     public CommunityPostDTO(String postId, String userId, String userName, int userProfileImage,
                             String title, int postImage, int heartCount, int commentCount,
                             String regionTag, String provinceCode, String cityCode,
@@ -41,7 +42,6 @@ public class CommunityPostDTO {
         this.isLiked = false;
     }
 
-    // Getter & Setter
     public String getPostId() {
         return postId;
     }
@@ -58,6 +58,22 @@ public class CommunityPostDTO {
         this.userId = userId;
     }
 
+    public String getScheduleId() {
+        return scheduleId;
+    }
+
+    public void setScheduleId(String scheduleId) {
+        this.scheduleId = scheduleId;
+    }
+
+    public String getAuthorUid() {
+        return authorUid;
+    }
+
+    public void setAuthorUid(String authorUid) {
+        this.authorUid = authorUid;
+    }
+
     public String getUserName() {
         return userName;
     }
@@ -72,6 +88,14 @@ public class CommunityPostDTO {
 
     public void setUserProfileImage(int userProfileImage) {
         this.userProfileImage = userProfileImage;
+    }
+
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
+
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 
     public String getTitle() {
@@ -154,9 +178,6 @@ public class CommunityPostDTO {
         isLiked = liked;
     }
 
-    /**
-     * 좋아요 토글 (증가/감소)
-     */
     public void toggleLike() {
         if (isLiked) {
             heartCount--;

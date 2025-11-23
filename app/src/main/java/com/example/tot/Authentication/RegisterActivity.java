@@ -26,6 +26,7 @@ public class RegisterActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private String uid, email, nickname, profileImageUrl, comment, address;
     Timestamp createAt;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -48,9 +49,10 @@ public class RegisterActivity extends AppCompatActivity {
                     Toast.makeText(RegisterActivity.this, "모든 항목을 입력해주세요.", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                createAccount(email,password,nickname);//계정 생성으로 이동
+                createAccount(email,password,nickname);
             }
         });
+
         GoLoginBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -59,22 +61,23 @@ public class RegisterActivity extends AppCompatActivity {
             }
         });
     }
-    private void createAccount(String email, String password,String nickname) {
 
+    private void createAccount(String email, String password, String nickname) {
         mAuth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
                     @Override
                     public void onComplete(@NonNull Task<AuthResult> task) {
-
                         if (task.isSuccessful()) {
-
                             String defaultProfileImageUrl = "https://firebasestorage.googleapis.com/v0/b/trickortrip-71733.firebasestorage.app/o/defaultProfile%2Fic_profile_default.xml?alt=media&token=b2d8211d-ccf1-49de-b423-a7b659089702";
                             FirebaseUser user = task.getResult().getUser();
+
+                            // ✅ UserDTO 생성자 수정: backgroundImageUrl 추가 (빈 문자열로 초기화)
                             UserDTO dto = new UserDTO(
                                     nickname,
                                     defaultProfileImageUrl,
-                                    "",
-                                    "",
+                                    "",  // backgroundImageUrl (빈 값)
+                                    "",  // comment
+                                    "",  // address
                                     Timestamp.now()
                             );
 
@@ -92,14 +95,14 @@ public class RegisterActivity extends AppCompatActivity {
                                         Log.e(TAG, "db저장 실패", e);
                                     });
 
-                        }
-                        else {
+                        } else {
                             Toast.makeText(RegisterActivity.this, "계정 생성 실패. 중복된 이메일입니다.", Toast.LENGTH_SHORT).show();
                             Log.e(TAG, "Firebase Auth 계정 생성 실패", task.getException());
                         }
                     }
                 });
     }
+
     private void updateUI(FirebaseUser user){
         Intent intent = new Intent(RegisterActivity.this, LoginActivity.class);
         startActivity(intent);

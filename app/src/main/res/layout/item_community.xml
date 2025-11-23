@@ -22,20 +22,42 @@
             android:id="@+id/img_profile"
             android:layout_width="44dp"
             android:layout_height="44dp"
-            android:src="@drawable/ic_profile_default"
-            app:civ_border_width="0dp" />
+            app:civ_border_width="0dp"
+            android:clickable="true"
+            android:focusable="true" />
+        <!-- ✅ android:src 제거 (코드에서만 설정) -->
 
         <TextView
             android:id="@+id/txt_user_name"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:layout_marginStart="10dp"
-            android:text="박민주"
+            android:text=" "
             android:textColor="#FF000000"
             android:textSize="15sp"
             android:textStyle="bold"
             android:ellipsize="end"
-            android:maxLines="1" />
+            android:maxLines="1"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- ✅ 팔로우 버튼 추가 (초기값: "팔로우" + Primary 스타일) -->
+        <TextView
+            android:id="@+id/btn_follow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="팔로우"
+            android:textColor="#FFFFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@drawable/bg_follow_button_primary"
+            android:layout_marginStart="8dp" />
     </LinearLayout>
 
     <!-- 게시글 제목 -->
@@ -43,7 +65,7 @@
         android:id="@+id/txt_post_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="내 눈동자에 치얼스"
+        android:text=" "
         android:textColor="#FF000000"
         android:textSize="15sp"
         android:layout_marginBottom="10dp"
@@ -64,7 +86,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
-            android:src="@drawable/sample3"
             android:contentDescription="게시글 이미지" />
     </androidx.cardview.widget.CardView>
 

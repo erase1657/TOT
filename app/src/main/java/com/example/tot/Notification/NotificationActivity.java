@@ -1,6 +1,10 @@
 package com.example.tot.Notification;
 
 import android.content.Intent;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -8,21 +12,23 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import com.example.tot.Follow.FollowActionHelper;
+import com.example.tot.Community.PostDetailActivity;
+import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class NotificationActivity extends AppCompatActivity {
 
@@ -42,11 +48,9 @@ public class NotificationActivity extends AppCompatActivity {
     private List<NotificationDTO> todayNotifications = new ArrayList<>();
     private List<NotificationDTO> recentNotifications = new ArrayList<>();
 
-    // Firestore
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
 
-    // ✅ NotificationManager 리스너
     private NotificationManager.UnreadCountListener unreadListener;
 
     @Override
@@ -60,11 +64,8 @@ public class NotificationActivity extends AppCompatActivity {
         initViews();
         setupRecyclerViews();
         setupSwipeRefresh();
-
-        // ✅ NotificationManager 리스너 등록 (UI 업데이트용)
         setupNotificationListener();
 
-        // ✅ 초기 데이터 로드
         loadNotifications();
         updateUI();
     }
@@ -109,11 +110,72 @@ public class NotificationActivity extends AppCompatActivity {
             }
         });
         recyclerRecent.setAdapter(recentAdapter);
+
+        setupSwipeToDelete(recyclerToday, todayNotifications, todayAdapter);
+        setupSwipeToDelete(recyclerRecent, recentNotifications, recentAdapter);
     }
 
-    /**
-     * ✅ 새로고침 설정
-     */
+    private void setupSwipeToDelete(RecyclerView recyclerView,
+                                    List<NotificationDTO> dataList,
+                                    NotificationAdapter adapter) {
+        ItemTouchHelper.SimpleCallback callback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
+            private final ColorDrawable background = new ColorDrawable(Color.parseColor("#FF4444"));
+            private final Drawable deleteIcon = ContextCompat.getDrawable(NotificationActivity.this, R.drawable.ic_trash);
+
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView,
+                                  @NonNull RecyclerView.ViewHolder viewHolder,
+                                  @NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                int position = viewHolder.getAdapterPosition();
+                if (position < 0 || position >= dataList.size()) return;
+
+                NotificationDTO deletedNotification = dataList.get(position);
+
+                dataList.remove(position);
+                adapter.notifyItemRemoved(position);
+
+                NotificationManager.getInstance().deleteNotification(deletedNotification.getId());
+
+                updateUI();
+
+                Toast.makeText(NotificationActivity.this, "알림 삭제됨", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onChildDraw(@NonNull Canvas c,
+                                    @NonNull RecyclerView recyclerView,
+                                    @NonNull RecyclerView.ViewHolder viewHolder,
+                                    float dX, float dY, int actionState, boolean isCurrentlyActive) {
+                View itemView = viewHolder.itemView;
+
+                int backgroundLeft = itemView.getRight() + (int) dX;
+                background.setBounds(backgroundLeft, itemView.getTop(), itemView.getRight(), itemView.getBottom());
+                background.draw(c);
+
+                if (deleteIcon != null) {
+                    int iconMargin = (itemView.getHeight() - deleteIcon.getIntrinsicHeight()) / 2;
+                    int iconTop = itemView.getTop() + iconMargin;
+                    int iconBottom = iconTop + deleteIcon.getIntrinsicHeight();
+                    int iconLeft = itemView.getRight() - iconMargin - deleteIcon.getIntrinsicWidth();
+                    int iconRight = itemView.getRight() - iconMargin;
+
+                    deleteIcon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
+                    deleteIcon.draw(c);
+                }
+
+                super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
+            }
+        };
+
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(callback);
+        itemTouchHelper.attachToRecyclerView(recyclerView);
+    }
+
     private void setupSwipeRefresh() {
         swipeRefreshLayout.setColorSchemeColors(
                 getResources().getColor(android.R.color.holo_blue_bright),
@@ -127,16 +189,12 @@ public class NotificationActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * ✅ 알림 새로고침
-     */
     private void refreshNotifications() {
         Log.d(TAG, "🔄 새로고침 시작");
 
         NotificationManager manager = NotificationManager.getInstance();
         manager.refresh();
 
-        // 1초 후 새로고침 완료
         swipeRefreshLayout.postDelayed(() -> {
             loadNotifications();
             updateUI();
@@ -145,9 +203,6 @@ public class NotificationActivity extends AppCompatActivity {
         }, 1000);
     }
 
-    /**
-     * ✅ NotificationManager 리스너 등록 (실시간 업데이트)
-     */
     private void setupNotificationListener() {
         unreadListener = count -> {
             runOnUiThread(() -> {
@@ -192,11 +247,7 @@ public class NotificationActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * 🔥 수정: 알림 클릭 시 프로필로 실제 이동
-     */
     private void handleNotificationClick(NotificationDTO notification) {
-        // ✅ Firestore에 읽음 상태 업데이트
         NotificationManager.getInstance().markAsRead(notification.getId());
 
         notification.setRead(true);
@@ -206,11 +257,9 @@ public class NotificationActivity extends AppCompatActivity {
         switch (notification.getType()) {
             case SCHEDULE_INVITE:
                 Toast.makeText(this, "일정 상세 화면으로 이동", Toast.LENGTH_SHORT).show();
-                // TODO: 일정 상세 화면으로 이동하는 코드 추가
                 break;
 
             case FOLLOW:
-                // 🔥 수정: 실제 프로필 화면으로 이동
                 String userId = notification.getUserId();
                 if (userId != null && !userId.isEmpty()) {
                     Intent intent = new Intent(this, UserProfileActivity.class);
@@ -219,19 +268,60 @@ public class NotificationActivity extends AppCompatActivity {
                     Log.d(TAG, "✅ 프로필 화면으로 이동: " + userId);
                 } else {
                     Toast.makeText(this, "사용자 정보를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
-                    Log.w(TAG, "⚠️ userId가 null입니다");
                 }
                 break;
 
             case COMMENT:
-                Toast.makeText(this, "게시물 상세 화면으로 이동", Toast.LENGTH_SHORT).show();
-                // TODO: 게시물 상세 화면으로 이동하는 코드 추가
+                // ✅ 댓글 알림 클릭 시 PostDetailActivity로 이동 + 댓글창 자동 열기
+                String postId = notification.getPostId();
+                if (postId != null && !postId.isEmpty()) {
+                    openPostDetailWithComments(postId);
+                    Log.d(TAG, "✅ 게시글 상세 화면으로 이동 (댓글창 자동 열기): " + postId);
+                } else {
+                    Toast.makeText(this, "게시글 정보를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                }
                 break;
         }
     }
 
     /**
-     * ✅ 맞팔로우 버튼 클릭 처리 (Firestore 연동 - 양방향 처리)
+     * ✅ 댓글 알림에서 게시글 상세 화면으로 이동 + 댓글창 자동 열기
+     */
+    private void openPostDetailWithComments(String postId) {
+        db.collection("public")
+                .document("community")
+                .collection("posts")
+                .document(postId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (!doc.exists()) {
+                        Toast.makeText(this, "게시글을 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    String scheduleId = doc.getString("scheduleId");
+                    String authorUid = doc.getString("authorUid");
+
+                    if (scheduleId != null && authorUid != null) {
+                        Intent intent = new Intent(this, PostDetailActivity.class);
+                        intent.putExtra("scheduleId", scheduleId);
+                        intent.putExtra("authorUid", authorUid);
+                        intent.putExtra("postId", postId);
+                        // ✅ 댓글창을 자동으로 열도록 플래그 추가
+                        intent.putExtra("openComments", true);
+                        startActivity(intent);
+                    } else {
+                        Toast.makeText(this, "게시글 정보가 올바르지 않습니다", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "게시글 조회 실패", e);
+                    Toast.makeText(this, "게시글을 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * ✅ FollowButtonHelper를 사용한 맞팔로우 처리
      */
     private void handleFollowBack(NotificationDTO notification) {
         if (mAuth.getCurrentUser() == null) {
@@ -239,7 +329,6 @@ public class NotificationActivity extends AppCompatActivity {
             return;
         }
 
-        String myUid = mAuth.getCurrentUser().getUid();
         String targetUserId = notification.getUserId();
 
         if (targetUserId == null || targetUserId.isEmpty()) {
@@ -247,126 +336,91 @@ public class NotificationActivity extends AppCompatActivity {
             return;
         }
 
-        // ✅ 이미 팔로우 중인지 확인
-        db.collection("user")
-                .document(myUid)
-                .collection("following")
-                .document(targetUserId)
-                .get()
-                .addOnSuccessListener(doc -> {
-                    if (doc.exists()) {
-                        // 이미 팔로우 중인 경우 → 언팔로우
-                        performUnfollow(myUid, targetUserId, notification);
-                    } else {
-                        // 팔로우하지 않은 경우 → 팔로우
-                        performFollowBack(myUid, targetUserId, notification);
+        // ✅ FollowButtonHelper로 팔로우 상태 확인
+        FollowButtonHelper.checkFollowStatus(targetUserId, (isFollowing, isFollower) -> {
+            if (isFollowing) {
+                // 이미 팔로우 중이면 언팔로우
+                performUnfollowWithHelper(targetUserId, notification);
+            } else {
+                // 팔로우하지 않았으면 팔로우
+                performFollowBackWithHelper(targetUserId, notification);
+            }
+        });
+    }
+
+    /**
+     * ✅ FollowButtonHelper를 사용한 팔로우
+     */
+    private void performFollowBackWithHelper(String targetUserId, NotificationDTO notification) {
+        FollowButtonHelper.checkFollowStatus(targetUserId, (isFollowing, isFollower) -> {
+            FollowButtonHelper.handleFollowButtonClick(
+                    this,
+                    targetUserId,
+                    false, // 현재 팔로우하지 않음
+                    isFollower,
+                    new FollowButtonHelper.FollowActionCallback() {
+                        @Override
+                        public void onSuccess(boolean nowFollowing) {
+                            Toast.makeText(NotificationActivity.this,
+                                    notification.getUserName() + " 님을 팔로우했습니다",
+                                    Toast.LENGTH_SHORT).show();
+
+                            NotificationManager.getInstance().markAsRead(notification.getId());
+                            notification.setRead(true);
+
+                            todayAdapter.notifyDataSetChanged();
+                            recentAdapter.notifyDataSetChanged();
+
+                            Log.d(TAG, "✅ 팔로우 성공: " + targetUserId);
+                        }
+
+                        @Override
+                        public void onFailure(String message) {
+                            Toast.makeText(NotificationActivity.this, message, Toast.LENGTH_SHORT).show();
+                        }
                     }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ 팔로우 상태 확인 실패", e);
-                    Toast.makeText(this, "오류가 발생했습니다", Toast.LENGTH_SHORT).show();
-                });
+            );
+        });
     }
 
     /**
-     * ✅ 맞팔로우 실행 (양방향 처리)
+     * ✅ FollowButtonHelper를 사용한 언팔로우
      */
-    private void performFollowBack(String myUid, String targetUserId, NotificationDTO notification) {
-        Map<String, Object> followData = new HashMap<>();
-        followData.put("followedAt", System.currentTimeMillis());
+    private void performUnfollowWithHelper(String targetUserId, NotificationDTO notification) {
+        FollowButtonHelper.checkFollowStatus(targetUserId, (isFollowing, isFollower) -> {
+            FollowButtonHelper.handleFollowButtonClick(
+                    this,
+                    targetUserId,
+                    true, // 현재 팔로우 중
+                    isFollower,
+                    new FollowButtonHelper.FollowActionCallback() {
+                        @Override
+                        public void onSuccess(boolean nowFollowing) {
+                            Toast.makeText(NotificationActivity.this,
+                                    notification.getUserName() + " 님을 언팔로우했습니다",
+                                    Toast.LENGTH_SHORT).show();
 
-        // ✅ 1. 내 following에 추가
-        db.collection("user")
-                .document(myUid)
-                .collection("following")
-                .document(targetUserId)
-                .set(followData)
-                .addOnSuccessListener(aVoid -> {
-                    // ✅ 2. 상대방 follower에 추가
-                    db.collection("user")
-                            .document(targetUserId)
-                            .collection("follower")
-                            .document(myUid)
-                            .set(followData)
-                            .addOnSuccessListener(aVoid2 -> {
-                                Toast.makeText(this, notification.getUserName() + " 님을 팔로우했습니다", Toast.LENGTH_SHORT).show();
+                            NotificationManager.getInstance().markAsRead(notification.getId());
+                            notification.setRead(true);
 
-                                // ✅ 알림 읽음 처리
-                                NotificationManager.getInstance().markAsRead(notification.getId());
-                                notification.setRead(true);
+                            todayAdapter.notifyDataSetChanged();
+                            recentAdapter.notifyDataSetChanged();
 
-                                // ✅ 어댑터 업데이트 (버튼 상태 갱신)
-                                todayAdapter.notifyDataSetChanged();
-                                recentAdapter.notifyDataSetChanged();
+                            Log.d(TAG, "✅ 언팔로우 성공: " + targetUserId);
+                        }
 
-                                Log.d(TAG, "✅ 팔로우 성공: " + targetUserId);
-                                FollowActionHelper.sendFollowNotification(targetUserId, myUid);
-                            })
-                            .addOnFailureListener(e -> {
-                                Log.e(TAG, "❌ 상대방 팔로워 추가 실패", e);
-                            });
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ 팔로우 실패", e);
-                    Toast.makeText(this, "팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
-                });
-    }
-
-    /**
-     * ✅ 언팔로우 실행 (양방향 처리)
-     */
-    private void performUnfollow(String myUid, String targetUserId, NotificationDTO notification) {
-        // ✅ 1. 내 following에서 삭제
-        db.collection("user")
-                .document(myUid)
-                .collection("following")
-                .document(targetUserId)
-                .delete()
-                .addOnSuccessListener(aVoid -> {
-                    // ✅ 2. 상대방 follower에서 삭제
-                    db.collection("user")
-                            .document(targetUserId)
-                            .collection("follower")
-                            .document(myUid)
-                            .delete()
-                            .addOnSuccessListener(aVoid2 -> {
-                                Toast.makeText(this, notification.getUserName() + " 님을 언팔로우했습니다", Toast.LENGTH_SHORT).show();
-
-                                // ✅ 알림 읽음 처리
-                                NotificationManager.getInstance().markAsRead(notification.getId());
-                                notification.setRead(true);
-
-                                // ✅ 어댑터 업데이트 (버튼 상태 갱신)
-                                todayAdapter.notifyDataSetChanged();
-                                recentAdapter.notifyDataSetChanged();
-
-                                Log.d(TAG, "✅ 언팔로우 성공: " + targetUserId);
-                            })
-                            .addOnFailureListener(e -> {
-                                Log.e(TAG, "❌ 상대방 follower 삭제 실패", e);
-                            });
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ 언팔로우 실패", e);
-                    Toast.makeText(this, "언팔로우 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show();
-                });
-    }
-
-    public int getTotalUnreadCount() {
-        int count = 0;
-        for (NotificationDTO notif : todayNotifications) {
-            if (!notif.isRead()) count++;
-        }
-        for (NotificationDTO notif : recentNotifications) {
-            if (!notif.isRead()) count++;
-        }
-        return count;
+                        @Override
+                        public void onFailure(String message) {
+                            Toast.makeText(NotificationActivity.this, message, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+            );
+        });
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // ✅ 리스너 해제
         if (unreadListener != null) {
             NotificationManager.getInstance().removeListener(unreadListener);
         }

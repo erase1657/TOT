@@ -12,13 +12,13 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.R;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -79,9 +79,8 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         private FrameLayout unreadBadgeContainer;
         private TextView unreadBadge;
 
-        // ✅ 팔로우 상태 추적
         private boolean isFollowing = false;
-        private boolean isCheckingFollowStatus = false;
+        private boolean isFollower = false;
 
         public NotificationViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -98,33 +97,26 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         }
 
         public void bind(NotificationDTO notification, OnNotificationClickListener listener) {
-            // CardView 그림자 설정
             androidx.cardview.widget.CardView cardView = (androidx.cardview.widget.CardView) containerCard;
 
             if (notification.isRead()) {
-                // 읽은 메시지: 그림자 없음, 회색 배경
                 cardView.setCardElevation(0);
                 cardView.setCardBackgroundColor(Color.parseColor("#F9FAFB"));
             } else {
-                // 읽지 않은 메시지: 그림자 있음, 흰색 배경
                 cardView.setCardElevation(dpToPx(4));
                 cardView.setCardBackgroundColor(Color.WHITE);
             }
 
-            // 아이콘 컨테이너 설정 (동그란 박스)
             GradientDrawable iconBg = new GradientDrawable();
             iconBg.setShape(GradientDrawable.OVAL);
 
-            // 타입별 아이콘 및 색상 설정
             switch (notification.getType()) {
                 case SCHEDULE_INVITE:
-                    // 스케줄: 보라색 박스, 아이콘
                     iconBg.setColor(Color.parseColor("#F1EDFF"));
                     iconContainer.setBackground(iconBg);
                     iconImage.setImageResource(R.drawable.ic_schedule);
                     iconImage.setColorFilter(Color.parseColor("#5A34D7"));
 
-                    // 제목 설정 (일정 이름만 굵게)
                     String scheduleTitle = notification.getTitle();
                     String scheduleName = scheduleTitle.split(" 여행 일정")[0];
                     SpannableString titleSpan = new SpannableString(scheduleTitle);
@@ -133,10 +125,8 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                             0, scheduleNameEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     titleText.setText(titleSpan);
 
-                    // 내용 설정 (일반 텍스트)
                     contentText.setText(notification.getContent());
 
-                    // 읽지 않은 메시지 배지 표시
                     followBackContainer.setVisibility(View.GONE);
                     if (!notification.isRead() && notification.getUnreadCount() > 0) {
                         unreadBadgeContainer.setVisibility(View.VISIBLE);
@@ -144,7 +134,6 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                                 "10+" : String.valueOf(notification.getUnreadCount());
                         unreadBadge.setText(badgeText);
 
-                        // 배지 동그라미 배경
                         GradientDrawable badgeBg = new GradientDrawable();
                         badgeBg.setShape(GradientDrawable.OVAL);
                         badgeBg.setColor(Color.parseColor("#0F9687"));
@@ -155,13 +144,11 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                     break;
 
                 case FOLLOW:
-                    // 팔로우: 연한 초록색 박스, 아이콘
                     iconBg.setColor(Color.parseColor("#E8F8EA"));
                     iconContainer.setBackground(iconBg);
                     iconImage.setImageResource(R.drawable.ic_user_add);
                     iconImage.setColorFilter(Color.parseColor("#29C63F"));
 
-                    // 제목 설정 (사용자 이름만 굵게)
                     String followTitle = notification.getTitle();
                     String userName = notification.getUserName();
                     SpannableString followTitleSpan = new SpannableString(followTitle);
@@ -170,34 +157,51 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                             0, userNameEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     titleText.setText(followTitleSpan);
 
-                    // 내용 설정 (일반 텍스트)
                     contentText.setText(notification.getContent());
 
-                    // ✅ 맞팔로우 버튼 표시 (팔로우 상태 확인 후 동적 텍스트)
                     unreadBadgeContainer.setVisibility(View.GONE);
                     followBackContainer.setVisibility(View.VISIBLE);
 
-                    // ✅ Firestore에서 팔로우 상태 확인
-                    checkFollowStatus(notification.getUserId(), isFollowing -> {
-                        this.isFollowing = isFollowing;
-                        updateFollowButton(isFollowing);
+                    // ✅ FollowButtonHelper로 상태 확인 및 UI 업데이트
+                    FollowButtonHelper.checkFollowStatus(notification.getUserId(), (following, follower) -> {
+                        isFollowing = following;
+                        isFollower = follower;
+                        FollowButtonHelper.updateFollowButton(followBackButton, isFollowing, isFollower);
                     });
 
+                    // ✅ FollowButtonHelper로 클릭 처리
                     followBackButton.setOnClickListener(v -> {
-                        if (listener != null && !isCheckingFollowStatus) {
-                            listener.onFollowBackClick(notification);
-                        }
+                        FollowButtonHelper.handleFollowButtonClick(
+                                itemView.getContext(),
+                                notification.getUserId(),
+                                isFollowing,
+                                isFollower,
+                                new FollowButtonHelper.FollowActionCallback() {
+                                    @Override
+                                    public void onSuccess(boolean nowFollowing) {
+                                        isFollowing = nowFollowing;
+                                        FollowButtonHelper.updateFollowButton(followBackButton, isFollowing, isFollower);
+
+                                        // 알림 읽음 처리
+                                        NotificationManager.getInstance().markAsRead(notification.getId());
+                                        notification.setRead(true);
+                                    }
+
+                                    @Override
+                                    public void onFailure(String message) {
+                                        Toast.makeText(itemView.getContext(), message, Toast.LENGTH_SHORT).show();
+                                    }
+                                }
+                        );
                     });
                     break;
 
                 case COMMENT:
-                    // 댓글: 핑크색 박스, 빨간 아이콘
                     iconBg.setColor(Color.parseColor("#FFEFF1"));
                     iconContainer.setBackground(iconBg);
                     iconImage.setImageResource(R.drawable.ic_comment);
                     iconImage.setColorFilter(Color.parseColor("#BA0017"));
 
-                    // 제목 설정 (사용자 이름만 굵게)
                     String commentTitle = notification.getTitle();
                     String commenterName = notification.getUserName();
                     SpannableString commentTitleSpan = new SpannableString(commentTitle);
@@ -206,10 +210,8 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                             0, commenterNameEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     titleText.setText(commentTitleSpan);
 
-                    // 내용 설정 (일반 텍스트)
                     contentText.setText(notification.getContent());
 
-                    // 읽지 않은 메시지 배지 표시
                     followBackContainer.setVisibility(View.GONE);
                     if (!notification.isRead() && notification.getUnreadCount() > 0) {
                         unreadBadgeContainer.setVisibility(View.VISIBLE);
@@ -217,7 +219,6 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                                 "10+" : String.valueOf(notification.getUnreadCount());
                         unreadBadge.setText(badgeText);
 
-                        // 배지 동그라미 배경
                         GradientDrawable badgeBg = new GradientDrawable();
                         badgeBg.setShape(GradientDrawable.OVAL);
                         badgeBg.setColor(Color.parseColor("#0F9687"));
@@ -228,10 +229,8 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                     break;
             }
 
-            // 시간 표시
             timeText.setText(notification.getTimeDisplay());
 
-            // 전체 카드 클릭 이벤트
             itemView.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onNotificationClick(notification);
@@ -239,73 +238,9 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             });
         }
 
-        /**
-         * ✅ Firestore에서 팔로우 상태 확인
-         */
-        private void checkFollowStatus(String targetUserId, FollowStatusCallback callback) {
-            if (targetUserId == null || targetUserId.isEmpty()) {
-                callback.onResult(false);
-                return;
-            }
-
-            FirebaseAuth mAuth = FirebaseAuth.getInstance();
-            if (mAuth.getCurrentUser() == null) {
-                callback.onResult(false);
-                return;
-            }
-
-            isCheckingFollowStatus = true;
-            String myUid = mAuth.getCurrentUser().getUid();
-
-            FirebaseFirestore db = FirebaseFirestore.getInstance();
-            db.collection("user")
-                    .document(myUid)
-                    .collection("following")
-                    .document(targetUserId)
-                    .get()
-                    .addOnSuccessListener(doc -> {
-                        isCheckingFollowStatus = false;
-                        callback.onResult(doc.exists());
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "팔로우 상태 확인 실패", e);
-                        isCheckingFollowStatus = false;
-                        callback.onResult(false);
-                    });
-        }
-
-        /**
-         * ✅ 팔로우 버튼 동적 텍스트 업데이트
-         */
-        private void updateFollowButton(boolean isFollowing) {
-            GradientDrawable btnBg = new GradientDrawable();
-            btnBg.setCornerRadius(dpToPx(12));
-
-            if (isFollowing) {
-                // 이미 팔로우 중 → "팔로우 중" (회색)
-                followBackButton.setText("팔로우 중");
-                btnBg.setColor(Color.parseColor("#E0E0E0"));
-                followBackButton.setTextColor(Color.parseColor("#666666"));
-            } else {
-                // 팔로우 안 함 → "맞팔로우" (검은색)
-                followBackButton.setText("맞팔로우");
-                btnBg.setColor(Color.parseColor("#000000"));
-                followBackButton.setTextColor(Color.parseColor("#FFFFFF"));
-            }
-
-            followBackButton.setBackground(btnBg);
-        }
-
         private int dpToPx(int dp) {
             float density = itemView.getResources().getDisplayMetrics().density;
             return Math.round(dp * density);
-        }
-
-        /**
-         * ✅ 팔로우 상태 확인 콜백 인터페이스
-         */
-        interface FollowStatusCallback {
-            void onResult(boolean isFollowing);
         }
     }
 }

@@ -14,11 +14,11 @@
         android:id="@+id/img_profile"
         android:layout_width="50dp"
         android:layout_height="50dp"
-        android:src="@drawable/ic_profile_default"
         app:civ_border_width="2dp"
         app:civ_border_color="#FFE5E7EB"
         android:clickable="true"
         android:focusable="true" />
+    <!-- ✅ android:src 제거 (코드에서만 설정) -->
 
     <!-- 정보 영역 -->
     <LinearLayout
@@ -129,12 +129,12 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- 팔로우 버튼 (라운드 처리는 코드에서) -->
+    <!-- ✅ 팔로우 버튼 (초기값 통일: "팔로우" + Primary 스타일) -->
     <TextView
         android:id="@+id/btn_follow"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="맞 팔로우"
+        android:text="팔로우"
         android:textColor="#FFFFFFFF"
         android:textSize="13sp"
         android:textStyle="bold"
@@ -143,6 +143,7 @@
         android:gravity="center"
         android:clickable="true"
         android:focusable="true"
+        android:background="@drawable/bg_follow_button_primary"
         android:layout_marginStart="8dp" />
 
     <!-- 점 세개 메뉴 버튼 -->

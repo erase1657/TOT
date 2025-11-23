@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 팔로우 버튼 Primary 스타일 (보라색) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#575DFB"/>
+    <corners android:radius="10dp"/>
+</shape>

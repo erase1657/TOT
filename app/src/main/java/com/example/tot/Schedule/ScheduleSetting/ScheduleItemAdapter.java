@@ -26,6 +26,7 @@ public class ScheduleItemAdapter extends ListAdapter<ScheduleItemDTO, ScheduleIt
 
     private List<String> docIdList = new ArrayList<>();
     private final OnItemClickListener listener;
+    private boolean readOnlyMode = false;
 
     public interface OnItemClickListener {
         void onItemClick(ScheduleItemDTO item, String docId);
@@ -55,6 +56,11 @@ public class ScheduleItemAdapter extends ListAdapter<ScheduleItemDTO, ScheduleIt
         super.submitList(list != null ? new ArrayList<>(list) : new ArrayList<>());
     }
 
+    public void setReadOnlyMode(boolean readOnlyMode) {
+        this.readOnlyMode = readOnlyMode;
+        notifyDataSetChanged();
+    }
+
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -70,7 +76,7 @@ public class ScheduleItemAdapter extends ListAdapter<ScheduleItemDTO, ScheduleIt
         holder.bind(item, docId, listener);
     }
 
-    static class ViewHolder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
+    class ViewHolder extends androidx.recyclerview.widget.RecyclerView.ViewHolder {
         TextView tv_Title, tv_StartTime, tv_EndTime, tv_Place;
         LinearLayout layout_Place, layout_Alarm;
         CardView item_Schedule;
@@ -112,6 +118,8 @@ public class ScheduleItemAdapter extends ListAdapter<ScheduleItemDTO, ScheduleIt
                 layout_Alarm.setVisibility(View.GONE);
                 item_Schedule.setCardBackgroundColor(Color.parseColor("#F6F6F5"));
             }
+
+            btn_Modify.setVisibility(readOnlyMode ? View.GONE : View.VISIBLE);
 
             item_Schedule.setOnClickListener(v -> {
                 if (listener != null) listener.onItemClick(item, docId);
