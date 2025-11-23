@@ -28,7 +28,6 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
-import com.google.firebase.firestore.MetadataChanges;
 import com.google.firebase.firestore.SetOptions;
 
 import java.text.SimpleDateFormat;
@@ -98,7 +97,6 @@ public class ScheduleFragment extends Fragment {
         scheduleList = new ArrayList<>();
 
         scheduleAdapter = new ScheduleAdapter(scheduleList, (schedule, position) -> {
-            // TODO: 상세 화면 이동
             Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
             intent.putExtra("scheduleId", schedule.getScheduleId());
             intent.putExtra("startDate", schedule.getStartDate().toDate().getTime());
@@ -107,10 +105,6 @@ public class ScheduleFragment extends Fragment {
         });
 
         recyclerView.setAdapter(scheduleAdapter);
-    }
-
-    private void updateEmptyState() {
-        noScheduleLayout.setVisibility(scheduleList.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
     private void showCreateScheduleDialog() {
@@ -137,7 +131,6 @@ public class ScheduleFragment extends Fragment {
             addNewSchedule();
             dialog.dismiss();
             Toast.makeText(getContext(), "스케줄이 생성되었습니다", Toast.LENGTH_SHORT).show();
-
         });
 
         btnPrev.setOnClickListener(v -> dialog.dismiss());
@@ -190,8 +183,19 @@ public class ScheduleFragment extends Fragment {
     }
 
     private void addNewSchedule() {
+        if (auth.getCurrentUser() == null) {
+            Log.e("ScheduleFragment", "User is not logged in.");
+            Toast.makeText(getContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         String uid = auth.getCurrentUser().getUid();
         String scheduleId = generateScheduleId();
+
+        if (startDate == null || endDate == null) {
+            Toast.makeText(getContext(), "기간이 선택되지 않았습니다. 다시 시도해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         ScheduleDTO schedule = new ScheduleDTO(
                 scheduleId,
@@ -203,22 +207,29 @@ public class ScheduleFragment extends Fragment {
                 0
         );
 
+        // Firestore에 저장 (리스너가 자동으로 UI 업데이트함)
         db.collection("user").document(uid)
                 .collection("schedule").document(scheduleId)
                 .set(schedule, SetOptions.merge())
                 .addOnSuccessListener(aVoid -> {
+                    Log.d("ScheduleFragment", "Successfully added schedule: " + scheduleId);
+
+                    // 상세 화면으로 이동
                     Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
                     intent.putExtra("scheduleId", scheduleId);
                     intent.putExtra("startDate", startDate.toDate().getTime());
                     intent.putExtra("endDate", endDate.toDate().getTime());
                     startActivity(intent);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("ScheduleFragment", "Error adding schedule", e);
+                    Toast.makeText(getContext(), "스케줄 생성에 실패했습니다.", Toast.LENGTH_SHORT).show();
                 });
 
-        scheduleList.add(0, schedule);
-        scheduleAdapter.notifyItemInserted(0);
-        recyclerView.smoothScrollToPosition(0);
-
-        updateEmptyState();
+        // ✅ 수동 리스트 추가 제거 (Firestore 리스너가 자동으로 처리)
+        // scheduleList.add(0, schedule);
+        // scheduleAdapter.notifyItemInserted(0);
+        // recyclerView.smoothScrollToPosition(0);
     }
 
     private String generateScheduleId() {
@@ -252,15 +263,22 @@ public class ScheduleFragment extends Fragment {
 
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         ScheduleDTO schedule = doc.toObject(ScheduleDTO.class);
-                        if (schedule != null) newList.add(schedule);
+                        if (schedule != null) {
+                            // ✅ scheduleId 설정 (Firestore 문서 ID 사용)
+                            schedule.setScheduleId(doc.getId());
+                            newList.add(schedule);
+                        }
                     }
 
                     Log.d("FirestoreDebug", "📦 수신된 문서 수: " + newList.size());
 
-                    requireActivity().runOnUiThread(() -> {
+                    // ✅ Activity null 체크 추가
+                    if (getActivity() == null) return;
+
+                    getActivity().runOnUiThread(() -> {
                         scheduleAdapter.updateData(newList);
 
-                        // ⚡ 리스트에 실제 데이터가 있을 때만 empty layout 숨김
+                        // Empty state 업데이트
                         if (!newList.isEmpty()) {
                             noScheduleLayout.setVisibility(View.GONE);
                         } else {
