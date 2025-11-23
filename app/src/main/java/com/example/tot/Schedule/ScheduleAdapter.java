@@ -124,20 +124,29 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
                 Date startDate = schedule.getStartDate().toDate();
                 Date endDate = schedule.getEndDate().toDate();
 
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd", Locale.KOREA);
-                String start = sdf.format(startDate);
-                String end = sdf.format(endDate);
+                // yyyy.MM.dd 형식으로 날짜 포맷 (점으로 구분)
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd", Locale.getDefault());
+                String startDateStr = sdf.format(startDate);
+                String endDateStr = sdf.format(endDate);
 
-                // 박/일 계산
-                long diffInMillis = endDate.getTime() - startDate.getTime();
-                long nights = TimeUnit.MILLISECONDS.toDays(diffInMillis);
-                long days = nights + 1;
+                // tvDateRange에 날짜 범위 표시
+                tvDateRange.setText(String.format("%s~%s", startDateStr, endDateStr));
 
-                tvDate.setText(String.format("%s~%s", start, end));
-                tvDateRange.setText(String.format("%d박%d일", nights, days));
+                // D-Day 계산
+                long diff = startDate.getTime() - System.currentTimeMillis();
+                long days = TimeUnit.MILLISECONDS.toDays(diff);
+
+                // tvDate에 D-Day 표시
+                if (days < 0) {
+                    tvDate.setText("지난 여행");
+                } else if (days == 0) {
+                    tvDate.setText("D-DAY");
+                } else {
+                    tvDate.setText(String.format(Locale.getDefault(), "D-%d", days + 1));
+                }
             } else {
-                tvDate.setText("날짜 미정");
-                tvDateRange.setText("");
+                tvDateRange.setText("날짜 정보 없음");
+                tvDate.setText("");
             }
 
             // TODO: 홀더에 백그라운드 이미지도 설정하게 만들어야함.
