@@ -21,6 +21,7 @@ import java.util.Locale;
  * 알림 관리 싱글톤 클래스
  * ✅ Firestore 알림 컬렉션 완전 제거
  * ✅ follower 컬렉션 변경사항을 실시간 감지하여 로컬 알림 생성
+ * ✅ commentNotifications 컬렉션 실시간 감지하여 댓글 알림 생성
  * ✅ 로컬 캐시만 사용 (SharedPreferences)
  */
 public class NotificationManager {
@@ -41,6 +42,8 @@ public class NotificationManager {
 
     // ✅ follower 컬렉션 실시간 리스너
     private ListenerRegistration followerListener;
+    // ✅ commentNotifications 컬렉션 실시간 리스너
+    private ListenerRegistration commentListener;
     private boolean isListening = false;
 
     public interface UnreadCountListener {
@@ -87,6 +90,9 @@ public class NotificationManager {
 
         // 2. follower 컬렉션 실시간 감지 시작
         startListeningForFollowers();
+
+        // 3. 댓글 알림 실시간 감지 시작
+        startListeningForComments();
     }
 
     /**
@@ -163,6 +169,71 @@ public class NotificationManager {
     }
 
     /**
+     * ✅ 댓글 알림 실시간 감지 (새 댓글 → 로컬 알림 생성)
+     */
+    private void startListeningForComments() {
+        if (mAuth.getCurrentUser() == null) {
+            return;
+        }
+
+        String userId = mAuth.getCurrentUser().getUid();
+        long lastCheck = cache.getLastCheckTime();
+
+        Log.d(TAG, "👂 commentNotifications 컬렉션 실시간 감지 시작");
+
+        commentListener = db.collection("user")
+                .document(userId)
+                .collection("commentNotifications")
+                .addSnapshotListener((snapshots, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "❌ commentNotifications 리스너 오류", error);
+                        return;
+                    }
+
+                    if (snapshots == null || snapshots.getDocumentChanges().isEmpty()) {
+                        return;
+                    }
+
+                    // ✅ 새로 추가된 댓글 알림만 처리
+                    for (DocumentChange change : snapshots.getDocumentChanges()) {
+                        if (change.getType() == DocumentChange.Type.ADDED) {
+                            DocumentSnapshot doc = change.getDocument();
+                            Long timestamp = doc.getLong("timestamp");
+
+                            // 마지막 확인 시간 이후의 댓글 알림만 처리
+                            if (timestamp != null && timestamp > lastCheck) {
+                                String postId = doc.getString("postId");
+                                String commenterId = doc.getString("commenterId");
+                                String commenterName = doc.getString("commenterName");
+                                String commentContent = doc.getString("commentContent");
+
+                                createLocalCommentNotification(
+                                        doc.getId(),
+                                        postId,
+                                        commenterId,
+                                        commenterName,
+                                        commentContent,
+                                        timestamp
+                                );
+
+                                // ✅ 처리된 알림 삭제 (중복 방지)
+                                doc.getReference().delete()
+                                        .addOnSuccessListener(aVoid -> {
+                                            Log.d(TAG, "✅ 처리된 댓글 알림 삭제: " + doc.getId());
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "❌ 댓글 알림 삭제 실패", e);
+                                        });
+                            }
+                        }
+                    }
+
+                    // 마지막 확인 시간 업데이트
+                    cache.setLastCheckTime(System.currentTimeMillis());
+                });
+    }
+
+    /**
      * ✅ 로컬 팔로우 알림 생성 (Firestore 쓰기 없음)
      */
     private void createLocalFollowNotification(String followerId, long followedAt) {
@@ -190,25 +261,60 @@ public class NotificationManager {
                     );
 
                     // 캐시에 추가
-                    List<NotificationDTO> current = cache.loadNotifications();
-                    current.add(0, notification);
-
-                    // 최대 개수 제한
-                    if (current.size() > MAX_CACHED_NOTIFICATIONS) {
-                        current = current.subList(0, MAX_CACHED_NOTIFICATIONS);
-                    }
-
-                    cache.saveNotifications(current);
-
-                    // UI 업데이트
-                    splitNotifications(current);
-                    notifyUnreadCountChanged();
+                    addNotificationToCache(notification);
 
                     Log.d(TAG, "✅ 로컬 팔로우 알림 생성: " + nickname);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ 팔로워 정보 조회 실패", e);
                 });
+    }
+
+    /**
+     * ✅ 로컬 댓글 알림 생성 (Firestore 쓰기 없음)
+     */
+    private void createLocalCommentNotification(String notificationId, String postId,
+                                                String commenterId, String commenterName,
+                                                String commentContent, long timestamp) {
+        // ✅ 로컬 알림 생성
+        NotificationDTO notification = NotificationDTO.createComment(
+                "comment_" + notificationId,
+                commenterName,
+                commentContent,
+                getTimeDisplay(timestamp),
+                false,
+                1,
+                R.drawable.ic_comment,
+                commenterId,
+                timestamp
+        );
+
+        // ✅ postId 저장 (클릭 시 해당 게시글로 이동하기 위해)
+        notification.setPostId(postId);
+
+        // 캐시에 추가
+        addNotificationToCache(notification);
+
+        Log.d(TAG, "✅ 로컬 댓글 알림 생성: " + commenterName + " - " + commentContent);
+    }
+
+    /**
+     * ✅ 알림을 캐시에 추가하고 UI 업데이트
+     */
+    private void addNotificationToCache(NotificationDTO notification) {
+        List<NotificationDTO> current = cache.loadNotifications();
+        current.add(0, notification);
+
+        // 최대 개수 제한
+        if (current.size() > MAX_CACHED_NOTIFICATIONS) {
+            current = current.subList(0, MAX_CACHED_NOTIFICATIONS);
+        }
+
+        cache.saveNotifications(current);
+
+        // UI 업데이트
+        splitNotifications(current);
+        notifyUnreadCountChanged();
     }
 
     /**
@@ -367,8 +473,13 @@ public class NotificationManager {
         if (followerListener != null) {
             followerListener.remove();
             followerListener = null;
-            isListening = false;
             Log.d(TAG, "🛑 follower 리스너 해제");
         }
+        if (commentListener != null) {
+            commentListener.remove();
+            commentListener = null;
+            Log.d(TAG, "🛑 commentNotifications 리스너 해제");
+        }
+        isListening = false;
     }
 }

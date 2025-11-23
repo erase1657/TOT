@@ -27,7 +27,9 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CommentsBottomSheetFragment extends BottomSheetDialogFragment {
 
@@ -139,7 +141,10 @@ public class CommentsBottomSheetFragment extends BottomSheetDialogFragment {
                         .add(newComment)
                         .addOnSuccessListener(documentReference -> {
                             etComment.setText("");
-                            loadComments(); // 댓글 목록 새로고침
+                            loadComments();
+
+                            // ✅ 댓글 작성 후 게시글 작성자에게 알림 전송
+                            sendCommentNotificationToPostAuthor(uid, user.getNickname(), content);
                         })
                         .addOnFailureListener(e -> {
                             Log.e(TAG, "Error posting comment", e);
@@ -149,6 +154,57 @@ public class CommentsBottomSheetFragment extends BottomSheetDialogFragment {
                 Toast.makeText(getContext(), "사용자 정보를 찾을 수 없어 댓글을 등록할 수 없습니다.", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /**
+     * ✅ 댓글 작성 시 게시글 작성자에게 알림 전송 (수정됨)
+     */
+    private void sendCommentNotificationToPostAuthor(String commenterId, String commenterName, String commentContent) {
+        if (postId == null) {
+            Log.w(TAG, "❌ postId가 null입니다");
+            return;
+        }
+
+        // 게시글 정보 조회
+        communityPostsRef.document(postId)
+                .get()
+                .addOnSuccessListener(postDoc -> {
+                    if (!postDoc.exists()) {
+                        Log.w(TAG, "❌ 게시글을 찾을 수 없습니다");
+                        return;
+                    }
+
+                    String postAuthorId = postDoc.getString("authorUid");
+
+                    // ✅ 본인 게시글에는 알림 보내지 않음
+                    if (postAuthorId == null || postAuthorId.equals(commenterId)) {
+                        Log.d(TAG, "본인 게시글이므로 알림 전송 안 함");
+                        return;
+                    }
+
+                    // ✅ 게시글 작성자의 commentNotifications 컬렉션에 알림 추가
+                    Map<String, Object> notificationData = new HashMap<>();
+                    notificationData.put("postId", postId);
+                    notificationData.put("commenterId", commenterId);
+                    notificationData.put("commenterName", commenterName);
+                    notificationData.put("commentContent", commentContent);
+                    notificationData.put("timestamp", System.currentTimeMillis());
+                    notificationData.put("isRead", false);
+
+                    db.collection("user")
+                            .document(postAuthorId)
+                            .collection("commentNotifications")
+                            .add(notificationData)
+                            .addOnSuccessListener(docRef -> {
+                                Log.d(TAG, "✅ 댓글 알림 전송 성공: " + postAuthorId);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ 댓글 알림 전송 실패", e);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 게시글 조회 실패", e);
+                });
     }
 
     private void showDeleteConfirmDialog(CommentDTO comment) {
@@ -170,7 +226,7 @@ public class CommentsBottomSheetFragment extends BottomSheetDialogFragment {
                 .delete()
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(getContext(), "댓글이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
-                    loadComments(); // 댓글 목록 새로고침
+                    loadComments();
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error deleting comment", e);

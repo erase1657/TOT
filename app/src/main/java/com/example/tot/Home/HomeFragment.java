@@ -25,6 +25,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.bumptech.glide.Glide;
 import com.example.tot.Community.CommunityAdapter;
 import com.example.tot.Community.CommunityPostDTO;
+import com.example.tot.Community.PostDetailActivity;
 import com.example.tot.Notification.NotificationActivity;
 import com.example.tot.Notification.NotificationManager;
 import com.example.tot.R;
@@ -694,7 +695,9 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /** 커뮤니티 스타일 RecyclerView */
+    /**
+     * ✅ 커뮤니티 스타일 RecyclerView (게시글 클릭 시 상세보기)
+     */
     private void setupCommunityStyleRecyclerView(RecyclerView albumView) {
         albumView.setLayoutManager(
                 new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false)
@@ -704,7 +707,18 @@ public class HomeFragment extends Fragment {
 
         communityAdapter = new CommunityAdapter(
                 initial,
-                (post, pos) -> Toast.makeText(getContext(), post.getTitle() + " 상세보기", Toast.LENGTH_SHORT).show(),
+                (post, pos) -> {
+                    // ✅ 게시글 클릭 시 PostDetailActivity로 이동
+                    if (post.getScheduleId() != null && post.getUserId() != null) {
+                        Intent intent = new Intent(getContext(), PostDetailActivity.class);
+                        intent.putExtra("scheduleId", post.getScheduleId());
+                        intent.putExtra("authorUid", post.getUserId());
+                        intent.putExtra("postId", post.getPostId());
+                        startActivity(intent);
+                    } else {
+                        Toast.makeText(getContext(), "게시글 정보를 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+                    }
+                },
                 () -> {}
         );
 

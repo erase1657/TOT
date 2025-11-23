@@ -19,7 +19,8 @@ public class NotificationDTO {
     private String userName;
     private String userId;
     private int iconResId;
-    private long createdAt; // ✅ 추가: 알림 생성 시간 (정렬/필터용)
+    private long createdAt;
+    private String postId; // ✅ 추가: 댓글 알림에서 게시글로 이동하기 위해 필요
 
     private NotificationDTO(Builder builder) {
         this.id = builder.id;
@@ -33,6 +34,7 @@ public class NotificationDTO {
         this.userId = builder.userId;
         this.iconResId = builder.iconResId;
         this.createdAt = builder.createdAt;
+        this.postId = builder.postId;
     }
 
     /**
@@ -107,6 +109,7 @@ public class NotificationDTO {
         private String userId;
         private int iconResId;
         private long createdAt;
+        private String postId;
 
         public Builder(String id, NotificationType type) {
             this.id = id;
@@ -159,6 +162,11 @@ public class NotificationDTO {
             return this;
         }
 
+        public Builder postId(String postId) {
+            this.postId = postId;
+            return this;
+        }
+
         public NotificationDTO build() {
             return new NotificationDTO(this);
         }
@@ -176,10 +184,12 @@ public class NotificationDTO {
     public String getUserName() { return userName; }
     public String getUserId() { return userId; }
     public int getIconResId() { return iconResId; }
-    public long getCreatedAt() { return createdAt; } // ✅ 추가
+    public long getCreatedAt() { return createdAt; }
+    public String getPostId() { return postId; } // ✅ 추가
 
     // Setters
     public void setRead(boolean read) { isRead = read; }
     public void setUnreadCount(int count) { unreadCount = count; }
-    public void setCreatedAt(long createdAt) { this.createdAt = createdAt; } // ✅ 추가
+    public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
+    public void setPostId(String postId) { this.postId = postId; } // ✅ 추가
 }
