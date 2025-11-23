@@ -10,6 +10,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -20,6 +21,7 @@ import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -123,6 +125,14 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     @Override
+    public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewRecycled(holder);
+        if (holder instanceof PostViewHolder) {
+            ((PostViewHolder) holder).cleanupListener();
+        }
+    }
+
+    @Override
     public int getItemCount() {
         return items.size();
     }
@@ -140,15 +150,13 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     /**
-     * ✅ 프로필 이미지 로드 헬퍼 메서드
-     * - 캐시 활성화로 깜빡임 방지
-     * - 메모리 캐시 사용
+     * ✅ 프로필 이미지 로드 헬퍼 메서드 (캐시 최적화)
      */
     private void loadProfileImage(ImageView imageView, String profileUrl) {
         if (profileUrl != null && !profileUrl.isEmpty()) {
             Glide.with(imageView.getContext())
                     .load(profileUrl)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL) // ✅ 디스크 캐시 활성화
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .placeholder(R.drawable.ic_profile_default)
                     .error(R.drawable.ic_profile_default)
                     .into(imageView);
@@ -193,7 +201,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 tvNickname.setVisibility(View.GONE);
             }
 
-            // ✅ 캐시 활성화된 이미지 로드
             loadProfileImage(imgProfile, user.getProfileImageUrl());
 
             FollowButtonHelper.checkFollowStatus(user.getUserId(), (following, follower) -> {
@@ -265,6 +272,7 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         boolean isFollowing = false;
         boolean isFollower = false;
         String currentPostAuthorId;
+        private ListenerRegistration commentListener;
 
         public PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -285,7 +293,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             currentPostAuthorId = post.getUserId();
             String currentUid = mAuth.getCurrentUser() != null ? mAuth.getCurrentUser().getUid() : null;
 
-            // ✅ 캐시 활성화된 이미지 로드
             loadProfileImage(imgProfile, post.getProfileImageUrl());
 
             txtUserName.setText(post.getUserName() != null ? post.getUserName() : "사용자");
@@ -300,7 +307,9 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
             updateHeartIcon(post.isLiked());
             txtHeartCount.setText(formatCount(post.getHeartCount()));
-            txtCommentCount.setText(post.getCommentCount() + "개");
+
+            // ✅ 댓글 수 실시간 리스너 시작
+            startCommentCountListener(post.getPostId());
 
             if (currentUid != null && currentUid.equals(currentPostAuthorId)) {
                 btnFollow.setVisibility(View.GONE);
@@ -399,13 +408,13 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                                             imgHeart.setEnabled(true);
                                         })
                                         .addOnFailureListener(e -> {
-                                            Log.e(TAG, "❌ 좋아요 카운트 감소 실패", e);
+                                            Log.e(TAG, "좋아요 카운트 감소 실패", e);
                                             Toast.makeText(itemView.getContext(), "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
                                             imgHeart.setEnabled(true);
                                         });
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "❌ 좋아요 삭제 실패", e);
+                                Log.e(TAG, "좋아요 삭제 실패", e);
                                 Toast.makeText(itemView.getContext(), "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
                                 imgHeart.setEnabled(true);
                             });
@@ -435,24 +444,73 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                                             imgHeart.setEnabled(true);
                                         })
                                         .addOnFailureListener(e -> {
-                                            Log.e(TAG, "❌ 좋아요 카운트 증가 실패", e);
+                                            Log.e(TAG, "좋아요 카운트 증가 실패", e);
                                             Toast.makeText(itemView.getContext(), "좋아요 실패", Toast.LENGTH_SHORT).show();
                                             imgHeart.setEnabled(true);
                                         });
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "❌ 좋아요 추가 실패", e);
+                                Log.e(TAG, "좋아요 추가 실패", e);
                                 Toast.makeText(itemView.getContext(), "좋아요 실패", Toast.LENGTH_SHORT).show();
                                 imgHeart.setEnabled(true);
                             });
                 }
             });
 
+            // ✅ 댓글 버튼 클릭 - 바텀시트 열기
+            View.OnClickListener commentClickListener = v -> {
+                if (post.getPostId() != null) {
+                    if (itemView.getContext() instanceof AppCompatActivity) {
+                        CommentsBottomSheetFragment bottomSheet = CommentsBottomSheetFragment.newInstance(post.getPostId());
+                        bottomSheet.show(((AppCompatActivity) itemView.getContext()).getSupportFragmentManager(), bottomSheet.getTag());
+                    }
+                } else {
+                    Toast.makeText(itemView.getContext(), "게시글 정보를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
+                }
+            };
+
+            imgComment.setOnClickListener(commentClickListener);
+
             itemView.setOnClickListener(v -> {
                 if (postClickListener != null) {
                     postClickListener.onPostClick(post, getAdapterPosition());
                 }
             });
+        }
+
+        /**
+         * ✅ 댓글 수 실시간 리스너
+         */
+        private void startCommentCountListener(String postId) {
+            cleanupListener();
+
+            if (postId == null || postId.isEmpty()) {
+                txtCommentCount.setText("0개");
+                return;
+            }
+
+            commentListener = db.collection("public").document("community")
+                    .collection("posts").document(postId).collection("comments")
+                    .addSnapshotListener((snapshots, error) -> {
+                        if (error != null) {
+                            Log.w(TAG, "댓글 수 리스너 실패", error);
+                            txtCommentCount.setText("0개");
+                            return;
+                        }
+
+                        if (snapshots != null) {
+                            txtCommentCount.setText(snapshots.size() + "개");
+                        } else {
+                            txtCommentCount.setText("0개");
+                        }
+                    });
+        }
+
+        public void cleanupListener() {
+            if (commentListener != null) {
+                commentListener.remove();
+                commentListener = null;
+            }
         }
 
         private void updateHeartIcon(boolean isLiked) {

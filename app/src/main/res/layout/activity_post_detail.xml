@@ -140,7 +140,7 @@
                     android:id="@+id/tv_date_range"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="2025.12.15~2025.12.17"
+                    android:text="0000.00.00~0000.00.00"
                     android:textColor="#FFAFAFAF"
                     android:textSize="14sp"
                     android:layout_marginTop="4dp" />
@@ -160,7 +160,7 @@
                 android:id="@+id/tv_post_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="내 눈동자에 치얼스"
+                android:text=" "
                 android:textColor="@color/black"
                 android:textSize="16sp"
                 android:lineSpacingExtra="4dp"
