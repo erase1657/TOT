@@ -59,6 +59,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private boolean isPostEditMode = false;
     private String relatedPostId = null;
     private ListenerRegistration postUpdateListener;
+    private ScheduleSettingHelper helper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,6 +82,10 @@ public class ScheduleSettingActivity extends AppCompatActivity {
 
         startDate = new Timestamp(new Date(startMillis));
         endDate = new Timestamp(new Date(endMillis));
+
+        // ✅ Helper 초기화
+        helper = new ScheduleSettingHelper(this, db, userUid, scheduleId);
+
         rvDate = findViewById(R.id.rv_datelist);
         rvScheduleItem = findViewById(R.id.rv_schedulelist);
         btn_AddSchedule = findViewById(R.id.btn_add_schedule);
@@ -112,7 +117,11 @@ public class ScheduleSettingActivity extends AppCompatActivity {
             menu.getMenuInflater().inflate(R.menu.schedule_menu, menu.getMenu());
             menu.setOnMenuItemClickListener(item -> {
                 int id = item.getItemId();
-                if (id == R.id.menu_map) {
+                // ✅ 날짜 변경 메뉴 추가
+                if (id == R.id.menu_change_date) {
+                    showDateChangeDialog();
+                    return true;
+                } else if (id == R.id.menu_map) {
                     showAllPlacesOnMap();
                     return true;
                 } else if (id == R.id.menu_album) {
@@ -177,6 +186,16 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                         .addOnFailureListener(e -> Toast.makeText(this, "일정 추가 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show());
             });
             currentBottomSheet.show();
+        });
+    }
+
+    // ✅ 날짜 변경 다이얼로그 표시
+    private void showDateChangeDialog() {
+        helper.showDateChangeDialog(dateList, startDate, endDate, (newStartDate, newEndDate) -> {
+            // 날짜 변경 성공 후 UI 업데이트
+            startDate = newStartDate;
+            endDate = newEndDate;
+            generateScheduleDates(startDate, endDate);
         });
     }
 
@@ -511,40 +530,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     }
 
     private void showAllPlacesOnMap() {
-        final Map<String, List<ScheduleItemDTO>> tempItemsMap = new HashMap<>();
-        AtomicInteger pendingFetches = new AtomicInteger(dateList.size());
-        Collections.sort(dateList);
-        for (String dateKey : dateList) {
-            if (localCache.containsKey(dateKey)) {
-                tempItemsMap.put(dateKey, localCache.get(dateKey));
-                if (pendingFetches.decrementAndGet() == 0) {
-                    launchMapWithAllPlaces(tempItemsMap);
-                }
-            } else {
-                db.collection("user").document(userUid).collection("schedule").document(scheduleId)
-                        .collection("scheduleDate").document(dateKey).collection("scheduleItem").get()
-                        .addOnSuccessListener(queryDocumentSnapshots -> {
-                            List<ScheduleItemDTO> items = new ArrayList<>();
-                            for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
-                                ScheduleItemDTO item = doc.toObject(ScheduleItemDTO.class);
-                                if (item != null && item.getPlace() != null) {
-                                    items.add(item);
-                                }
-                            }
-                            items.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
-                            localCache.put(dateKey, new ArrayList<>(items));
-                            tempItemsMap.put(dateKey, items);
-                            if (pendingFetches.decrementAndGet() == 0) {
-                                launchMapWithAllPlaces(tempItemsMap);
-                            }
-                        })
-                        .addOnFailureListener(e -> {
-                            if (pendingFetches.decrementAndGet() == 0) {
-                                launchMapWithAllPlaces(tempItemsMap);
-                            }
-                        });
-            }
-        }
+        helper.launchMapWithAllPlaces(dateList, localCache);
     }
 
     private void generateScheduleDates(Timestamp start, Timestamp end) {
