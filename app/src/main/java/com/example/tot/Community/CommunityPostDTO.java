@@ -7,7 +7,8 @@ public class CommunityPostDTO {
     private String authorUid;
     private String userName;
     private int userProfileImage;
-    private String profileImageUrl; // ✅ Firestore에서 가져온 프로필 이미지 URL
+    private String profileImageUrl;
+    private String thumbnailUrl; // ✅ 추가: 게시글 썸네일 이미지 URL
     private String title;
     private int postImage;
     private int heartCount;
@@ -96,6 +97,15 @@ public class CommunityPostDTO {
 
     public void setProfileImageUrl(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
+    }
+
+    // ✅ 썸네일 URL getter/setter 추가
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
     }
 
     public String getTitle() {

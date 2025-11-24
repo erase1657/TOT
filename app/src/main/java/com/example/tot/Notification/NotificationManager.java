@@ -14,16 +14,11 @@ import com.example.tot.R;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
-/**
- * 알림 관리 싱글톤 클래스
- * ✅ Firestore 알림 컬렉션 완전 제거
- * ✅ follower 컬렉션 변경사항을 실시간 감지하여 로컬 알림 생성
- * ✅ commentNotifications 컬렉션 실시간 감지하여 댓글 알림 생성
- * ✅ 로컬 캐시만 사용 (SharedPreferences)
- */
 public class NotificationManager {
 
     private static final String TAG = "NotificationManager";
@@ -40,11 +35,12 @@ public class NotificationManager {
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
 
-    // ✅ follower 컬렉션 실시간 리스너
     private ListenerRegistration followerListener;
-    // ✅ commentNotifications 컬렉션 실시간 리스너
     private ListenerRegistration commentListener;
     private boolean isListening = false;
+
+    // ✅ 게시글별 읽지 않은 댓글 수 추적
+    private Map<String, Integer> unreadCommentCountByPost = new HashMap<>();
 
     public interface UnreadCountListener {
         void onUnreadCountChanged(int count);
@@ -65,18 +61,12 @@ public class NotificationManager {
         return instance;
     }
 
-    /**
-     * ✅ Context 초기화 (Application에서 호출)
-     */
     public void init(Context context) {
         this.appContext = context.getApplicationContext();
         this.cache = new NotificationCache(appContext);
         Log.d(TAG, "✅ NotificationManager 초기화");
     }
 
-    /**
-     * ✅ 초기 로드 (앱 시작시 한 번만 호출)
-     */
     public void initialLoad() {
         if (cache == null) {
             Log.w(TAG, "⚠️ Cache가 초기화되지 않았습니다");
@@ -85,19 +75,11 @@ public class NotificationManager {
 
         Log.d(TAG, "🚀 초기 알림 로드 시작");
 
-        // 1. 로컬 캐시 먼저 로드
         loadNotificationsFromCache();
-
-        // 2. follower 컬렉션 실시간 감지 시작
         startListeningForFollowers();
-
-        // 3. 댓글 알림 실시간 감지 시작
         startListeningForComments();
     }
 
-    /**
-     * ✅ 로컬 캐시에서 알림 로드
-     */
     private void loadNotificationsFromCache() {
         if (cache == null) {
             Log.w(TAG, "⚠️ Cache가 초기화되지 않았습니다");
@@ -106,12 +88,14 @@ public class NotificationManager {
 
         List<NotificationDTO> cached = cache.loadNotifications();
 
-        // ✅ 최대 개수 제한
         if (cached.size() > MAX_CACHED_NOTIFICATIONS) {
             cached = cached.subList(0, MAX_CACHED_NOTIFICATIONS);
             cache.saveNotifications(cached);
             Log.d(TAG, "🗑️ 오래된 알림 자동 삭제");
         }
+
+        // ✅ 게시글별 읽지 않은 댓글 수 계산
+        recalculateUnreadCommentCounts(cached);
 
         splitNotifications(cached);
         notifyUnreadCountChanged();
@@ -120,16 +104,57 @@ public class NotificationManager {
     }
 
     /**
-     * ✅ follower 컬렉션 실시간 감지 (새 팔로워 → 로컬 알림 생성)
+     * ✅ 게시글별 읽지 않은 댓글 수 재계산
      */
+    private void recalculateUnreadCommentCounts(List<NotificationDTO> notifications) {
+        unreadCommentCountByPost.clear();
+
+        // 댓글 알림만 필터링하고 게시글별로 그룹화
+        Map<String, List<NotificationDTO>> commentsByPost = new HashMap<>();
+
+        for (NotificationDTO notif : notifications) {
+            if (notif.getType() == NotificationDTO.NotificationType.COMMENT && !notif.isRead()) {
+                String postId = notif.getPostId();
+                if (postId != null && !postId.isEmpty()) {
+                    if (!commentsByPost.containsKey(postId)) {
+                        commentsByPost.put(postId, new ArrayList<>());
+                    }
+                    commentsByPost.get(postId).add(notif);
+                }
+            }
+        }
+
+        // 각 게시글별로 가장 최신 알림에만 카운트 설정
+        for (Map.Entry<String, List<NotificationDTO>> entry : commentsByPost.entrySet()) {
+            String postId = entry.getKey();
+            List<NotificationDTO> postComments = entry.getValue();
+
+            // 시간순 정렬 (최신순)
+            postComments.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
+
+            int unreadCount = postComments.size();
+            unreadCommentCountByPost.put(postId, unreadCount);
+
+            // 가장 최신 알림에만 카운트 설정
+            if (!postComments.isEmpty()) {
+                postComments.get(0).setUnreadCount(unreadCount);
+            }
+
+            // 나머지 알림은 카운트 0
+            for (int i = 1; i < postComments.size(); i++) {
+                postComments.get(i).setUnreadCount(0);
+            }
+        }
+
+        Log.d(TAG, "✅ 게시글별 읽지 않은 댓글 수 계산 완료: " + commentsByPost.size() + "개 게시글");
+    }
+
     private void startListeningForFollowers() {
         if (isListening || mAuth.getCurrentUser() == null) {
             return;
         }
 
         String userId = mAuth.getCurrentUser().getUid();
-
-        // ✅ 마지막 확인 시간 이후의 팔로워만 감지
         long lastCheck = cache.getLastCheckTime();
 
         Log.d(TAG, "👂 follower 컬렉션 실시간 감지 시작 (마지막 확인: " + lastCheck + ")");
@@ -147,13 +172,11 @@ public class NotificationManager {
                         return;
                     }
 
-                    // ✅ 새로 추가된 팔로워만 처리
                     for (DocumentChange change : snapshots.getDocumentChanges()) {
                         if (change.getType() == DocumentChange.Type.ADDED) {
                             DocumentSnapshot doc = change.getDocument();
                             Long followedAt = doc.getLong("followedAt");
 
-                            // 마지막 확인 시간 이후의 팔로워만 알림 생성
                             if (followedAt != null && followedAt > lastCheck) {
                                 String followerId = doc.getId();
                                 createLocalFollowNotification(followerId, followedAt);
@@ -161,16 +184,12 @@ public class NotificationManager {
                         }
                     }
 
-                    // 마지막 확인 시간 업데이트
                     cache.setLastCheckTime(System.currentTimeMillis());
                 });
 
         isListening = true;
     }
 
-    /**
-     * ✅ 댓글 알림 실시간 감지 (새 댓글 → 로컬 알림 생성)
-     */
     private void startListeningForComments() {
         if (mAuth.getCurrentUser() == null) {
             return;
@@ -194,13 +213,11 @@ public class NotificationManager {
                         return;
                     }
 
-                    // ✅ 새로 추가된 댓글 알림만 처리
                     for (DocumentChange change : snapshots.getDocumentChanges()) {
                         if (change.getType() == DocumentChange.Type.ADDED) {
                             DocumentSnapshot doc = change.getDocument();
                             Long timestamp = doc.getLong("timestamp");
 
-                            // 마지막 확인 시간 이후의 댓글 알림만 처리
                             if (timestamp != null && timestamp > lastCheck) {
                                 String postId = doc.getString("postId");
                                 String commenterId = doc.getString("commenterId");
@@ -216,7 +233,6 @@ public class NotificationManager {
                                         timestamp
                                 );
 
-                                // ✅ 처리된 알림 삭제 (중복 방지)
                                 doc.getReference().delete()
                                         .addOnSuccessListener(aVoid -> {
                                             Log.d(TAG, "✅ 처리된 댓글 알림 삭제: " + doc.getId());
@@ -228,16 +244,11 @@ public class NotificationManager {
                         }
                     }
 
-                    // 마지막 확인 시간 업데이트
                     cache.setLastCheckTime(System.currentTimeMillis());
                 });
     }
 
-    /**
-     * ✅ 로컬 팔로우 알림 생성 (Firestore 쓰기 없음)
-     */
     private void createLocalFollowNotification(String followerId, long followedAt) {
-        // 팔로워 정보 조회 (닉네임)
         db.collection("user")
                 .document(followerId)
                 .get()
@@ -249,7 +260,6 @@ public class NotificationManager {
                         nickname = "사용자";
                     }
 
-                    // ✅ 로컬 알림 생성
                     NotificationDTO notification = NotificationDTO.createFollow(
                             "follow_" + followerId + "_" + followedAt,
                             nickname,
@@ -260,7 +270,6 @@ public class NotificationManager {
                             followedAt
                     );
 
-                    // 캐시에 추가
                     addNotificationToCache(notification);
 
                     Log.d(TAG, "✅ 로컬 팔로우 알림 생성: " + nickname);
@@ -270,40 +279,52 @@ public class NotificationManager {
                 });
     }
 
-    /**
-     * ✅ 로컬 댓글 알림 생성 (Firestore 쓰기 없음)
-     */
     private void createLocalCommentNotification(String notificationId, String postId,
                                                 String commenterId, String commenterName,
                                                 String commentContent, long timestamp) {
-        // ✅ 로컬 알림 생성
+        // ✅ 해당 게시글의 읽지 않은 댓글 수 증가
+        int currentCount = unreadCommentCountByPost.getOrDefault(postId, 0);
+        int newCount = currentCount + 1;
+        unreadCommentCountByPost.put(postId, newCount);
+
+        // ✅ 새 알림 생성 (카운트 포함)
         NotificationDTO notification = NotificationDTO.createComment(
                 "comment_" + notificationId,
                 commenterName,
                 commentContent,
                 getTimeDisplay(timestamp),
                 false,
-                1,
+                newCount,  // 현재 게시글의 총 읽지 않은 댓글 수
                 R.drawable.ic_comment,
                 commenterId,
                 timestamp
         );
 
-        // ✅ postId 저장 (클릭 시 해당 게시글로 이동하기 위해)
         notification.setPostId(postId);
 
-        // 캐시에 추가
-        addNotificationToCache(notification);
+        // ✅ 캐시에 추가하고 이전 알림들의 카운트 업데이트
+        addCommentNotificationAndUpdateCounts(notification, postId);
 
-        Log.d(TAG, "✅ 로컬 댓글 알림 생성: " + commenterName + " - " + commentContent);
+        Log.d(TAG, "✅ 로컬 댓글 알림 생성: " + commenterName + " - " + commentContent + " (카운트: " + newCount + ")");
     }
 
     /**
-     * ✅ 알림을 캐시에 추가하고 UI 업데이트
+     * ✅ 댓글 알림 추가 및 같은 게시글의 이전 알림 카운트 업데이트
      */
-    private void addNotificationToCache(NotificationDTO notification) {
+    private void addCommentNotificationAndUpdateCounts(NotificationDTO newNotification, String postId) {
         List<NotificationDTO> current = cache.loadNotifications();
-        current.add(0, notification);
+
+        // 같은 게시글의 이전 댓글 알림들의 카운트를 0으로 설정
+        for (NotificationDTO notif : current) {
+            if (notif.getType() == NotificationDTO.NotificationType.COMMENT &&
+                    postId.equals(notif.getPostId()) &&
+                    !notif.isRead()) {
+                notif.setUnreadCount(0);
+            }
+        }
+
+        // 새 알림을 맨 앞에 추가
+        current.add(0, newNotification);
 
         // 최대 개수 제한
         if (current.size() > MAX_CACHED_NOTIFICATIONS) {
@@ -317,9 +338,20 @@ public class NotificationManager {
         notifyUnreadCountChanged();
     }
 
-    /**
-     * ✅ 시간 표시 문자열 생성
-     */
+    private void addNotificationToCache(NotificationDTO notification) {
+        List<NotificationDTO> current = cache.loadNotifications();
+        current.add(0, notification);
+
+        if (current.size() > MAX_CACHED_NOTIFICATIONS) {
+            current = current.subList(0, MAX_CACHED_NOTIFICATIONS);
+        }
+
+        cache.saveNotifications(current);
+
+        splitNotifications(current);
+        notifyUnreadCountChanged();
+    }
+
     private String getTimeDisplay(long timestamp) {
         long diff = System.currentTimeMillis() - timestamp;
         long seconds = diff / 1000;
@@ -341,9 +373,6 @@ public class NotificationManager {
         }
     }
 
-    /**
-     * ✅ 알림 목록을 오늘/최근으로 분류
-     */
     private void splitNotifications(List<NotificationDTO> notifications) {
         todayNotifications.clear();
         recentNotifications.clear();
@@ -385,29 +414,43 @@ public class NotificationManager {
     }
 
     /**
-     * ✅ 읽음 처리 - 로컬만 업데이트
+     * ✅ 읽음 처리 - 댓글 알림의 경우 게시글별 카운트 업데이트
      */
     public void markAsRead(String notificationId) {
         if (cache != null) {
             cache.markAsReadLocal(notificationId);
         }
 
-        boolean found = false;
+        NotificationDTO targetNotif = null;
+        String postId = null;
+
+        // 알림 찾기
         for (NotificationDTO notif : todayNotifications) {
             if (notif.getId().equals(notificationId)) {
                 notif.setRead(true);
-                found = true;
+                targetNotif = notif;
+                postId = notif.getPostId();
                 break;
             }
         }
 
-        if (!found) {
+        if (targetNotif == null) {
             for (NotificationDTO notif : recentNotifications) {
                 if (notif.getId().equals(notificationId)) {
                     notif.setRead(true);
+                    targetNotif = notif;
+                    postId = notif.getPostId();
                     break;
                 }
             }
+        }
+
+        // ✅ 댓글 알림인 경우 카운트 업데이트
+        if (targetNotif != null &&
+                targetNotif.getType() == NotificationDTO.NotificationType.COMMENT &&
+                postId != null && !postId.isEmpty()) {
+
+            updateCommentCountsAfterRead(postId);
         }
 
         notifyUnreadCountChanged();
@@ -415,15 +458,73 @@ public class NotificationManager {
     }
 
     /**
-     * ✅ 특정 알림 삭제 (스와이프 삭제 지원)
+     * ✅ 댓글 읽음 처리 후 다음 최신 알림으로 카운트 이동
      */
+    private void updateCommentCountsAfterRead(String postId) {
+        List<NotificationDTO> allNotifications = cache.loadNotifications();
+        List<NotificationDTO> unreadComments = new ArrayList<>();
+
+        // 해당 게시글의 읽지 않은 댓글 알림 수집
+        for (NotificationDTO notif : allNotifications) {
+            if (notif.getType() == NotificationDTO.NotificationType.COMMENT &&
+                    postId.equals(notif.getPostId()) &&
+                    !notif.isRead()) {
+                unreadComments.add(notif);
+            }
+        }
+
+        // 시간순 정렬 (최신순)
+        unreadComments.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
+
+        int newCount = unreadComments.size();
+        unreadCommentCountByPost.put(postId, newCount);
+
+        // 가장 최신 알림에만 카운트 설정
+        if (!unreadComments.isEmpty()) {
+            unreadComments.get(0).setUnreadCount(newCount);
+
+            // 나머지는 0
+            for (int i = 1; i < unreadComments.size(); i++) {
+                unreadComments.get(i).setUnreadCount(0);
+            }
+
+            // 캐시 업데이트
+            cache.saveNotifications(allNotifications);
+            splitNotifications(allNotifications);
+        }
+
+        Log.d(TAG, "✅ 게시글 " + postId + "의 읽지 않은 댓글 수: " + newCount);
+    }
+
     public void deleteNotification(String notificationId) {
         if (cache != null) {
             cache.deleteNotification(notificationId);
         }
 
+        // 삭제되는 알림의 postId 확인
+        String deletedPostId = null;
+        for (NotificationDTO notif : todayNotifications) {
+            if (notif.getId().equals(notificationId)) {
+                deletedPostId = notif.getPostId();
+                break;
+            }
+        }
+        if (deletedPostId == null) {
+            for (NotificationDTO notif : recentNotifications) {
+                if (notif.getId().equals(notificationId)) {
+                    deletedPostId = notif.getPostId();
+                    break;
+                }
+            }
+        }
+
         todayNotifications.removeIf(notif -> notif.getId().equals(notificationId));
         recentNotifications.removeIf(notif -> notif.getId().equals(notificationId));
+
+        // ✅ 댓글 알림 삭제 시 카운트 재계산
+        if (deletedPostId != null && !deletedPostId.isEmpty()) {
+            updateCommentCountsAfterRead(deletedPostId);
+        }
 
         notifyUnreadCountChanged();
         Log.d(TAG, "🗑️ 알림 삭제: " + notificationId);
@@ -451,6 +552,7 @@ public class NotificationManager {
     public void clearAll() {
         todayNotifications.clear();
         recentNotifications.clear();
+        unreadCommentCountByPost.clear();
         if (cache != null) {
             cache.clearCache();
         }
@@ -458,17 +560,11 @@ public class NotificationManager {
         Log.d(TAG, "🗑️ 모든 알림 삭제");
     }
 
-    /**
-     * ✅ 새로고침 (로컬 캐시 재로드)
-     */
     public void refresh() {
         Log.d(TAG, "🔄 알림 새로고침 시작");
         loadNotificationsFromCache();
     }
 
-    /**
-     * ✅ 리스너 정리
-     */
     public void stopListening() {
         if (followerListener != null) {
             followerListener.remove();

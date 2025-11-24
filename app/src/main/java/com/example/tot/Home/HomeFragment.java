@@ -23,6 +23,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.tot.Community.CommunityAdapter;
+import com.example.tot.Community.CommunityDataManager;
 import com.example.tot.Community.CommunityPostDTO;
 import com.example.tot.Community.PostDetailActivity;
 import com.example.tot.Notification.NotificationActivity;
@@ -38,13 +39,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
-public class HomeFragment extends Fragment {
+public class HomeFragment extends Fragment implements CommunityDataManager.DataUpdateListener {
 
     private static final String TAG = "HomeFragment";
 
@@ -69,6 +68,7 @@ public class HomeFragment extends Fragment {
     private List<CommunityPostDTO> allCommunityPosts = new ArrayList<>();
 
     private NotificationManager notificationManager;
+    private CommunityDataManager dataManager;
 
     private FirebaseFirestore db;
     private FirebaseAuth auth;
@@ -84,6 +84,9 @@ public class HomeFragment extends Fragment {
         db = FirebaseFirestore.getInstance();
         auth = FirebaseAuth.getInstance();
 
+        dataManager = CommunityDataManager.getInstance();
+        dataManager.addListener(this);
+
         initViews(view);
         setupNotificationManager();
         setupSwipeRefresh();
@@ -92,10 +95,22 @@ public class HomeFragment extends Fragment {
         setupCommunityStyleRecyclerView(view.findViewById(R.id.re_album));
         setupProfileAndInbox();
 
-        // ✅ 프로필 이미지 로드
         loadUserProfile();
+        dataManager.getPosts(false);
+    }
 
-        loadCommunityPostsFromFirestore();
+    @Override
+    public void onDataUpdated(List<CommunityPostDTO> posts) {
+        allCommunityPosts = new ArrayList<>(posts);
+        Log.d(TAG, "✅ 홈 화면 데이터 업데이트: " + allCommunityPosts.size() + "개");
+        filterAlbums();
+    }
+
+    @Override
+    public void onDataLoadFailed(String error) {
+        Log.e(TAG, "❌ 데이터 로드 실패: " + error);
+        allCommunityPosts.clear();
+        filterAlbums();
     }
 
     private void initViews(View view) {
@@ -126,10 +141,8 @@ public class HomeFragment extends Fragment {
             notificationManager.refresh();
         }
 
-        loadCommunityPostsFromFirestore();
+        dataManager.getPosts(true);
         loadNextScheduleWithAllItems();
-
-        // ✅ 프로필 이미지 새로고침
         loadUserProfile();
 
         swipeRefreshLayout.postDelayed(() -> {
@@ -165,9 +178,6 @@ public class HomeFragment extends Fragment {
         updateInboxBadge(notificationManager.getUnreadCount());
     }
 
-    /**
-     * ✅ 사용자 프로필 이미지 로드 - ProfileImageHelper 사용
-     */
     private void loadUserProfile() {
         String uid = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
         if (uid == null) return;
@@ -178,8 +188,6 @@ public class HomeFragment extends Fragment {
                 .addOnSuccessListener(doc -> {
                     if (doc.exists()) {
                         String profileImageUrl = doc.getString("profileImageUrl");
-
-                        // ✅ ProfileImageHelper 사용
                         ProfileImageHelper.loadCircleProfileImage(profileImage, profileImageUrl);
                     }
                 })
@@ -310,127 +318,6 @@ public class HomeFragment extends Fragment {
 
         updateButtonAppearance(selectedButton, true);
         currentSelectedCityButton = selectedButton;
-    }
-
-// 계속...
-// HomeFragment.java 계속...
-
-    private void loadCommunityPostsFromFirestore() {
-        if (auth.getCurrentUser() == null) {
-            allCommunityPosts.clear();
-            filterAlbums();
-            return;
-        }
-
-        db.collection("public")
-                .document("community")
-                .collection("posts")
-                .orderBy("heartCount", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    List<CommunityPostDTO> tempPosts = new ArrayList<>();
-                    Map<String, String> authorUidMap = new HashMap<>();
-
-                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                        String postId = doc.getString("postId");
-                        String authorUid = doc.getString("authorUid");
-                        String scheduleId = doc.getString("scheduleId");
-                        String title = doc.getString("title");
-                        String locationName = doc.getString("locationName");
-                        Long heartCount = doc.getLong("heartCount");
-                        Long commentCount = doc.getLong("commentCount");
-                        Long createdAt = doc.getLong("createdAt");
-
-                        if (postId != null && authorUid != null && scheduleId != null) {
-                            CommunityPostDTO post = new CommunityPostDTO();
-                            post.setPostId(postId);
-                            post.setUserId(authorUid);
-                            post.setScheduleId(scheduleId);
-                            post.setTitle(title != null ? title : "");
-                            post.setRegionTag(locationName != null ? locationName : "");
-                            post.setHeartCount(heartCount != null ? heartCount.intValue() : 0);
-                            post.setCommentCount(commentCount != null ? commentCount.intValue() : 0);
-                            post.setCreatedAt(createdAt != null ? createdAt : 0);
-
-                            post.setProvinceCode("");
-                            post.setCityCode("");
-
-                            tempPosts.add(post);
-                            authorUidMap.put(postId, authorUid);
-                        }
-                    }
-
-                    loadAuthorInfoForPosts(tempPosts, authorUidMap);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "커뮤니티 게시글 로드 실패", e);
-                    allCommunityPosts.clear();
-                    filterAlbums();
-                });
-    }
-
-    private void loadAuthorInfoForPosts(List<CommunityPostDTO> posts, Map<String, String> authorUidMap) {
-        if (posts.isEmpty()) {
-            allCommunityPosts = new ArrayList<>();
-            filterAlbums();
-            return;
-        }
-
-        final int[] loadedCount = {0};
-        final int totalCount = posts.size();
-        String currentUid = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
-
-        for (CommunityPostDTO post : posts) {
-            String authorUid = authorUidMap.get(post.getPostId());
-
-            if (authorUid == null) {
-                loadedCount[0]++;
-                if (loadedCount[0] == totalCount) {
-                    allCommunityPosts = new ArrayList<>(posts);
-                    filterAlbums();
-                }
-                continue;
-            }
-
-            if (currentUid != null) {
-                db.collection("public")
-                        .document("community")
-                        .collection("posts")
-                        .document(post.getPostId())
-                        .collection("likes")
-                        .document(currentUid)
-                        .get()
-                        .addOnSuccessListener(likeDoc -> {
-                            post.setLiked(likeDoc.exists());
-                        });
-            }
-
-            db.collection("user").document(authorUid)
-                    .get()
-                    .addOnSuccessListener(userDoc -> {
-                        if (userDoc.exists()) {
-                            String nickname = userDoc.getString("nickname");
-                            String profileImageUrl = userDoc.getString("profileImageUrl");
-
-                            post.setUserName(nickname != null ? nickname : "사용자");
-                            post.setProfileImageUrl(profileImageUrl);
-                        }
-
-                        loadedCount[0]++;
-                        if (loadedCount[0] == totalCount) {
-                            allCommunityPosts = new ArrayList<>(posts);
-                            Log.d(TAG, "홈 화면 게시글 로드 완료: " + allCommunityPosts.size() + "개");
-                            filterAlbums();
-                        }
-                    })
-                    .addOnFailureListener(e -> {
-                        loadedCount[0]++;
-                        if (loadedCount[0] == totalCount) {
-                            allCommunityPosts = new ArrayList<>(posts);
-                            filterAlbums();
-                        }
-                    });
-        }
     }
 
     private void filterAlbums() {
@@ -667,7 +554,7 @@ public class HomeFragment extends Fragment {
         super.onResume();
         updateInboxBadge(notificationManager.getUnreadCount());
         loadNextScheduleWithAllItems();
-        loadCommunityPostsFromFirestore();
+        dataManager.getPosts(false);
         loadUserProfile();
     }
 
@@ -676,6 +563,9 @@ public class HomeFragment extends Fragment {
         super.onDestroyView();
         if (notificationManager != null)
             notificationManager.removeListener(this::updateInboxBadge);
+        if (dataManager != null) {
+            dataManager.removeListener(this);
+        }
     }
 
     private static class ScheduleData {

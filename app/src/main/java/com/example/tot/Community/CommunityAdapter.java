@@ -13,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
@@ -184,7 +185,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 tvNickname.setVisibility(View.GONE);
             }
 
-            // ✅ ProfileImageHelper 사용
             ProfileImageHelper.loadProfileImage(imgProfile, user.getProfileImageUrl());
 
             FollowButtonHelper.checkFollowStatus(user.getUserId(), (following, follower) -> {
@@ -277,13 +277,22 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             currentPostAuthorId = post.getUserId();
             String currentUid = mAuth.getCurrentUser() != null ? mAuth.getCurrentUser().getUid() : null;
 
-            // ✅ ProfileImageHelper 사용
             ProfileImageHelper.loadProfileImage(imgProfile, post.getProfileImageUrl());
 
             txtUserName.setText(post.getUserName() != null ? post.getUserName() : "사용자");
             txtPostTitle.setText(post.getTitle() != null ? post.getTitle() : "");
 
-            if (post.getPostImage() != 0) {
+            // ✅ 썸네일 이미지 표시 (Glide 사용)
+            String thumbnailUrl = post.getThumbnailUrl();
+            if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+                Glide.with(itemView.getContext())
+                        .load(thumbnailUrl)
+                        .centerCrop()
+                        .placeholder(R.drawable.sample1)  // 로딩 중 표시할 이미지
+                        .error(R.drawable.sample1)        // 로드 실패 시 표시할 이미지
+                        .into(imgPostPhoto);
+                imgPostPhoto.setVisibility(View.VISIBLE);
+            } else if (post.getPostImage() != 0) {
                 imgPostPhoto.setImageResource(post.getPostImage());
                 imgPostPhoto.setVisibility(View.VISIBLE);
             } else {
