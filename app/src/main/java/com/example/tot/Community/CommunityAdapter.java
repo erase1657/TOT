@@ -14,10 +14,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
+import com.example.tot.User.ProfileImageHelper;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -149,22 +149,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
     }
 
-    /**
-     * ✅ 프로필 이미지 로드 헬퍼 메서드 (캐시 최적화)
-     */
-    private void loadProfileImage(ImageView imageView, String profileUrl) {
-        if (profileUrl != null && !profileUrl.isEmpty()) {
-            Glide.with(imageView.getContext())
-                    .load(profileUrl)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .placeholder(R.drawable.ic_profile_default)
-                    .error(R.drawable.ic_profile_default)
-                    .into(imageView);
-        } else {
-            imageView.setImageResource(R.drawable.ic_profile_default);
-        }
-    }
-
     class UserViewHolder extends RecyclerView.ViewHolder {
         CircleImageView imgProfile;
         TextView tvUserName;
@@ -201,7 +185,7 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 tvNickname.setVisibility(View.GONE);
             }
 
-            loadProfileImage(imgProfile, user.getProfileImageUrl());
+            ProfileImageHelper.loadProfileImage(imgProfile, user.getProfileImageUrl());
 
             FollowButtonHelper.checkFollowStatus(user.getUserId(), (following, follower) -> {
                 isFollowing = following;
@@ -293,12 +277,22 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             currentPostAuthorId = post.getUserId();
             String currentUid = mAuth.getCurrentUser() != null ? mAuth.getCurrentUser().getUid() : null;
 
-            loadProfileImage(imgProfile, post.getProfileImageUrl());
+            ProfileImageHelper.loadProfileImage(imgProfile, post.getProfileImageUrl());
 
             txtUserName.setText(post.getUserName() != null ? post.getUserName() : "사용자");
             txtPostTitle.setText(post.getTitle() != null ? post.getTitle() : "");
 
-            if (post.getPostImage() != 0) {
+            // ✅ 썸네일 이미지 표시 (Glide 사용)
+            String thumbnailUrl = post.getThumbnailUrl();
+            if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+                Glide.with(itemView.getContext())
+                        .load(thumbnailUrl)
+                        .centerCrop()
+                        .placeholder(R.drawable.sample1)  // 로딩 중 표시할 이미지
+                        .error(R.drawable.sample1)        // 로드 실패 시 표시할 이미지
+                        .into(imgPostPhoto);
+                imgPostPhoto.setVisibility(View.VISIBLE);
+            } else if (post.getPostImage() != 0) {
                 imgPostPhoto.setImageResource(post.getPostImage());
                 imgPostPhoto.setVisibility(View.VISIBLE);
             } else {
@@ -308,7 +302,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             updateHeartIcon(post.isLiked());
             txtHeartCount.setText(formatCount(post.getHeartCount()));
 
-            // ✅ 댓글 수 실시간 리스너 시작
             startCommentCountListener(post.getPostId());
 
             if (currentUid != null && currentUid.equals(currentPostAuthorId)) {
@@ -457,7 +450,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 }
             });
 
-            // ✅ 댓글 버튼 클릭 - 바텀시트 열기
             View.OnClickListener commentClickListener = v -> {
                 if (post.getPostId() != null) {
                     if (itemView.getContext() instanceof AppCompatActivity) {
@@ -478,9 +470,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             });
         }
 
-        /**
-         * ✅ 댓글 수 실시간 리스너
-         */
         private void startCommentCountListener(String postId) {
             cleanupListener();
 

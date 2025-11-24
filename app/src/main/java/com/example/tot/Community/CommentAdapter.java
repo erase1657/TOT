@@ -9,8 +9,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
 import com.example.tot.R;
+import com.example.tot.User.ProfileImageHelper;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 
@@ -92,13 +92,9 @@ public class CommentAdapter extends RecyclerView.Adapter<CommentAdapter.CommentV
             nicknameTextView.setText(comment.getNickname());
             contentTextView.setText(comment.getContent());
 
-            // 프로필 이미지 로드
-            Glide.with(itemView.getContext())
-                    .load(comment.getProfileImageUrl())
-                    .placeholder(R.drawable.ic_profile_default)
-                    .into(profileImageView);
+            // ✅ ProfileImageHelper 사용
+            ProfileImageHelper.loadProfileImage(profileImageView, comment.getProfileImageUrl());
 
-            // 타임스탬프 변환
             if (comment.getTimestamp() != null) {
                 timestampTextView.setText(formatTimestamp(comment.getTimestamp()));
             }

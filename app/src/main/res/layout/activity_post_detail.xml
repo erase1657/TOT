@@ -206,7 +206,8 @@
                     android:id="@+id/map_fragment"
                     android:name="com.google.android.gms.maps.SupportMapFragment"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
+                    android:layout_height="match_parent"
+                    app:mapId="f8eb61d4324a7c0c73cc412c"/>
 
             </FrameLayout>
 
