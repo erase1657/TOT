@@ -37,6 +37,7 @@ public class NotificationManager {
 
     private ListenerRegistration followerListener;
     private ListenerRegistration commentListener;
+    private List<ListenerRegistration> inviteListeners = new ArrayList<>();
     private boolean isListening = false;
 
     // ✅ 게시글별 읽지 않은 댓글 수 추적
@@ -78,6 +79,7 @@ public class NotificationManager {
         loadNotificationsFromCache();
         startListeningForFollowers();
         startListeningForComments();
+        startListeningForInvites();
     }
 
     private void loadNotificationsFromCache() {
@@ -247,7 +249,89 @@ public class NotificationManager {
                     cache.setLastCheckTime(System.currentTimeMillis());
                 });
     }
+    private void startListeningForInvites() {
 
+        if (mAuth.getCurrentUser() == null) return;
+
+        String uid = mAuth.getCurrentUser().getUid();
+        long lastCheck = cache.getLastCheckTime();
+
+        Log.d(TAG, "👂 inviteReceived 리스너 시작");
+
+        ListenerRegistration reg = db.collection("user")
+                .document(uid)
+                .collection("inviteReceived")
+                .addSnapshotListener((snapshots, error) -> {
+
+                    if (error != null) {
+                        Log.e(TAG, "❌ inviteReceived 리스너 오류", error);
+                        return;
+                    }
+                    if (snapshots == null || snapshots.isEmpty()) return;
+
+                    for (DocumentChange change : snapshots.getDocumentChanges()) {
+                        if (change.getType() == DocumentChange.Type.ADDED) {
+
+                            DocumentSnapshot doc = change.getDocument();
+                            Long createdAt = doc.getLong("createdAt");
+
+                            if (createdAt != null && createdAt > lastCheck) {
+
+                                String inviteId = doc.getId();
+                                String senderUid = doc.getString("senderUid");
+                                String scheduleId = doc.getString("scheduleId");
+
+                                Log.d(TAG, "🎉 새로운 초대 감지: " + inviteId);
+
+                                createLocalScheduleInviteNotification(
+                                        inviteId,
+                                        scheduleId,
+                                        senderUid,
+                                        createdAt
+                                );
+                            }
+                        }
+                    }
+
+                    cache.setLastCheckTime(System.currentTimeMillis());
+                });
+
+        inviteListeners.add(reg);
+    }
+    private void createLocalScheduleInviteNotification(String inviteId,
+                                                       String scheduleId,
+                                                       String senderUid,
+                                                       long createdAt) {
+
+        db.collection("user")
+                .document(senderUid)
+                .get()
+                .addOnSuccessListener(doc -> {
+
+                    String nickname = doc.getString("nickname");
+                    if (nickname == null) nickname = "사용자";
+
+                    // ⭐ scheduleId 를 넣는 createScheduleInvite() 사용 (DTO 수정 필수)
+                    NotificationDTO notification = NotificationDTO.createScheduleInvite(
+                            "invite_" + inviteId,
+                            nickname,
+                            "여행 일정에 참여하고 싶으시다면 여기를 클릭해 여행 일정에 참가해주세요",
+                            getTimeDisplay(createdAt),
+                            false,
+                            0,
+                            R.drawable.ic_schedule,
+                            senderUid,
+                            createdAt,
+                            scheduleId   // ← ⭐ 여기 추가됨
+                    );
+
+                    notification.setPostId(null);
+
+                    addNotificationToCache(notification);
+
+                    Log.d(TAG, "🎉 스케줄 초대 알림 생성됨!");
+                });
+    }
     private void createLocalFollowNotification(String followerId, long followedAt) {
         db.collection("user")
                 .document(followerId)
@@ -576,6 +660,7 @@ public class NotificationManager {
             commentListener = null;
             Log.d(TAG, "🛑 commentNotifications 리스너 해제");
         }
+
         isListening = false;
     }
 }

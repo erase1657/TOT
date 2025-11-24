@@ -21,6 +21,8 @@ public class NotificationDTO {
     private int iconResId;
     private long createdAt;
     private String postId; // ✅ 추가: 댓글 알림에서 게시글로 이동하기 위해 필요
+    private String scheduleId;
+
 
     private NotificationDTO(Builder builder) {
         this.id = builder.id;
@@ -40,11 +42,9 @@ public class NotificationDTO {
     /**
      * ✅ 스케줄 초대 알림 생성
      */
-    public static NotificationDTO createScheduleInvite(String id, String scheduleName,
-                                                       String content, String timeDisplay,
-                                                       boolean isRead, int unreadCount,
-                                                       int iconResId, String userId,
-                                                       long createdAt) {
+    public static NotificationDTO createScheduleInvite(String id, String scheduleName, String content, String timeDisplay,
+                                                       boolean isRead, int unreadCount, int iconResId, String userId,
+                                                       long createdAt, String scheduleId) {
         return new Builder(id, NotificationType.SCHEDULE_INVITE)
                 .title(scheduleName + " 여행 일정에 초대되었습니다")
                 .content(content)
@@ -53,6 +53,7 @@ public class NotificationDTO {
                 .unreadCount(unreadCount)
                 .iconResId(iconResId)
                 .userId(userId)
+                .scheduleId(scheduleId)   // ⭐ 추가
                 .createdAt(createdAt)
                 .build();
     }
@@ -110,7 +111,7 @@ public class NotificationDTO {
         private int iconResId;
         private long createdAt;
         private String postId;
-
+        private String scheduleId;
         public Builder(String id, NotificationType type) {
             this.id = id;
             this.type = type;
@@ -166,7 +167,10 @@ public class NotificationDTO {
             this.postId = postId;
             return this;
         }
-
+        public Builder scheduleId(String scheduleId) {
+            this.scheduleId = scheduleId;
+            return this;
+        }
         public NotificationDTO build() {
             return new NotificationDTO(this);
         }
@@ -186,10 +190,11 @@ public class NotificationDTO {
     public int getIconResId() { return iconResId; }
     public long getCreatedAt() { return createdAt; }
     public String getPostId() { return postId; } // ✅ 추가
-
+    public String getScheduleId() { return scheduleId; }
     // Setters
     public void setRead(boolean read) { isRead = read; }
     public void setUnreadCount(int count) { unreadCount = count; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
     public void setPostId(String postId) { this.postId = postId; } // ✅ 추가
+    public void setScheduleId(String scheduleId) { this.scheduleId = scheduleId; }
 }

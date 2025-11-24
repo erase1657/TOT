@@ -2,9 +2,7 @@ package com.example.tot.Schedule.ScheduleSetting.Invite;
 
 import android.app.Dialog;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Button;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -12,13 +10,14 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleSetting.ScheduleSettingActivity;
-import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class InviteDialog extends Dialog {
@@ -61,7 +60,7 @@ public class InviteDialog extends Dialog {
         btn_send_sns.setOnClickListener(v -> {
             FirebaseFirestore db = parentActivity.getFirestore();
             String scheduleId = parentActivity.getScheduleId();
-            sendKakaoInvite(scheduleId, db);
+            sendKakaoInvite(scheduleId);
         });
 
         btn_confirm.setOnClickListener(v -> dismiss());
@@ -139,51 +138,22 @@ public class InviteDialog extends Dialog {
     }
 
 
-    /**
-     * -------------------------------------------------------------
-     * 🔥 카카오 초대 메시지 생성 및 Firestore에 초대 데이터 저장
-     * -------------------------------------------------------------
-     */
-    private void sendKakaoInvite(String scheduleId, FirebaseFirestore db) {
+    private void sendKakaoInvite(String scheduleId) {
 
         String senderUid = FirebaseAuth.getInstance().getUid();
-        String receiverUid = null;   // 최초에는 null (초대 받은 사람이 앱 실행 시 설정)
         String inviteId = UUID.randomUUID().toString();
 
-        InviteDTO inviteDTO = new InviteDTO(
-                scheduleId,
-                senderUid,
-                receiverUid,
-                "pending",
-                Timestamp.now()
+        Long templateId = 125804L;
+
+        Map<String, String> templateArgs = new HashMap<>();
+        templateArgs.put("senderUid", senderUid);
+        templateArgs.put("scheduleId", scheduleId);
+        templateArgs.put("inviteId", inviteId);
+
+        KakaoShareHelper.shareCustomTemplate(
+                getContext(),
+                templateId,
+                templateArgs
         );
-
-        // 1) Firestore 초대 데이터 저장
-        db.collection("user")
-                .document(senderUid)
-                .collection("schedule")
-                .document(scheduleId)
-                .collection("invited")
-                .document(inviteId)
-                .set(inviteDTO)
-                .addOnSuccessListener(aVoid -> {
-
-                    Log.d("Invite", "🔥 초대 데이터 저장 성공: " + inviteId);
-                    Toast.makeText(getContext(), "초대가 생성되었습니다!", Toast.LENGTH_SHORT).show();
-
-                    // 2) 카카오 초대 URL 생성
-                    String inviteUrl = "https://erase1657.github.io/invite?scheduleId="
-                            + scheduleId + "&inviteId=" + inviteId;
-
-                    Long templateId = 125804L;
-
-                    // 3) Kakao 공유 실행
-                    KakaoShareHelper.shareCustomTemplate(getContext(), inviteUrl, templateId);
-
-                })
-                .addOnFailureListener(e -> {
-                    Log.e("Invite", "❌ 초대 데이터 저장 실패", e);
-                    Toast.makeText(getContext(), "초대 저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
     }
 }

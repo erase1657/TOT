@@ -26,19 +26,30 @@
         <activity
             android:name=".Map.MapActivity"
             android:exported="true" />
+
         <activity
             android:name=".SplashActivity"
             android:exported="true"
             android:theme="@style/Theme.TOT.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
         </activity>
         <activity
             android:name=".MainActivity"
-            android:exported="false" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="tot"
+                    android:host="invite" />
+            </intent-filter>
+
+        </activity>
         <activity
             android:name=".Schedule.ScheduleSetting.ScheduleSettingActivity"
             android:exported="false" />
