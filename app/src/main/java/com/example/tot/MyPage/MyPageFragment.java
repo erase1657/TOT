@@ -21,13 +21,13 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide;
 import com.example.tot.Authentication.LoginActivity;
 import com.example.tot.Authentication.UserDTO;
 import com.example.tot.Follow.FollowActivity;
 import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleDTO;
+import com.example.tot.User.ProfileImageHelper;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -37,16 +37,11 @@ import java.util.List;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
-/**
- * MyPageFragment - UI 관리
- * ✅ 프로필 관리 로직은 MyPageProfileManager로 분리
- */
 public class MyPageFragment extends Fragment {
 
     private static final String TAG = "MyPageFragment";
     private static final String ARG_USER_ID = "userId";
 
-    // UI 요소
     private CircleImageView imgProfile;
     private ImageView imgBackground;
     private ImageView btnLogout;
@@ -65,16 +60,13 @@ public class MyPageFragment extends Fragment {
     private RecyclerView rvMyTravels;
     private LinearLayout layoutNoTravel;
 
-    // 데이터
     private MyPageScheduleAdapter scheduleAdapter;
     private List<ScheduleDTO> scheduleList;
 
-    // Firebase
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
     private MyPageProfileManager profileManager;
 
-    // 상태
     private boolean isEditMode = false;
     private EditText etNameEdit;
     private EditText etStatusEdit;
@@ -159,10 +151,8 @@ public class MyPageFragment extends Fragment {
                 uri -> {
                     if (uri != null && isEditMode) {
                         tempProfileImageUri = uri;
-                        Glide.with(this)
-                                .load(uri)
-                                .placeholder(R.drawable.ic_profile_default)
-                                .into(imgProfile);
+                        // ✅ ProfileImageHelper 사용
+                        ProfileImageHelper.loadProfileImageFromUri(imgProfile, uri);
                         Toast.makeText(getContext(), "프로필 사진이 선택되었습니다", Toast.LENGTH_SHORT).show();
                     }
                 }
@@ -173,10 +163,8 @@ public class MyPageFragment extends Fragment {
                 uri -> {
                     if (uri != null && isEditMode) {
                         tempBackgroundImageUri = uri;
-                        Glide.with(this)
-                                .load(uri)
-                                .centerCrop()
-                                .into(imgBackground);
+                        // ✅ ProfileImageHelper 사용
+                        ProfileImageHelper.loadBackgroundImageFromUri(imgBackground, uri, R.drawable.sample3);
                         Toast.makeText(getContext(), "배경 사진이 선택되었습니다", Toast.LENGTH_SHORT).show();
                     }
                 }
@@ -299,24 +287,13 @@ public class MyPageFragment extends Fragment {
         tvStatusMessage.setText(user.getComment() != null && !user.getComment().isEmpty() ? user.getComment() : "상태메시지");
         tvLocation.setText(user.getAddress() != null && !user.getAddress().isEmpty() ? user.getAddress() : "위치 정보 없음");
 
-        // ✅ 프로필 이미지 로드
+        // ✅ 프로필 이미지 로드 - ProfileImageHelper 사용
         originalProfileImageUrl = user.getProfileImageUrl();
-        if (originalProfileImageUrl != null && !originalProfileImageUrl.isEmpty()) {
-            Glide.with(this).load(originalProfileImageUrl)
-                    .placeholder(R.drawable.ic_profile_default)
-                    .error(R.drawable.ic_profile_default)
-                    .into(imgProfile);
-        } else {
-            imgProfile.setImageResource(R.drawable.ic_profile_default);
-        }
+        ProfileImageHelper.loadProfileImage(imgProfile, originalProfileImageUrl);
 
-        // ✅ 배경 이미지 로드
+        // ✅ 배경 이미지 로드 - ProfileImageHelper 사용
         originalBackgroundImageUrl = user.getBackgroundImageUrl();
-        if (originalBackgroundImageUrl != null && !originalBackgroundImageUrl.isEmpty()) {
-            Glide.with(this).load(originalBackgroundImageUrl).centerCrop().into(imgBackground);
-        } else {
-            imgBackground.setImageResource(R.drawable.sample3);
-        }
+        ProfileImageHelper.loadBackgroundImage(imgBackground, originalBackgroundImageUrl, R.drawable.sample3);
 
         originalName = tvName.getText().toString();
         originalStatus = tvStatusMessage.getText().toString();
@@ -373,6 +350,9 @@ public class MyPageFragment extends Fragment {
             layoutNoTravel.setVisibility(View.GONE);
         }
     }
+
+// 계속...
+// MyPageFragment.java 계속...
 
     private void setupClickListeners() {
         btnBack.setOnClickListener(v -> {
@@ -558,14 +538,14 @@ public class MyPageFragment extends Fragment {
                         tvLocation.setText(newLocation.isEmpty() ? "위치 정보 없음" : newLocation);
 
                         if (tempProfileImageUri != null) {
-                            Glide.with(MyPageFragment.this).load(tempProfileImageUri)
-                                    .placeholder(R.drawable.ic_profile_default).into(imgProfile);
+                            // ✅ ProfileImageHelper 사용
+                            ProfileImageHelper.loadProfileImageFromUri(imgProfile, tempProfileImageUri);
                             tempProfileImageUri = null;
                         }
 
                         if (tempBackgroundImageUri != null) {
-                            Glide.with(MyPageFragment.this).load(tempBackgroundImageUri)
-                                    .centerCrop().into(imgBackground);
+                            // ✅ ProfileImageHelper 사용
+                            ProfileImageHelper.loadBackgroundImageFromUri(imgBackground, tempBackgroundImageUri, R.drawable.sample3);
                             tempBackgroundImageUri = null;
                         }
 
@@ -590,20 +570,14 @@ public class MyPageFragment extends Fragment {
 
     private void exitEditMode() {
         if (tempProfileImageUri != null) {
-            if (originalProfileImageUrl != null && !originalProfileImageUrl.isEmpty()) {
-                Glide.with(this).load(originalProfileImageUrl).placeholder(R.drawable.ic_profile_default).into(imgProfile);
-            } else {
-                imgProfile.setImageResource(R.drawable.ic_profile_default);
-            }
+            // ✅ ProfileImageHelper 사용
+            ProfileImageHelper.loadProfileImage(imgProfile, originalProfileImageUrl);
             tempProfileImageUri = null;
         }
 
         if (tempBackgroundImageUri != null) {
-            if (originalBackgroundImageUrl != null && !originalBackgroundImageUrl.isEmpty()) {
-                Glide.with(this).load(originalBackgroundImageUrl).centerCrop().into(imgBackground);
-            } else {
-                imgBackground.setImageResource(R.drawable.sample3);
-            }
+            // ✅ ProfileImageHelper 사용
+            ProfileImageHelper.loadBackgroundImage(imgBackground, originalBackgroundImageUrl, R.drawable.sample3);
             tempBackgroundImageUri = null;
         }
 
