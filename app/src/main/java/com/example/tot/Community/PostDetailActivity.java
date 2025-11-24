@@ -1,5 +1,6 @@
 package com.example.tot.Community;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -9,6 +10,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -17,6 +19,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.util.Pair;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
@@ -37,6 +40,8 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -44,6 +49,7 @@ import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -52,6 +58,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
@@ -60,6 +69,9 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
     private static final String TAG = "PostDetailActivity";
 
     private ImageView btnBack, btnComment, btnHeart, btnEdit, btnDelete;
+    private ImageView btnBottomHeart;
+    private TextView tvBottomHeartCount;
+    private Button btnCopySchedule;
     private ImageView imgThumbnail;
     private TextView tvLocation, tvDateRange, tvPhotoIndicator, tvPostTitle;
     private LinearLayout layoutDayButtons;
@@ -89,8 +101,12 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
     private ListenerRegistration postListener;
 
-    // ✅ 댓글창 자동 열기 플래그
     private boolean shouldOpenComments = false;
+
+    // 카피용 데이터
+    private long originalStartDate = 0;
+    private long originalEndDate = 0;
+    private String locationName = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,18 +114,15 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         setContentView(R.layout.activity_post_detail);
 
         db = FirebaseFirestore.getInstance();
-        communityPostsRef =
-                db.collection("public")
-                        .document("community")
-                        .collection("posts");
+        communityPostsRef = db.collection("public")
+                .document("community")
+                .collection("posts");
 
         currentUid = FirebaseAuth.getInstance().getUid();
 
         scheduleId = getIntent().getStringExtra("scheduleId");
         authorUid = getIntent().getStringExtra("authorUid");
         postId = getIntent().getStringExtra("postId");
-
-        // ✅ 댓글창 자동 열기 플래그 확인
         shouldOpenComments = getIntent().getBooleanExtra("openComments", false);
 
         initViews();
@@ -134,6 +147,11 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         tvPhotoIndicator = findViewById(R.id.tv_photo_indicator);
         rvScheduleItems = findViewById(R.id.rv_schedule_items);
 
+        // ✅ 하단 카피 버튼 영역
+        btnBottomHeart = findViewById(R.id.btn_bottom_heart);
+        tvBottomHeartCount = findViewById(R.id.tv_bottom_heart_count);
+        btnCopySchedule = findViewById(R.id.btn_copy_schedule);
+
         View layoutAuthor = findViewById(R.id.layout_author);
         imgAuthorProfile = layoutAuthor.findViewById(R.id.img_profile);
         tvAuthorName = layoutAuthor.findViewById(R.id.tv_user_name);
@@ -146,20 +164,20 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         layoutAuthor.findViewById(R.id.btn_menu).setVisibility(View.GONE);
 
         btnBack.setOnClickListener(v -> finish());
-
-        // ✅ 댓글 버튼 - 바텀시트 열기
         btnComment.setOnClickListener(v -> openCommentsBottomSheet());
-
         btnHeart.setOnClickListener(v -> toggleHeart());
         btnEdit.setOnClickListener(v -> editPost());
         btnDelete.setOnClickListener(v -> showDeleteConfirmDialog());
 
+        // ✅ 하단 하트 버튼
+        btnBottomHeart.setOnClickListener(v -> toggleHeart());
+
+        // ✅ 카피하기 버튼
+        btnCopySchedule.setOnClickListener(v -> showCopyScheduleDialog());
+
         rvScheduleItems.setLayoutManager(new LinearLayoutManager(this));
     }
 
-    /**
-     * ✅ 댓글 바텀시트 열기 (공통 메서드)
-     */
     private void openCommentsBottomSheet() {
         if (postId != null) {
             CommentsBottomSheetFragment bottomSheet = CommentsBottomSheetFragment.newInstance(postId);
@@ -171,9 +189,8 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
     }
 
     private void setupMap() {
-        SupportMapFragment mapFragment =
-                (SupportMapFragment) getSupportFragmentManager()
-                        .findFragmentById(R.id.map_fragment);
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map_fragment);
 
         if (mapFragment != null) {
             mapFragment.getMapAsync(this);
@@ -227,9 +244,10 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
                     if (snapshot != null && snapshot.exists()) {
                         Long heartCount = snapshot.getLong("heartCount");
-                        if (heartCount != null) currentHeartCount = heartCount.intValue();
-
-                        checkUserLikeStatus();
+                        if (heartCount != null) {
+                            currentHeartCount = heartCount.intValue();
+                            updateHeartUI();
+                        }
 
                         String title = snapshot.getString("title");
                         if (title != null) tvPostTitle.setText(title);
@@ -261,7 +279,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     if (!postDoc.exists()) return;
 
                     String postTitle = postDoc.getString("title");
-                    String locationName = postDoc.getString("locationName");
+                    locationName = postDoc.getString("locationName");
                     Long startDateLong = postDoc.getLong("startDate");
                     Long endDateLong = postDoc.getLong("endDate");
                     Long heartCount = postDoc.getLong("heartCount");
@@ -269,11 +287,16 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     if (postTitle != null) tvPostTitle.setText(postTitle);
                     if (locationName != null) tvLocation.setText(locationName);
 
-                    if (heartCount != null) currentHeartCount = heartCount.intValue();
+                    if (heartCount != null) {
+                        currentHeartCount = heartCount.intValue();
+                    }
 
                     checkUserLikeStatus();
 
                     if (startDateLong != null && endDateLong != null) {
+                        originalStartDate = startDateLong;
+                        originalEndDate = endDateLong;
+
                         SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd", Locale.getDefault());
                         tvDateRange.setText(
                                 sdf.format(new Date(startDateLong)) + "~" +
@@ -285,16 +308,367 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                         loadDayDataFromPublic(0);
                     }
 
-                    // ✅ 데이터 로드 완료 후 댓글창 자동 열기
                     if (shouldOpenComments) {
-                        // UI가 완전히 로드된 후 댓글창 열기 (500ms 딜레이)
                         new Handler(Looper.getMainLooper()).postDelayed(() -> {
                             openCommentsBottomSheet();
-                            shouldOpenComments = false; // 한 번만 실행되도록
+                            shouldOpenComments = false;
                         }, 500);
                     }
                 });
     }
+
+// Part 2로 계속...
+// Part 1에서 계속...
+
+    /**
+     * ✅ 카피 스케줄 다이얼로그 표시
+     */
+    private void showCopyScheduleDialog() {
+        if (currentUid == null) {
+            Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("스케줄 카피하기")
+                .setMessage("이 스케줄을 내 일정으로 가져오시겠습니까?")
+                .setPositiveButton("날짜 변경하고 가져오기", (dialog, which) -> showDatePickerForCopy())
+                .setNegativeButton("그대로 가져오기", (dialog, which) -> copyScheduleWithOriginalDates())
+                .setNeutralButton("취소", null)
+                .show();
+    }
+
+    /**
+     * ✅ 날짜 선택 다이얼로그
+     */
+    private void showDatePickerForCopy() {
+        MaterialDatePicker.Builder<Pair<Long, Long>> builder = MaterialDatePicker.Builder.dateRangePicker()
+                .setTheme(R.style.ThemeOverlay_App_DatePicker)
+                .setTitleText("여행 기간을 선택하세요");
+
+        if (originalStartDate != 0 && originalEndDate != 0) {
+            builder.setSelection(Pair.create(originalStartDate, originalEndDate));
+        }
+
+        MaterialDatePicker<Pair<Long, Long>> datePicker = builder.build();
+
+        datePicker.addOnPositiveButtonClickListener(selection -> {
+            Long startDateMillis = selection.first;
+            Long endDateMillis = selection.second;
+
+            TimeZone timeZone = TimeZone.getDefault();
+            long startOffset = timeZone.getOffset(startDateMillis);
+            long endOffset = timeZone.getOffset(endDateMillis);
+
+            long newStartDate = startDateMillis + startOffset;
+            long newEndDate = endDateMillis + endOffset;
+
+            long diffInMillis = newEndDate - newStartDate;
+            int newDays = (int) TimeUnit.MILLISECONDS.toDays(diffInMillis) + 1;
+
+            if (newDays < dateList.size()) {
+                Toast.makeText(this,
+                        String.format("최소 %d일 이상이어야 합니다.\n(원본 스케줄이 %d일입니다)",
+                                dateList.size(), dateList.size()),
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            copyScheduleWithNewDates(newStartDate, newEndDate);
+        });
+
+        datePicker.show(getSupportFragmentManager(), "copy_date_picker");
+    }
+
+    /**
+     * ✅ 원본 날짜로 카피
+     */
+    private void copyScheduleWithOriginalDates() {
+        if (originalStartDate == 0 || originalEndDate == 0) {
+            Toast.makeText(this, "날짜 정보를 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        copyScheduleWithNewDates(originalStartDate, originalEndDate);
+    }
+
+    /**
+     * ✅ 새로운 날짜로 카피 실행
+     */
+    private void copyScheduleWithNewDates(long newStartDate, long newEndDate) {
+        if (currentUid == null || postId == null) {
+            Toast.makeText(this, "스케줄을 가져올 수 없습니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        btnCopySchedule.setEnabled(false);
+        btnCopySchedule.setText("가져오는 중...");
+
+        // 새 스케줄 ID 생성
+        String newScheduleId = db.collection("user")
+                .document(currentUid)
+                .collection("schedule")
+                .document().getId();
+
+        // 새 스케줄 문서 생성
+        Map<String, Object> scheduleData = new HashMap<>();
+        scheduleData.put("scheduleId", newScheduleId);
+        scheduleData.put("locationName", locationName);
+        scheduleData.put("startDate", new Timestamp(new Date(newStartDate)));
+        scheduleData.put("endDate", new Timestamp(new Date(newEndDate)));
+        scheduleData.put("createdAt", System.currentTimeMillis());
+
+        db.collection("user")
+                .document(currentUid)
+                .collection("schedule")
+                .document(newScheduleId)
+                .set(scheduleData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "✅ 스케줄 문서 생성 완료: " + newScheduleId);
+                    copyScheduleDateData(newScheduleId, newStartDate, newEndDate);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 스케줄 생성 실패", e);
+                    Toast.makeText(this, "스케줄 생성 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    btnCopySchedule.setEnabled(true);
+                    btnCopySchedule.setText("카피하기");
+                });
+    }
+
+    /**
+     * ✅ 날짜별 데이터 복사
+     */
+    private void copyScheduleDateData(String newScheduleId, long newStartDate, long newEndDate) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
+        // 새 날짜 리스트 생성
+        List<String> newDateList = new ArrayList<>();
+        long diffMillis = newEndDate - newStartDate;
+        int days = (int) TimeUnit.MILLISECONDS.toDays(diffMillis) + 1;
+
+        for (int i = 0; i < days; i++) {
+            Date date = new Date(newStartDate + TimeUnit.DAYS.toMillis(i));
+            newDateList.add(sdf.format(date));
+        }
+
+        // 원본 날짜와 새 날짜 매핑
+        Map<String, String> dateMapping = new HashMap<>();
+        for (int i = 0; i < Math.min(dateList.size(), newDateList.size()); i++) {
+            dateMapping.put(dateList.get(i), newDateList.get(i));
+        }
+
+        AtomicInteger pendingCopies = new AtomicInteger(dateMapping.size() * 2);
+
+        for (Map.Entry<String, String> entry : dateMapping.entrySet()) {
+            String oldDateKey = entry.getKey();
+            String newDateKey = entry.getValue();
+            int dayIndex = newDateList.indexOf(newDateKey) + 1;
+
+            // 날짜 문서 생성
+            Map<String, Object> dateDoc = new HashMap<>();
+            dateDoc.put("dayIndex", dayIndex);
+            dateDoc.put("date", newDateKey);
+
+            db.collection("user")
+                    .document(currentUid)
+                    .collection("schedule")
+                    .document(newScheduleId)
+                    .collection("scheduleDate")
+                    .document(newDateKey)
+                    .set(dateDoc)
+                    .addOnSuccessListener(aVoid -> {
+                        if (pendingCopies.decrementAndGet() == 0) {
+                            finishCopy(newScheduleId, newStartDate, newEndDate);
+                        }
+                    });
+
+            // scheduleItem + album 복사
+            copyScheduleItemsAndAlbum(oldDateKey, newDateKey, newScheduleId, () -> {
+                if (pendingCopies.decrementAndGet() == 0) {
+                    finishCopy(newScheduleId, newStartDate, newEndDate);
+                }
+            });
+        }
+    }
+
+    /**
+     * ✅ 일정 + 앨범 복사
+     */
+    private void copyScheduleItemsAndAlbum(String oldDateKey, String newDateKey, String newScheduleId, Runnable onComplete) {
+        CollectionReference sourceItems = communityPostsRef
+                .document(postId)
+                .collection("scheduleDate")
+                .document(oldDateKey)
+                .collection("scheduleItem");
+
+        CollectionReference destItems = db.collection("user")
+                .document(currentUid)
+                .collection("schedule")
+                .document(newScheduleId)
+                .collection("scheduleDate")
+                .document(newDateKey)
+                .collection("scheduleItem");
+
+        sourceItems.get().addOnSuccessListener(snapshot -> {
+            if (snapshot.isEmpty()) {
+                copyAlbumData(oldDateKey, newDateKey, newScheduleId, onComplete);
+                return;
+            }
+
+            WriteBatch batch = db.batch();
+            for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                Map<String, Object> data = doc.getData();
+                if (data != null) {
+                    batch.set(destItems.document(doc.getId()), data);
+                }
+            }
+
+            batch.commit().addOnSuccessListener(aVoid -> {
+                copyAlbumData(oldDateKey, newDateKey, newScheduleId, onComplete);
+            }).addOnFailureListener(e -> {
+                Log.e(TAG, "❌ 일정 복사 실패", e);
+                onComplete.run();
+            });
+        });
+    }
+
+    /**
+     * ✅ 앨범 데이터 복사
+     */
+    private void copyAlbumData(String oldDateKey, String newDateKey, String newScheduleId, Runnable onComplete) {
+        CollectionReference sourceAlbum = communityPostsRef
+                .document(postId)
+                .collection("scheduleDate")
+                .document(oldDateKey)
+                .collection("album");
+
+        CollectionReference destAlbum = db.collection("user")
+                .document(currentUid)
+                .collection("schedule")
+                .document(newScheduleId)
+                .collection("scheduleDate")
+                .document(newDateKey)
+                .collection("album");
+
+        sourceAlbum.get().addOnSuccessListener(snapshot -> {
+            if (snapshot.isEmpty()) {
+                onComplete.run();
+                return;
+            }
+
+            WriteBatch batch = db.batch();
+            for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                Map<String, Object> data = doc.getData();
+                if (data != null) {
+                    batch.set(destAlbum.document(doc.getId()), data);
+                }
+            }
+
+            batch.commit().addOnSuccessListener(aVoid -> {
+                Log.d(TAG, "✅ 앨범 복사 완료: " + newDateKey);
+                onComplete.run();
+            }).addOnFailureListener(e -> {
+                Log.e(TAG, "❌ 앨범 복사 실패", e);
+                onComplete.run();
+            });
+        });
+    }
+
+    /**
+     * ✅ 카피 완료
+     */
+    private void finishCopy(String newScheduleId, long newStartDate, long newEndDate) {
+        runOnUiThread(() -> {
+            Toast.makeText(this, "스케줄을 내 일정으로 가져왔습니다!", Toast.LENGTH_SHORT).show();
+            btnCopySchedule.setEnabled(true);
+            btnCopySchedule.setText("카피하기");
+
+            // 스케줄 설정 화면으로 이동
+            Intent intent = new Intent(PostDetailActivity.this, ScheduleSettingActivity.class);
+            intent.putExtra("scheduleId", newScheduleId);
+            intent.putExtra("startDate", newStartDate);
+            intent.putExtra("endDate", newEndDate);
+            startActivity(intent);
+        });
+    }
+
+    private void toggleHeart() {
+        if (currentUid == null || postId == null) {
+            Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        btnHeart.setEnabled(false);
+        btnBottomHeart.setEnabled(false);
+
+        if (isLiked) {
+            communityPostsRef.document(postId)
+                    .collection("likes")
+                    .document(currentUid)
+                    .delete()
+                    .addOnSuccessListener(aVoid -> {
+                        communityPostsRef.document(postId)
+                                .update("heartCount", FieldValue.increment(-1))
+                                .addOnSuccessListener(aVoid2 -> {
+                                    isLiked = false;
+                                    currentHeartCount--;
+                                    updateHeartUI();
+                                    btnHeart.setEnabled(true);
+                                    btnBottomHeart.setEnabled(true);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Toast.makeText(this, "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
+                                    btnHeart.setEnabled(true);
+                                    btnBottomHeart.setEnabled(true);
+                                });
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
+                        btnHeart.setEnabled(true);
+                        btnBottomHeart.setEnabled(true);
+                    });
+        } else {
+            Map<String, Object> likeData = new HashMap<>();
+            likeData.put("userId", currentUid);
+            likeData.put("timestamp", System.currentTimeMillis());
+
+            communityPostsRef.document(postId)
+                    .collection("likes")
+                    .document(currentUid)
+                    .set(likeData)
+                    .addOnSuccessListener(aVoid -> {
+                        communityPostsRef.document(postId)
+                                .update("heartCount", FieldValue.increment(1))
+                                .addOnSuccessListener(aVoid2 -> {
+                                    isLiked = true;
+                                    currentHeartCount++;
+                                    updateHeartUI();
+                                    btnHeart.setEnabled(true);
+                                    btnBottomHeart.setEnabled(true);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Toast.makeText(this, "좋아요 실패", Toast.LENGTH_SHORT).show();
+                                    btnHeart.setEnabled(true);
+                                    btnBottomHeart.setEnabled(true);
+                                });
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "좋아요 실패", Toast.LENGTH_SHORT).show();
+                        btnHeart.setEnabled(true);
+                        btnBottomHeart.setEnabled(true);
+                    });
+        }
+    }
+
+    private void updateHeartUI() {
+        int iconRes = isLiked ? R.drawable.ic_heart_c : R.drawable.ic_heart;
+        btnHeart.setImageResource(iconRes);
+        btnBottomHeart.setImageResource(iconRes);
+        tvBottomHeartCount.setText(String.valueOf(currentHeartCount));
+    }
+
+// Part 3으로 계속...
+// Part 2에서 계속...
 
     private void editPost() {
         if (scheduleId == null || authorUid == null) {
@@ -313,17 +687,12 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                         Long endDateLong = doc.getLong("endDate");
 
                         if (startDateLong != null && endDateLong != null) {
-                            Intent intent = new Intent(
-                                    PostDetailActivity.this,
-                                    ScheduleSettingActivity.class
-                            );
-
+                            Intent intent = new Intent(PostDetailActivity.this, ScheduleSettingActivity.class);
                             intent.putExtra("scheduleId", scheduleId);
                             intent.putExtra("startDate", startDateLong);
                             intent.putExtra("endDate", endDateLong);
                             intent.putExtra("fromPostEdit", true);
                             intent.putExtra("postId", postId);
-
                             startActivity(intent);
                         } else {
                             Toast.makeText(this, "스케줄 날짜 정보가 없습니다", Toast.LENGTH_SHORT).show();
@@ -415,13 +784,9 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                 });
     }
 
-    /**
-     * ✅ 좋아요 + 댓글 컬렉션 삭제
-     */
     private void deleteLikesAndCommentsCollection(Runnable onComplete) {
-        final int[] collectionsToDelete = {2}; // likes, comments
+        final int[] collectionsToDelete = {2};
 
-        // 좋아요 삭제
         communityPostsRef.document(postId)
                 .collection("likes")
                 .get()
@@ -449,7 +814,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     if (collectionsToDelete[0] == 0) onComplete.run();
                 });
 
-        // 댓글 삭제
         communityPostsRef.document(postId)
                 .collection("comments")
                 .get()
@@ -495,11 +859,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                             @Override
                             public void onSuccess(boolean nowFollowing) {
                                 isFollowing = nowFollowing;
-                                FollowButtonHelper.updateFollowButton(
-                                        btnFollowAuthor,
-                                        isFollowing,
-                                        isFollower
-                                );
+                                FollowButtonHelper.updateFollowButton(btnFollowAuthor, isFollowing, isFollower);
                             }
 
                             @Override
@@ -530,10 +890,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
             TextView dayBtn = new TextView(this);
             dayBtn.setText((i + 1) + "일차");
             dayBtn.setTextSize(14);
-            dayBtn.setTextColor(
-                    i == 0 ? Color.parseColor("#575DFB") :
-                            Color.parseColor("#666666")
-            );
+            dayBtn.setTextColor(i == 0 ? Color.parseColor("#575DFB") : Color.parseColor("#666666"));
             dayBtn.setPadding(dpToPx(16), dpToPx(8), dpToPx(16), dpToPx(8));
 
             int dayIndex = i;
@@ -548,14 +905,10 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
         for (int i = 0; i < layoutDayButtons.getChildCount(); i++) {
             TextView btn = (TextView) layoutDayButtons.getChildAt(i);
-            btn.setTextColor(
-                    i == dayIndex ? Color.parseColor("#575DFB") :
-                            Color.parseColor("#666666")
-            );
+            btn.setTextColor(i == dayIndex ? Color.parseColor("#575DFB") : Color.parseColor("#666666"));
         }
 
-        ViewGroup.MarginLayoutParams params =
-                (ViewGroup.MarginLayoutParams) viewDayIndicator.getLayoutParams();
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) viewDayIndicator.getLayoutParams();
         params.leftMargin = dpToPx(16 + dayIndex * 70);
         viewDayIndicator.setLayoutParams(params);
 
@@ -595,9 +948,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                                 new ViewPager2.OnPageChangeCallback() {
                                     @Override
                                     public void onPageSelected(int position) {
-                                        tvPhotoIndicator.setText(
-                                                (position + 1) + " / " + currentPhotos.size()
-                                        );
+                                        tvPhotoIndicator.setText((position + 1) + " / " + currentPhotos.size());
                                     }
                                 }
                         );
@@ -616,23 +967,14 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     currentScheduleItems.clear();
                     snap.forEach(doc -> currentScheduleItems.add(doc.toObject(ScheduleItemDTO.class)));
 
-                    ScheduleItemAdapter adapter =
-                            new ScheduleItemAdapter((item, docId) -> {});
-
-                    adapter.submitList(
-                            new ArrayList<>(currentScheduleItems),
-                            new ArrayList<>()
-                    );
-
+                    ScheduleItemAdapter adapter = new ScheduleItemAdapter((item, docId) -> {});
+                    adapter.submitList(new ArrayList<>(currentScheduleItems), new ArrayList<>());
                     adapter.setReadOnlyMode(true);
 
                     rvScheduleItems.setAdapter(adapter);
                 });
     }
 
-    /**
-     * ✅ 지도 마커 + 폴리라인 추가
-     */
     private void loadMapMarkersFromPublic(String dateKey) {
         if (mMap == null) return;
 
@@ -666,7 +1008,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                         }
                     }
 
-                    // 폴리라인 추가
                     if (points.size() > 1) {
                         mMap.addPolyline(polylineOptions.addAll(points));
                     }
@@ -722,75 +1063,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                 });
     }
 
-    private void toggleHeart() {
-        if (currentUid == null || postId == null) {
-            Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        btnHeart.setEnabled(false);
-
-        if (isLiked) {
-            communityPostsRef.document(postId)
-                    .collection("likes")
-                    .document(currentUid)
-                    .delete()
-                    .addOnSuccessListener(aVoid -> {
-                        communityPostsRef.document(postId)
-                                .update("heartCount", FieldValue.increment(-1))
-                                .addOnSuccessListener(aVoid2 -> {
-                                    isLiked = false;
-                                    currentHeartCount--;
-                                    updateHeartUI();
-                                    btnHeart.setEnabled(true);
-                                })
-                                .addOnFailureListener(e -> {
-                                    Toast.makeText(this, "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
-                                    btnHeart.setEnabled(true);
-                                });
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(this, "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
-                        btnHeart.setEnabled(true);
-                    });
-        } else {
-            Map<String, Object> likeData = new HashMap<>();
-            likeData.put("userId", currentUid);
-            likeData.put("timestamp", System.currentTimeMillis());
-
-            communityPostsRef.document(postId)
-                    .collection("likes")
-                    .document(currentUid)
-                    .set(likeData)
-                    .addOnSuccessListener(aVoid -> {
-                        communityPostsRef.document(postId)
-                                .update("heartCount", FieldValue.increment(1))
-                                .addOnSuccessListener(aVoid2 -> {
-                                    isLiked = true;
-                                    currentHeartCount++;
-                                    updateHeartUI();
-                                    btnHeart.setEnabled(true);
-                                })
-                                .addOnFailureListener(e -> {
-                                    Toast.makeText(this, "좋아요 실패", Toast.LENGTH_SHORT).show();
-                                    btnHeart.setEnabled(true);
-                                });
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(this, "좋아요 실패", Toast.LENGTH_SHORT).show();
-                        btnHeart.setEnabled(true);
-                    });
-        }
-    }
-
-    private void updateHeartUI() {
-        if (isLiked) {
-            btnHeart.setImageResource(R.drawable.ic_heart_c);
-        } else {
-            btnHeart.setImageResource(R.drawable.ic_heart);
-        }
-    }
-
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -820,21 +1092,14 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
         @NonNull
         @Override
-        public PhotoViewHolder onCreateViewHolder(
-                @NonNull ViewGroup parent,
-                int viewType
-        ) {
+        public PhotoViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
             View view = LayoutInflater.from(parent.getContext())
                     .inflate(R.layout.item_post_photo, parent, false);
-
             return new PhotoViewHolder(view);
         }
 
         @Override
-        public void onBindViewHolder(
-                @NonNull PhotoViewHolder holder,
-                int position
-        ) {
+        public void onBindViewHolder(@NonNull PhotoViewHolder holder, int position) {
             AlbumDTO photo = photos.get(position);
 
             Glide.with(PostDetailActivity.this)
