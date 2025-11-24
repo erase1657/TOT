@@ -11,9 +11,10 @@ public class ScheduleDTO{
     private DocumentReference thumbnailRef;
     private String inviteCode;
     private int invitedCount;
-
+    private String background; // 배경 이미지 URL 필드 추가
 
     public ScheduleDTO() {
+        // Firestore Deserialization을 위한 빈 생성자
     }
 
     public ScheduleDTO(String scheduleId, String locationName, Timestamp startDate, Timestamp endDate, DocumentReference thumbnailRef, String inviteCode, int invitedCount) {
@@ -24,8 +25,9 @@ public class ScheduleDTO{
         this.thumbnailRef = thumbnailRef;
         this.inviteCode = inviteCode;
         this.invitedCount = invitedCount;
-
     }
+
+    // --- 기존 Getter/Setter ---
 
     public String getScheduleId() {
         return scheduleId;
@@ -81,5 +83,14 @@ public class ScheduleDTO{
 
     public void setInvitedCount(int invitedCount) {
         this.invitedCount = invitedCount;
+    }
+
+    // ▼▼▼ 새로 추가된 Getter/Setter ▼▼▼
+    public String getBackground() {
+        return background;
+    }
+
+    public void setBackground(String background) {
+        this.background = background;
     }
 }

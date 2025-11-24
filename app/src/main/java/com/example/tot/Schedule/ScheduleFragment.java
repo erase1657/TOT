@@ -1,6 +1,7 @@
 package com.example.tot.Schedule;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -12,6 +13,9 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -30,6 +34,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -55,9 +61,23 @@ public class ScheduleFragment extends Fragment implements ScheduleAdapter.OnSche
     private ListenerRegistration scheduleListener;
 
     private String selectedDateRange = "";
+    private ScheduleDTO selectedSchedule;
+    private ActivityResultLauncher<PickVisualMediaRequest> photoPickerLauncher;
 
     public ScheduleFragment() {
         super(R.layout.fragment_schedule);
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        photoPickerLauncher = registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
+            if (uri != null && selectedSchedule != null) {
+                uploadImageToFirebaseStorage(uri, selectedSchedule);
+            } else {
+                Log.d("PhotoPicker", "No media selected");
+            }
+        });
     }
 
     @Override
@@ -280,6 +300,35 @@ public class ScheduleFragment extends Fragment implements ScheduleAdapter.OnSche
                 .setPositiveButton("삭제", (dialog, which) -> deleteSchedule(schedule))
                 .setNegativeButton("취소", null)
                 .show();
+    }
+
+    @Override
+    public void onScheduleChangeBackgroundClick(ScheduleDTO schedule, int position) {
+        this.selectedSchedule = schedule;
+        photoPickerLauncher.launch(new PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                .build());
+    }
+
+    private void uploadImageToFirebaseStorage(Uri imageUri, ScheduleDTO schedule) {
+        String uid = auth.getCurrentUser().getUid();
+        String scheduleId = schedule.getScheduleId();
+        StorageReference storageRef = FirebaseStorage.getInstance().getReference()
+                .child("schedule_backgrounds/" + uid + "/" + scheduleId + ".jpg");
+
+        storageRef.putFile(imageUri)
+                .addOnSuccessListener(taskSnapshot -> storageRef.getDownloadUrl().addOnSuccessListener(uri -> {
+                    String imageUrl = uri.toString();
+                    db.collection("user").document(uid)
+                            .collection("schedule").document(scheduleId)
+                            .update("background", imageUrl)
+                            .addOnSuccessListener(aVoid -> {
+                                Toast.makeText(getContext(), "배경 이미지가 변경되었습니다.", Toast.LENGTH_SHORT).show();
+                                // The Firestore listener will handle the UI update
+                            })
+                            .addOnFailureListener(e -> Toast.makeText(getContext(), "이미지 URL 업데이트 실패", Toast.LENGTH_SHORT).show());
+                }))
+                .addOnFailureListener(e -> Toast.makeText(getContext(), "이미지 업로드 실패", Toast.LENGTH_SHORT).show());
     }
 
     private void deleteSchedule(ScheduleDTO schedule) {

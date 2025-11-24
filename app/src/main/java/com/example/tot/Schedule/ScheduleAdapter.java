@@ -1,6 +1,7 @@
 package com.example.tot.Schedule;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +13,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.example.tot.R;
 
 import java.text.SimpleDateFormat;
@@ -30,10 +32,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
     public interface OnScheduleClickListener {
         void onScheduleClick(ScheduleDTO schedule, int position);
         void onScheduleDeleteClick(ScheduleDTO schedule, int position);
-    }
-
-    public ScheduleAdapter(List<ScheduleDTO> scheduleList) {
-        this.scheduleList = scheduleList != null ? scheduleList : new ArrayList<>();
+        void onScheduleChangeBackgroundClick(ScheduleDTO schedule, int position);
     }
 
     public ScheduleAdapter(List<ScheduleDTO> scheduleList, OnScheduleClickListener clickListener) {
@@ -62,13 +61,23 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
         String date = start + " ~ " + end;
 
         long diffInMillis = endDate.getTime() - startDate.getTime();
-        long nights = TimeUnit.MILLISECONDS.toDays(diffInMillis); // 2박
+        long nights = TimeUnit.MILLISECONDS.toDays(diffInMillis);
         long days = nights + 1;
 
-        holder.tvDate.setText(String.format("%s~%s", start, end)); // 2020/1/3~2020/1/5
-        holder.tvDateRange.setText(String.format("%d박%d일", nights, days)); // 2박3일
         holder.tvDate.setText(date);
-        //TODO:홀더에 백그라운드 이미지도 설정하게 만들어야함.
+        holder.tvDateRange.setText(String.format("%d박%d일", nights, days));
+
+        // ▼▼▼ 이미지 로딩 코드 수정 ▼▼▼
+        String imageUrl = schedule.getBackground();
+        if (!TextUtils.isEmpty(imageUrl)) {
+            Glide.with(holder.itemView.getContext())
+                    .load(imageUrl)
+                    .into(holder.imgBackground);
+        } else {
+            // 이미지 URL이 없을 경우 기본 이미지 설정
+            holder.imgBackground.setImageResource(R.drawable.sample1);
+        }
+        // ▲▲▲ 이미지 로딩 코드 수정 ▲▲▲
 
         // 클릭 이벤트 설정
         if (clickListener != null) {
@@ -86,9 +95,15 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
         PopupMenu popup = new PopupMenu(context, view);
         popup.getMenuInflater().inflate(R.menu.schedule_item_menu, popup.getMenu());
         popup.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == R.id.action_delete) {
+            int itemId = item.getItemId();
+            if (itemId == R.id.action_delete) {
                 if (clickListener != null) {
                     clickListener.onScheduleDeleteClick(schedule, position);
+                }
+                return true;
+            } else if (itemId == R.id.action_change_background) {
+                if (clickListener != null) {
+                    clickListener.onScheduleChangeBackgroundClick(schedule, position);
                 }
                 return true;
             }
@@ -102,33 +117,12 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
         return scheduleList.size();
     }
 
-    /**
-     * 스케줄 데이터 업데이트 메서드
-     */
     public void updateData(List<ScheduleDTO> newScheduleList) {
         this.scheduleList.clear();
         if (newScheduleList != null) {
             this.scheduleList.addAll(newScheduleList);
         }
         notifyDataSetChanged();
-    }
-
-    /**
-     * 스케줄 추가 메서드
-     */
-    public void addSchedule(ScheduleDTO schedule) {
-        this.scheduleList.add(schedule);
-        notifyItemInserted(scheduleList.size() - 1);
-    }
-
-    /**
-     * 스케줄 삭제 메서드
-     */
-    public void removeSchedule(int position) {
-        if (position >= 0 && position < scheduleList.size()) {
-            this.scheduleList.remove(position);
-            notifyItemRemoved(position);
-        }
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
