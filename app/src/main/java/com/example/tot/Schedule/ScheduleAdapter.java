@@ -3,7 +3,9 @@ package com.example.tot.Schedule;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -22,10 +24,20 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
 
     private final List<ScheduleDTO> scheduleList;
     private final OnScheduleClickListener clickListener;
+    private OnDeleteButtonClickListener deleteButtonClickListener; // Listener for delete button clicks
 
     // 클릭 리스너 인터페이스
     public interface OnScheduleClickListener {
         void onScheduleClick(ScheduleDTO schedule, int position);
+    }
+
+    // 삭제 버튼 클릭 리스너 인터페이스
+    public interface OnDeleteButtonClickListener {
+        void onDeleteClick(ScheduleDTO schedule, int position);
+    }
+
+    public void setOnDeleteButtonClickListener(OnDeleteButtonClickListener listener) {
+        this.deleteButtonClickListener = listener;
     }
 
     public ScheduleAdapter(List<ScheduleDTO> scheduleList) {
@@ -49,7 +61,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         ScheduleDTO schedule = scheduleList.get(position);
-        holder.bind(schedule, clickListener);
+        holder.bind(schedule, clickListener, deleteButtonClickListener);
     }
 
     @Override
@@ -99,6 +111,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
         TextView tvLocation;
         TextView tvDateRange;
         TextView tvDate;
+        ImageButton btnDelete;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -106,9 +119,10 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
             tvLocation = itemView.findViewById(R.id.tv_schedule_location);
             tvDateRange = itemView.findViewById(R.id.tv_date_range);
             tvDate = itemView.findViewById(R.id.tv_date);
+            btnDelete = itemView.findViewById(R.id.btn_delete_schedule);
         }
 
-        public void bind(ScheduleDTO schedule, OnScheduleClickListener listener) {
+        public void bind(ScheduleDTO schedule, OnScheduleClickListener listener, OnDeleteButtonClickListener deleteListener) {
             // Null 체크
             if (schedule == null) return;
 
@@ -174,6 +188,25 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
                     if (position != RecyclerView.NO_POSITION) {
                         listener.onScheduleClick(schedule, position);
                     }
+                });
+            }
+
+            // 삭제 버튼 클릭 이벤트
+            if (deleteListener != null) {
+                btnDelete.setOnClickListener(v -> {
+                    PopupMenu popup = new PopupMenu(v.getContext(), btnDelete);
+                    popup.getMenuInflater().inflate(R.menu.menu_schedule, popup.getMenu());
+                    popup.setOnMenuItemClickListener(menuItem -> {
+                        if (menuItem.getItemId() == R.id.menu_delete) {
+                            int position = getAdapterPosition();
+                            if (position != RecyclerView.NO_POSITION) {
+                                deleteListener.onDeleteClick(schedule, position);
+                            }
+                            return true;
+                        }
+                        return false;
+                    });
+                    popup.show();
                 });
             }
         }
