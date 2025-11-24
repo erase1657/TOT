@@ -1,11 +1,11 @@
 package com.example.tot;
-import com.example.tot.BuildConfig;
+
 import android.app.Application;
 
+import com.example.tot.Notification.NotificationManager;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.kakao.sdk.common.KakaoSdk;
-
 
 public class TOTApplication extends Application {
 
@@ -19,7 +19,11 @@ public class TOTApplication extends Application {
                 .setPersistenceEnabled(true)  // 캐시 활성화
                 .build();
         firestore.setFirestoreSettings(settings);
+
+        // ✅ Kakao SDK 초기화
         KakaoSdk.init(this, BuildConfig.KAKAO_NATIVE_KEY);
 
+        // ✅ NotificationManager 초기화 추가
+        NotificationManager.getInstance().init(this);
     }
 }

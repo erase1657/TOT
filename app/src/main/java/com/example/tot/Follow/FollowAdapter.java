@@ -2,7 +2,6 @@ package com.example.tot.Follow;
 
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,8 +17,11 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -82,6 +84,42 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
         notifyDataSetChanged();
     }
 
+    /**
+     * ✅ 프로필 이미지 로드 헬퍼 메서드
+     * - 캐시 활성화로 깜빡임 방지
+     */
+    private void loadProfileImage(CircleImageView imageView, String userId) {
+        if (userId == null || userId.isEmpty()) {
+            imageView.setImageResource(R.drawable.ic_profile_default);
+            return;
+        }
+
+        FirebaseFirestore.getInstance()
+                .collection("user")
+                .document(userId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        String profileUrl = doc.getString("profileImageUrl");
+                        if (profileUrl != null && !profileUrl.isEmpty()) {
+                            Glide.with(imageView.getContext())
+                                    .load(profileUrl)
+                                    .diskCacheStrategy(DiskCacheStrategy.ALL) // ✅ 캐시 활성화
+                                    .placeholder(R.drawable.ic_profile_default)
+                                    .error(R.drawable.ic_profile_default)
+                                    .into(imageView);
+                        } else {
+                            imageView.setImageResource(R.drawable.ic_profile_default);
+                        }
+                    } else {
+                        imageView.setImageResource(R.drawable.ic_profile_default);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    imageView.setImageResource(R.drawable.ic_profile_default);
+                });
+    }
+
     class ViewHolder extends RecyclerView.ViewHolder {
         CircleImageView imgProfile;
         TextView tvUserName;
@@ -113,13 +151,10 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
         public void bind(FollowUserDTO user, int position) {
             if (user == null) return;
 
-            if (user.getProfileImage() != 0) {
-                imgProfile.setImageResource(user.getProfileImage());
-            } else {
-                imgProfile.setImageResource(R.drawable.ic_profile_default);
-            }
-
             tvUserName.setText(user.getUserName());
+
+            // ✅ 캐시 활성화된 이미지 로드
+            loadProfileImage(imgProfile, user.getUserId());
 
             if (isFollowerMode && isMyProfile && !user.isFollowing()) {
                 tvFollowBack.setVisibility(View.VISIBLE);
@@ -141,7 +176,7 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                 btnEditNickname.setVisibility(View.GONE);
             }
 
-            updateFollowButton(user);
+            FollowButtonHelper.updateFollowButton(btnFollow, user.isFollowing(), user.isFollower());
 
             if (isFollowerMode && isMyProfile) {
                 btnMenu.setVisibility(View.VISIBLE);
@@ -152,55 +187,9 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
             setupClickListeners(user, position);
         }
 
-        private void updateFollowButton(FollowUserDTO user) {
-            GradientDrawable btnBg = new GradientDrawable();
-            btnBg.setCornerRadius(dpToPx(10));
-
-            if (isMyProfile) {
-                if (isFollowerMode) {
-                    if (user.isFollowing()) {
-                        btnFollow.setText("팔로우 중");
-                        btnBg.setColor(0xFFE0E0E0);
-                        btnFollow.setTextColor(0xFF666666);
-                    } else {
-                        btnFollow.setText("맞 팔로우");
-                        btnBg.setColor(0xFF575DFB);
-                        btnFollow.setTextColor(0xFFFFFFFF);
-                    }
-                } else {
-                    if (user.isFollowing()) {
-                        btnFollow.setText("팔로우 중");
-                        btnBg.setColor(0xFFE0E0E0);
-                        btnFollow.setTextColor(0xFF666666);
-                    } else {
-                        btnFollow.setText("팔로우");
-                        btnBg.setColor(0xFF575DFB);
-                        btnFollow.setTextColor(0xFFFFFFFF);
-                    }
-                }
-            } else {
-                if (user.isFollower() && user.isFollowing()) {
-                    btnFollow.setText("팔로우 중");
-                    btnBg.setColor(0xFFE0E0E0);
-                    btnFollow.setTextColor(0xFF666666);
-                } else if (user.isFollower()) {
-                    btnFollow.setText("맞 팔로우");
-                    btnBg.setColor(0xFF575DFB);
-                    btnFollow.setTextColor(0xFFFFFFFF);
-                } else {
-                    btnFollow.setText("팔로우");
-                    btnBg.setColor(0xFF575DFB);
-                    btnFollow.setTextColor(0xFFFFFFFF);
-                }
-            }
-
-            btnFollow.setBackground(btnBg);
-        }
-
         private void setupClickListeners(FollowUserDTO user, int position) {
             imgProfile.setOnClickListener(v -> {
                 String userId = user.getUserId();
-                // ✅ userId가 없는 더미 데이터는 Toast만 표시하고 화면 전환 안 함
                 if (userId == null || userId.isEmpty()) {
                     Toast.makeText(itemView.getContext(),
                             "프로필 정보가 없는 사용자입니다 (더미 데이터)",
@@ -213,7 +202,6 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
                 itemView.getContext().startActivity(intent);
             });
 
-            // tvUserName 클릭 시에도 동일한 처리
             tvUserName.setOnClickListener(v -> {
                 String userId = user.getUserId();
                 if (userId == null || userId.isEmpty()) {
@@ -249,7 +237,7 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
             btnFollow.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onFollowClick(user, position);
-                    updateFollowButton(user);
+                    FollowButtonHelper.updateFollowButton(btnFollow, user.isFollowing(), user.isFollower());
                 }
             });
 
@@ -318,11 +306,6 @@ public class FollowAdapter extends RecyclerView.Adapter<FollowAdapter.ViewHolder
             });
 
             popup.show();
-        }
-
-        private int dpToPx(int dp) {
-            float density = itemView.getResources().getDisplayMetrics().density;
-            return Math.round(dp * density);
         }
     }
 }

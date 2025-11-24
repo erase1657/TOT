@@ -4,24 +4,29 @@ import com.google.firebase.Timestamp;
 
 /**
  * 유저 정보 DTO(데이터 객체)
- * uid,email,password 항목은 파이어베이스 시스템 내부에서 저장/관리
+ * ✅ backgroundImageUrl 필드 추가
  */
 public class UserDTO {
     private String nickname;
     private String profileImageUrl;
+    private String backgroundImageUrl;  // ✅ 배경 이미지 URL 추가
     private String comment;
     private String address;
     private Timestamp createAt;
 
-    public UserDTO() {};
-    public UserDTO(String nickname, String profileImageUrl, String comment, String address, Timestamp createAt) {
+    public UserDTO() {}
+
+    public UserDTO(String nickname, String profileImageUrl, String backgroundImageUrl,
+                   String comment, String address, Timestamp createAt) {
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
+        this.backgroundImageUrl = backgroundImageUrl;
         this.comment = comment;
         this.address = address;
         this.createAt = createAt;
     }
 
+    // Getters and Setters
     public String getNickname() {
         return nickname;
     }
@@ -36,6 +41,14 @@ public class UserDTO {
 
     public void setProfileImageUrl(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
+    }
+
+    public String getBackgroundImageUrl() {
+        return backgroundImageUrl;
+    }
+
+    public void setBackgroundImageUrl(String backgroundImageUrl) {
+        this.backgroundImageUrl = backgroundImageUrl;
     }
 
     public String getComment() {

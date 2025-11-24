@@ -2,14 +2,18 @@ package com.example.tot.Schedule.ScheduleSetting;
 
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.GeoPoint;
+
 public class ScheduleItemDTO {
+
     private String title;
     private Timestamp startTime; //스케줄 시간(시작), 몇시부터 할지
     private Timestamp endTime; //스케줄 시간(끝), 몇시까지 할지
     private GeoPoint place;
     private String placeName;
     private Boolean alarm;
-    public ScheduleItemDTO() {}
+
+    public ScheduleItemDTO() {
+    }
 
     public ScheduleItemDTO(String title, Timestamp startTime, Timestamp endTime, GeoPoint place, String placeName, Boolean alarm) {
         this.title = title;
@@ -67,5 +71,4 @@ public class ScheduleItemDTO {
     public void setAlarm(Boolean alarm) {
         this.alarm = Boolean.valueOf(alarm);
     }
-
 }

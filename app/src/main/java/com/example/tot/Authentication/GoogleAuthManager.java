@@ -27,7 +27,6 @@ import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.concurrent.Executor;
@@ -74,7 +73,7 @@ public class GoogleAuthManager {
 
     /** ✅ 로그인 실행 */
     public void signIn() {
-        Log.d(TAG, "🔸 signIn() called");
+        Log.d(TAG, "📸 signIn() called");
 
         GetGoogleIdOption googleIdOption = new GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(true)
@@ -173,11 +172,13 @@ public class GoogleAuthManager {
         String defaultProfileImageUrl =
                 "https://firebasestorage.googleapis.com/v0/b/trickortrip-71733.firebasestorage.app/o/defaultProfile%2Fic_profile_default.xml?alt=media&token=b2d8211d-ccf1-49de-b423-a7b659089702";
 
+        // ✅ UserDTO 생성자 수정: backgroundImageUrl 추가 (빈 문자열로 초기화)
         UserDTO dto = new UserDTO(
                 user.getDisplayName() != null ? user.getDisplayName() : "사용자",
                 user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : defaultProfileImageUrl,
-                "",
-                "",
+                "",  // backgroundImageUrl (빈 값)
+                "",  // comment
+                "",  // address
                 Timestamp.now()
         );
 

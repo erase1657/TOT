@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
@@ -14,6 +15,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -21,27 +23,35 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.tot.Community.CommunityAdapter;
+import com.example.tot.Community.CommunityDataManager;
 import com.example.tot.Community.CommunityPostDTO;
-import com.example.tot.Community.CommunityViewModel;
+import com.example.tot.Community.PostDetailActivity;
 import com.example.tot.Notification.NotificationActivity;
 import com.example.tot.Notification.NotificationManager;
 import com.example.tot.R;
+import com.example.tot.User.ProfileImageHelper;
 import com.google.firebase.Timestamp;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
-public class HomeFragment extends Fragment {
+public class HomeFragment extends Fragment implements CommunityDataManager.DataUpdateListener {
 
-    // 지역 코드
+    private static final String TAG = "HomeFragment";
+
     private String selectedProvinceCode = "ALL";
     private String selectedCityCode = "";
     private List<HomeAlarmDTO> alarmList;
     private HomeAlarmAdapter alarmAdapter;
-    // UI
+
     private SwipeRefreshLayout swipeRefreshLayout;
     private LinearLayout provinceButtonContainer;
     private LinearLayout cityButtonContainer;
@@ -51,13 +61,17 @@ public class HomeFragment extends Fragment {
     private CircleImageView profileImage;
     private FrameLayout inboxContainer;
     private TextView inboxBadge;
+    private RecyclerView reMemory;
+    private LinearLayout noScheduleSection;
 
-    // 데이터
     private CommunityAdapter communityAdapter;
-    private CommunityViewModel viewModel;
+    private List<CommunityPostDTO> allCommunityPosts = new ArrayList<>();
 
-    // 알림 관리자
     private NotificationManager notificationManager;
+    private CommunityDataManager dataManager;
+
+    private FirebaseFirestore db;
+    private FirebaseAuth auth;
 
     public HomeFragment() {
         super(R.layout.fragment_home);
@@ -67,8 +81,13 @@ public class HomeFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        db = FirebaseFirestore.getInstance();
+        auth = FirebaseAuth.getInstance();
+
+        dataManager = CommunityDataManager.getInstance();
+        dataManager.addListener(this);
+
         initViews(view);
-        initViewModel();
         setupNotificationManager();
         setupSwipeRefresh();
         setupProvinceButtons();
@@ -76,12 +95,22 @@ public class HomeFragment extends Fragment {
         setupCommunityStyleRecyclerView(view.findViewById(R.id.re_album));
         setupProfileAndInbox();
 
-        // 게시글 더미 로드 (테스트용)
-        viewModel.loadDummyData();
-        filterAlbums();
+        loadUserProfile();
+        dataManager.getPosts(false);
+    }
 
-        // 🔥 Firestore 실시간 알림 사용 → 더미 알림 제거
-        // loadDummyNotifications(); (삭제)
+    @Override
+    public void onDataUpdated(List<CommunityPostDTO> posts) {
+        allCommunityPosts = new ArrayList<>(posts);
+        Log.d(TAG, "✅ 홈 화면 데이터 업데이트: " + allCommunityPosts.size() + "개");
+        filterAlbums();
+    }
+
+    @Override
+    public void onDataLoadFailed(String error) {
+        Log.e(TAG, "❌ 데이터 로드 실패: " + error);
+        allCommunityPosts.clear();
+        filterAlbums();
     }
 
     private void initViews(View view) {
@@ -92,9 +121,10 @@ public class HomeFragment extends Fragment {
         profileImage = view.findViewById(R.id.profileImage);
         inboxContainer = view.findViewById(R.id.inbox_container);
         inboxBadge = view.findViewById(R.id.inbox_badge);
+        reMemory = view.findViewById(R.id.re_memory);
+        noScheduleSection = view.findViewById(R.id.noScheduleSection);
     }
 
-    /** 새로고침 설정 */
     private void setupSwipeRefresh() {
         swipeRefreshLayout.setColorSchemeColors(
                 getResources().getColor(android.R.color.holo_blue_bright),
@@ -106,45 +136,19 @@ public class HomeFragment extends Fragment {
         swipeRefreshLayout.setOnRefreshListener(this::refreshHomeData);
     }
 
-    /** 홈 데이터 새로고침 */
     private void refreshHomeData() {
-
-        // 알림 새로고침
         if (notificationManager != null) {
             notificationManager.refresh();
         }
 
-        // 게시글 더미 재로드
-        if (viewModel != null) {
-            viewModel.loadDummyData();
-            filterAlbums();
-        }
+        dataManager.getPosts(true);
+        loadNextScheduleWithAllItems();
+        loadUserProfile();
 
-        // 애니메이션 후 완료
         swipeRefreshLayout.postDelayed(() -> {
             swipeRefreshLayout.setRefreshing(false);
             Toast.makeText(getContext(), "새로고침 완료", Toast.LENGTH_SHORT).show();
         }, 1000);
-    }
-
-    private void initViewModel() {
-        viewModel = new CommunityViewModel(new CommunityViewModel.DataCallback() {
-            @Override
-            public void onDataChanged(List<CommunityPostDTO> posts) {
-                if (communityAdapter != null) {
-                    communityAdapter.updateDataWithUsers(posts, new ArrayList<>(), false, false);
-                }
-            }
-
-            @Override
-            public void onDataAdded(List<CommunityPostDTO> posts) {
-                if (communityAdapter != null) {
-                    communityAdapter.addData(posts);
-                }
-            }
-        });
-
-        viewModel.setFilter(CommunityViewModel.FilterMode.POPULAR);
     }
 
     private void setupNotificationManager() {
@@ -152,9 +156,7 @@ public class HomeFragment extends Fragment {
         notificationManager.addListener(this::updateInboxBadge);
     }
 
-    /** 프로필 및 수신함 */
     private void setupProfileAndInbox() {
-
         profileImage.setOnClickListener(v -> {
             androidx.viewpager2.widget.ViewPager2 viewPager =
                     requireActivity().findViewById(R.id.viewpager);
@@ -166,7 +168,6 @@ public class HomeFragment extends Fragment {
             startActivity(intent);
         });
 
-        // 배지 배경
         GradientDrawable badgeBackground = new GradientDrawable();
         badgeBackground.setShape(GradientDrawable.RECTANGLE);
         badgeBackground.setColor(Color.parseColor("#FF4444"));
@@ -174,8 +175,26 @@ public class HomeFragment extends Fragment {
         inboxBadge.setBackground(badgeBackground);
         inboxBadge.setClipToOutline(true);
 
-        // 초기 뱃지 업데이트
         updateInboxBadge(notificationManager.getUnreadCount());
+    }
+
+    private void loadUserProfile() {
+        String uid = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
+        if (uid == null) return;
+
+        db.collection("user")
+                .document(uid)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        String profileImageUrl = doc.getString("profileImageUrl");
+                        ProfileImageHelper.loadCircleProfileImage(profileImage, profileImageUrl);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "프로필 로드 실패", e);
+                    profileImage.setImageResource(R.drawable.ic_profile_default);
+                });
     }
 
     private void updateInboxBadge(int unreadCount) {
@@ -185,7 +204,6 @@ public class HomeFragment extends Fragment {
             inboxBadge.setVisibility(View.VISIBLE);
             inboxBadge.setText(unreadCount > 10 ? "10+" : String.valueOf(unreadCount));
 
-            // 애니메이션은 처음 표시될 때만
             if (inboxBadge.getTag() == null) {
                 Animation shakeAnim = AnimationUtils.loadAnimation(requireContext(), R.anim.shake);
                 inboxContainer.startAnimation(shakeAnim);
@@ -197,7 +215,6 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /** 시·도 버튼 */
     private void setupProvinceButtons() {
         Button allButton = createRegionButton("전체", "ALL", true);
         allButton.setOnClickListener(v -> {
@@ -224,7 +241,6 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /** 시군구 버튼 */
     private void setupCityButtons(String provinceCode) {
         cityButtonContainer.removeAllViews();
         currentSelectedCityButton = null;
@@ -256,7 +272,6 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /** 지역 버튼 생성 */
     private Button createRegionButton(String text, String regionCode, boolean isSelected) {
         Button button = new Button(getContext());
         button.setText(text);
@@ -276,7 +291,6 @@ public class HomeFragment extends Fragment {
         return button;
     }
 
-    /** 버튼 외형 업데이트 */
     private void updateButtonAppearance(Button button, boolean isSelected) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setCornerRadius(dpToPx(18));
@@ -290,46 +304,33 @@ public class HomeFragment extends Fragment {
         button.setBackground(drawable);
     }
 
-    /** 시/도 버튼 상태 갱신 */
     private void updateProvinceButtonStates(Button selectedButton) {
         if (currentSelectedProvinceButton != null)
             updateButtonAppearance(currentSelectedProvinceButton, false);
 
-        updateButtonAppearance(selected, true);
-        currentSelectedProvinceButton = selected;
+        updateButtonAppearance(selectedButton, true);
+        currentSelectedProvinceButton = selectedButton;
     }
 
-    private void updateCityButtonStates(Button selected) {
+    private void updateCityButtonStates(Button selectedButton) {
         if (currentSelectedCityButton != null)
             updateButtonAppearance(currentSelectedCityButton, false);
 
-        updateButtonAppearance(selected, true);
-        currentSelectedCityButton = selected;
+        updateButtonAppearance(selectedButton, true);
+        currentSelectedCityButton = selectedButton;
     }
 
-    /** 지역별 게시글 필터 */
     private void filterAlbums() {
-        if (viewModel == null) return;
+        if (allCommunityPosts == null) return;
 
-        List<CommunityPostDTO> allPosts = viewModel.getAllPosts();
         List<CommunityPostDTO> filtered = new ArrayList<>();
 
         if (selectedProvinceCode.equals("ALL")) {
-            filtered.addAll(allPosts);
-        } else if (selectedCityCode.isEmpty()) {
-            for (CommunityPostDTO post : allPosts) {
-                if (post.getProvinceCode().equals(selectedProvinceCode))
-                    filtered.add(post);
-            }
+            filtered.addAll(allCommunityPosts);
         } else {
-            for (CommunityPostDTO post : allPosts) {
-                if (post.getProvinceCode().equals(selectedProvinceCode)
-                        && post.getCityCode().equals(selectedCityCode))
-                    filtered.add(post);
-            }
+            filtered.addAll(allCommunityPosts);
         }
 
-        // 인기순 정렬
         filtered.sort((a, b) -> Integer.compare(b.getHeartCount(), a.getHeartCount()));
 
         if (communityAdapter != null) {
@@ -337,9 +338,7 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    //알람 스케줄 리사이클러뷰
     private void setupMemoryRecyclerView(RecyclerView memoryView) {
-
         alarmList = new ArrayList<>();
         alarmAdapter = new HomeAlarmAdapter(alarmList);
 
@@ -348,66 +347,177 @@ public class HomeFragment extends Fragment {
         );
         memoryView.setAdapter(alarmAdapter);
 
-        // 첫 로딩
-        loadUserAlarms(alarmList, alarmAdapter);
+        loadNextScheduleWithAllItems();
     }
-    private void loadUserAlarms(List<HomeAlarmDTO> items, HomeAlarmAdapter adapter) {
 
-        String uid = com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
-        if (uid == null) return;
+    private void loadNextScheduleWithAllItems() {
+        String uid = auth.getCurrentUser() != null ? auth.getCurrentUser().getUid() : null;
+        if (uid == null) {
+            showNoSchedule();
+            return;
+        }
 
-        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+        Calendar now = Calendar.getInstance();
+        Timestamp currentTime = new Timestamp(now.getTime());
 
         db.collection("user")
                 .document(uid)
-                .collection("alarms")
+                .collection("schedule")
                 .get()
-                .addOnSuccessListener(snapshot -> {
+                .addOnSuccessListener(scheduleSnapshot -> {
+                    List<ScheduleData> allSchedules = new ArrayList<>();
 
-                    items.clear();
+                    for (DocumentSnapshot doc : scheduleSnapshot.getDocuments()) {
+                        String scheduleId = doc.getId();
+                        Timestamp startDate = doc.getTimestamp("startDate");
+                        Timestamp endDate = doc.getTimestamp("endDate");
 
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : snapshot) {
-
-                        String scheduleId = doc.getString("scheduleId");
-                        String scheduleItem = doc.getString("planId");   // 너가 저장할 때 planId로 저장하면 됨
-                        String title = doc.getString("title");
-                        String date = doc.getString("date");
-                        String place = doc.getString("place");
-
-                        Timestamp start = doc.getTimestamp("startTime");
-                        Timestamp end = doc.getTimestamp("endTime");
-
-                        HomeAlarmDTO dto = new HomeAlarmDTO(
-                                scheduleId,
-                                scheduleItem,
-                                title,
-                                date,
-                                place,
-                                start,
-                                end
-                        );
-
-                        items.add(dto);
+                        if (startDate != null && endDate != null) {
+                            allSchedules.add(new ScheduleData(scheduleId, startDate, endDate));
+                        }
                     }
-                    Collections.sort(items, (a, b) -> {
 
-                        // 1️⃣ 날짜 먼저 비교
-                        int dateCompare = a.getDate().compareTo(b.getDate());
-                        if (dateCompare != 0) return dateCompare;
+                    if (allSchedules.isEmpty()) {
+                        showNoSchedule();
+                        return;
+                    }
 
-                        // 2️⃣ 날짜가 같으면 시간 비교
-                        return a.getStartTime().compareTo(b.getStartTime());
-                    });
-                    adapter.notifyDataSetChanged();
+                    Collections.sort(allSchedules, (a, b) ->
+                            a.startDate.compareTo(b.startDate)
+                    );
+
+                    ScheduleData nextSchedule = null;
+                    for (ScheduleData schedule : allSchedules) {
+                        if (schedule.endDate.compareTo(currentTime) >= 0) {
+                            nextSchedule = schedule;
+                            break;
+                        }
+                    }
+
+                    if (nextSchedule == null) {
+                        showNoSchedule();
+                        return;
+                    }
+
+                    loadAllItemsFromSchedule(uid, nextSchedule);
                 })
-                .addOnFailureListener(e ->
-                        Toast.makeText(getContext(),
-                                "알람 불러오기 실패: " + e.getMessage(),
-                                Toast.LENGTH_SHORT).show()
-                );
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(),
+                            "스케줄 불러오기 실패: " + e.getMessage(),
+                            Toast.LENGTH_SHORT).show();
+                    showNoSchedule();
+                });
     }
 
-    /** 커뮤니티 스타일 RecyclerView */
+    private void loadAllItemsFromSchedule(String uid, ScheduleData schedule) {
+        List<String> dateList = generateDateList(schedule.startDate, schedule.endDate);
+
+        if (dateList.isEmpty()) {
+            showNoSchedule();
+            return;
+        }
+
+        List<HomeAlarmDTO> allItems = new ArrayList<>();
+        final int[] remainingDates = {dateList.size()};
+
+        for (String dateKey : dateList) {
+            db.collection("user")
+                    .document(uid)
+                    .collection("schedule")
+                    .document(schedule.scheduleId)
+                    .collection("scheduleDate")
+                    .document(dateKey)
+                    .collection("scheduleItem")
+                    .get()
+                    .addOnSuccessListener(itemSnapshot -> {
+                        for (DocumentSnapshot doc : itemSnapshot.getDocuments()) {
+                            String title = doc.getString("title");
+                            String placeName = doc.getString("placeName");
+                            Timestamp startTime = doc.getTimestamp("startTime");
+                            Timestamp endTime = doc.getTimestamp("endTime");
+
+                            if (title != null && startTime != null && endTime != null) {
+                                HomeAlarmDTO dto = new HomeAlarmDTO(
+                                        schedule.scheduleId,
+                                        doc.getId(),
+                                        title,
+                                        dateKey,
+                                        placeName,
+                                        startTime,
+                                        endTime
+                                );
+                                allItems.add(dto);
+                            }
+                        }
+
+                        remainingDates[0]--;
+
+                        if (remainingDates[0] == 0) {
+                            displayScheduleItems(allItems);
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        remainingDates[0]--;
+                        if (remainingDates[0] == 0) {
+                            displayScheduleItems(allItems);
+                        }
+                    });
+        }
+    }
+
+    private List<String> generateDateList(Timestamp start, Timestamp end) {
+        List<String> dates = new ArrayList<>();
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(start.toDate());
+
+        Date endDate = end.toDate();
+
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
+
+        while (!calendar.getTime().after(endDate)) {
+            dates.add(sdf.format(calendar.getTime()));
+            calendar.add(Calendar.DAY_OF_MONTH, 1);
+        }
+
+        return dates;
+    }
+
+    private void displayScheduleItems(List<HomeAlarmDTO> items) {
+        if (items.isEmpty()) {
+            showNoSchedule();
+            return;
+        }
+
+        Collections.sort(items, (a, b) -> {
+            int dateCompare = a.getDate().compareTo(b.getDate());
+            if (dateCompare != 0) return dateCompare;
+            return a.getStartTime().compareTo(b.getStartTime());
+        });
+
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                alarmList.clear();
+                alarmList.addAll(items);
+                alarmAdapter.notifyDataSetChanged();
+
+                reMemory.setVisibility(View.VISIBLE);
+                noScheduleSection.setVisibility(View.GONE);
+            });
+        }
+    }
+
+    private void showNoSchedule() {
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                alarmList.clear();
+                alarmAdapter.notifyDataSetChanged();
+
+                reMemory.setVisibility(View.GONE);
+                noScheduleSection.setVisibility(View.VISIBLE);
+            });
+        }
+    }
+
     private void setupCommunityStyleRecyclerView(RecyclerView albumView) {
         albumView.setLayoutManager(
                 new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false)
@@ -417,7 +527,17 @@ public class HomeFragment extends Fragment {
 
         communityAdapter = new CommunityAdapter(
                 initial,
-                (post, pos) -> Toast.makeText(getContext(), post.getTitle() + " 상세보기", Toast.LENGTH_SHORT).show(),
+                (post, pos) -> {
+                    if (post.getScheduleId() != null && post.getUserId() != null) {
+                        Intent intent = new Intent(getContext(), PostDetailActivity.class);
+                        intent.putExtra("scheduleId", post.getScheduleId());
+                        intent.putExtra("authorUid", post.getUserId());
+                        intent.putExtra("postId", post.getPostId());
+                        startActivity(intent);
+                    } else {
+                        Toast.makeText(getContext(), "게시글 정보를 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+                    }
+                },
                 () -> {}
         );
 
@@ -433,14 +553,30 @@ public class HomeFragment extends Fragment {
     public void onResume() {
         super.onResume();
         updateInboxBadge(notificationManager.getUnreadCount());
-        loadUserAlarms(alarmList, alarmAdapter);
+        loadNextScheduleWithAllItems();
+        dataManager.getPosts(false);
+        loadUserProfile();
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        if (viewModel != null) viewModel.destroy();
         if (notificationManager != null)
             notificationManager.removeListener(this::updateInboxBadge);
+        if (dataManager != null) {
+            dataManager.removeListener(this);
+        }
+    }
+
+    private static class ScheduleData {
+        String scheduleId;
+        Timestamp startDate;
+        Timestamp endDate;
+
+        ScheduleData(String scheduleId, Timestamp startDate, Timestamp endDate) {
+            this.scheduleId = scheduleId;
+            this.startDate = startDate;
+            this.endDate = endDate;
+        }
     }
 }

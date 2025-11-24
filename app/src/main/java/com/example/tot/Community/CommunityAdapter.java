@@ -1,6 +1,7 @@
 package com.example.tot.Community;
 
 import android.content.Intent;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,27 +10,40 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
+import com.example.tot.User.ProfileImageHelper;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
+    private static final String TAG = "CommunityAdapter";
     private static final int VIEW_TYPE_USER = 0;
     private static final int VIEW_TYPE_POST = 1;
     private static final int VIEW_TYPE_MORE_USERS = 2;
 
-    private List<Object> items; // ✅ 사용자 + 게시글 혼합 리스트
+    private List<Object> items;
     private OnPostClickListener postClickListener;
     private OnMoreUsersClickListener moreUsersClickListener;
-    private boolean showUsers; // ✅ 사용자 검색 결과 표시 여부
+    private boolean showUsers;
+
+    private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
 
     public interface OnPostClickListener {
         void onPostClick(CommunityPostDTO post, int position);
@@ -44,30 +58,22 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         this.postClickListener = postClickListener;
         this.moreUsersClickListener = moreUsersClickListener;
         this.showUsers = false;
+        this.mAuth = FirebaseAuth.getInstance();
+        this.db = FirebaseFirestore.getInstance();
     }
 
-    /**
-     * ✅ 사용자 검색 결과와 게시글을 함께 표시
-     * @param posts 게시글 목록
-     * @param users 사용자 검색 결과 (최대 3명 또는 전체)
-     * @param showUsers 사용자 표시 여부
-     * @param showMoreButton 더보기 버튼 표시 여부 (4명 이상일 때만)
-     */
     public void updateDataWithUsers(List<CommunityPostDTO> posts, List<CommunityFragment.UserSearchResult> users, boolean showUsers, boolean showMoreButton) {
         this.items.clear();
         this.showUsers = showUsers;
 
         if (showUsers && !users.isEmpty()) {
-            // ✅ 사용자 검색 결과 추가
             this.items.addAll(users);
 
-            // ✅ "더보기" 버튼 추가 (4명 이상일 때만)
             if (showMoreButton) {
                 this.items.add("MORE_USERS");
             }
         }
 
-        // 게시글 추가
         if (posts != null) {
             this.items.addAll(posts);
         }
@@ -110,11 +116,19 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         Object item = items.get(position);
 
         if (holder instanceof UserViewHolder) {
-            ((UserViewHolder) holder).bind((CommunityFragment.UserSearchResult) item);
+            ((UserViewHolder) holder).bind((CommunityFragment.UserSearchResult) item, position);
         } else if (holder instanceof MoreUsersViewHolder) {
             ((MoreUsersViewHolder) holder).bind();
         } else if (holder instanceof PostViewHolder) {
             ((PostViewHolder) holder).bind((CommunityPostDTO) item, position);
+        }
+    }
+
+    @Override
+    public void onViewRecycled(@NonNull RecyclerView.ViewHolder holder) {
+        super.onViewRecycled(holder);
+        if (holder instanceof PostViewHolder) {
+            ((PostViewHolder) holder).cleanupListener();
         }
     }
 
@@ -135,14 +149,15 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
     }
 
-    /**
-     * ✅ 사용자 검색 결과 ViewHolder
-     */
     class UserViewHolder extends RecyclerView.ViewHolder {
         CircleImageView imgProfile;
         TextView tvUserName;
         TextView tvNickname;
         TextView btnFollow;
+
+        boolean isFollowing = false;
+        boolean isFollower = false;
+        String currentUserId;
 
         public UserViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -151,14 +166,15 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             tvNickname = itemView.findViewById(R.id.tv_nickname);
             btnFollow = itemView.findViewById(R.id.btn_follow);
 
-            // ✅ 불필요한 요소 숨기기
             itemView.findViewById(R.id.tv_follow_back).setVisibility(View.GONE);
             itemView.findViewById(R.id.btn_edit_nickname).setVisibility(View.GONE);
             itemView.findViewById(R.id.layout_nickname_edit).setVisibility(View.GONE);
             itemView.findViewById(R.id.btn_menu).setVisibility(View.GONE);
         }
 
-        public void bind(CommunityFragment.UserSearchResult user) {
+        public void bind(CommunityFragment.UserSearchResult user, int position) {
+            currentUserId = user.getUserId();
+
             tvUserName.setText(user.getNickname() != null ? user.getNickname() : "사용자");
 
             String statusMsg = user.getStatusMessage();
@@ -169,23 +185,14 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 tvNickname.setVisibility(View.GONE);
             }
 
-            // 프로필 이미지
-            if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isEmpty()) {
-                Glide.with(itemView.getContext())
-                        .load(user.getProfileImageUrl())
-                        .placeholder(R.drawable.ic_profile_default)
-                        .error(R.drawable.ic_profile_default)
-                        .into(imgProfile);
-            } else {
-                imgProfile.setImageResource(R.drawable.ic_profile_default);
-            }
+            ProfileImageHelper.loadProfileImage(imgProfile, user.getProfileImageUrl());
 
-            // 팔로우 버튼 스타일링
-            btnFollow.setText("프로필 보기");
-            btnFollow.setBackgroundResource(R.drawable.button_style1);
-            btnFollow.setTextColor(0xFFFFFFFF);
+            FollowButtonHelper.checkFollowStatus(user.getUserId(), (following, follower) -> {
+                isFollowing = following;
+                isFollower = follower;
+                FollowButtonHelper.updateFollowButton(btnFollow, isFollowing, isFollower);
+            });
 
-            // 클릭 이벤트
             View.OnClickListener profileClickListener = v -> {
                 Intent intent = new Intent(itemView.getContext(), UserProfileActivity.class);
                 intent.putExtra("userId", user.getUserId());
@@ -194,13 +201,30 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
             imgProfile.setOnClickListener(profileClickListener);
             tvUserName.setOnClickListener(profileClickListener);
-            btnFollow.setOnClickListener(profileClickListener);
+
+            btnFollow.setOnClickListener(v -> {
+                FollowButtonHelper.handleFollowButtonClick(
+                        itemView.getContext(),
+                        user.getUserId(),
+                        isFollowing,
+                        isFollower,
+                        new FollowButtonHelper.FollowActionCallback() {
+                            @Override
+                            public void onSuccess(boolean nowFollowing) {
+                                isFollowing = nowFollowing;
+                                FollowButtonHelper.updateFollowButton(btnFollow, isFollowing, isFollower);
+                            }
+
+                            @Override
+                            public void onFailure(String message) {
+                                Toast.makeText(itemView.getContext(), message, Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                );
+            });
         }
     }
 
-    /**
-     * ✅ "더보기" ViewHolder
-     */
     class MoreUsersViewHolder extends RecyclerView.ViewHolder {
         TextView tvMoreUsers;
 
@@ -218,9 +242,6 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
     }
 
-    /**
-     * 게시글 ViewHolder (기존 유지)
-     */
     class PostViewHolder extends RecyclerView.ViewHolder {
         CircleImageView imgProfile;
         TextView txtUserName;
@@ -230,6 +251,12 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         TextView txtHeartCount;
         ImageView imgComment;
         TextView txtCommentCount;
+        TextView btnFollow;
+
+        boolean isFollowing = false;
+        boolean isFollower = false;
+        String currentPostAuthorId;
+        private ListenerRegistration commentListener;
 
         public PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -241,21 +268,31 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             txtHeartCount = itemView.findViewById(R.id.txt_heart_count);
             imgComment = itemView.findViewById(R.id.img_comment);
             txtCommentCount = itemView.findViewById(R.id.txt_comment_count);
+            btnFollow = itemView.findViewById(R.id.btn_follow);
         }
 
         public void bind(CommunityPostDTO post, int position) {
             if (post == null) return;
 
-            if (post.getUserProfileImage() != 0) {
-                imgProfile.setImageResource(post.getUserProfileImage());
-            } else {
-                imgProfile.setImageResource(R.drawable.ic_profile_default);
-            }
+            currentPostAuthorId = post.getUserId();
+            String currentUid = mAuth.getCurrentUser() != null ? mAuth.getCurrentUser().getUid() : null;
 
-            txtUserName.setText(post.getUserName() != null ? post.getUserName() : "익명");
+            ProfileImageHelper.loadProfileImage(imgProfile, post.getProfileImageUrl());
+
+            txtUserName.setText(post.getUserName() != null ? post.getUserName() : "사용자");
             txtPostTitle.setText(post.getTitle() != null ? post.getTitle() : "");
 
-            if (post.getPostImage() != 0) {
+            // ✅ 썸네일 이미지 표시 (Glide 사용)
+            String thumbnailUrl = post.getThumbnailUrl();
+            if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+                Glide.with(itemView.getContext())
+                        .load(thumbnailUrl)
+                        .centerCrop()
+                        .placeholder(R.drawable.sample1)  // 로딩 중 표시할 이미지
+                        .error(R.drawable.sample1)        // 로드 실패 시 표시할 이미지
+                        .into(imgPostPhoto);
+                imgPostPhoto.setVisibility(View.VISIBLE);
+            } else if (post.getPostImage() != 0) {
                 imgPostPhoto.setImageResource(post.getPostImage());
                 imgPostPhoto.setVisibility(View.VISIBLE);
             } else {
@@ -264,13 +301,47 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
             updateHeartIcon(post.isLiked());
             txtHeartCount.setText(formatCount(post.getHeartCount()));
-            txtCommentCount.setText(post.getCommentCount() + "개");
+
+            startCommentCountListener(post.getPostId());
+
+            if (currentUid != null && currentUid.equals(currentPostAuthorId)) {
+                btnFollow.setVisibility(View.GONE);
+            } else {
+                btnFollow.setVisibility(View.VISIBLE);
+
+                FollowButtonHelper.checkFollowStatus(currentPostAuthorId, (following, follower) -> {
+                    isFollowing = following;
+                    isFollower = follower;
+                    FollowButtonHelper.updateFollowButton(btnFollow, isFollowing, isFollower);
+                });
+
+                btnFollow.setOnClickListener(v -> {
+                    FollowButtonHelper.handleFollowButtonClick(
+                            itemView.getContext(),
+                            currentPostAuthorId,
+                            isFollowing,
+                            isFollower,
+                            new FollowButtonHelper.FollowActionCallback() {
+                                @Override
+                                public void onSuccess(boolean nowFollowing) {
+                                    isFollowing = nowFollowing;
+                                    FollowButtonHelper.updateFollowButton(btnFollow, isFollowing, isFollower);
+                                }
+
+                                @Override
+                                public void onFailure(String message) {
+                                    Toast.makeText(itemView.getContext(), message, Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                    );
+                });
+            }
 
             imgProfile.setOnClickListener(v -> {
                 String userId = post.getUserId();
                 if (userId == null || userId.isEmpty()) {
                     Toast.makeText(itemView.getContext(),
-                            "프로필 정보가 없는 사용자입니다 (더미 데이터)",
+                            "프로필 정보가 없는 사용자입니다",
                             Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -284,7 +355,7 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 String userId = post.getUserId();
                 if (userId == null || userId.isEmpty()) {
                     Toast.makeText(itemView.getContext(),
-                            "프로필 정보가 없는 사용자입니다 (더미 데이터)",
+                            "프로필 정보가 없는 사용자입니다",
                             Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -295,16 +366,140 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             });
 
             imgHeart.setOnClickListener(v -> {
-                post.toggleLike();
-                updateHeartIcon(post.isLiked());
-                txtHeartCount.setText(formatCount(post.getHeartCount()));
+                if (currentUid == null) {
+                    Toast.makeText(itemView.getContext(), "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                String postId = post.getPostId();
+                if (postId == null || postId.isEmpty()) {
+                    Toast.makeText(itemView.getContext(), "게시글 정보를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                imgHeart.setEnabled(false);
+
+                if (post.isLiked()) {
+                    db.collection("public")
+                            .document("community")
+                            .collection("posts")
+                            .document(postId)
+                            .collection("likes")
+                            .document(currentUid)
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                db.collection("public")
+                                        .document("community")
+                                        .collection("posts")
+                                        .document(postId)
+                                        .update("heartCount", FieldValue.increment(-1))
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            post.setLiked(false);
+                                            post.setHeartCount(post.getHeartCount() - 1);
+                                            updateHeartIcon(false);
+                                            txtHeartCount.setText(formatCount(post.getHeartCount()));
+                                            imgHeart.setEnabled(true);
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "좋아요 카운트 감소 실패", e);
+                                            Toast.makeText(itemView.getContext(), "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
+                                            imgHeart.setEnabled(true);
+                                        });
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "좋아요 삭제 실패", e);
+                                Toast.makeText(itemView.getContext(), "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
+                                imgHeart.setEnabled(true);
+                            });
+                } else {
+                    Map<String, Object> likeData = new HashMap<>();
+                    likeData.put("userId", currentUid);
+                    likeData.put("timestamp", System.currentTimeMillis());
+
+                    db.collection("public")
+                            .document("community")
+                            .collection("posts")
+                            .document(postId)
+                            .collection("likes")
+                            .document(currentUid)
+                            .set(likeData)
+                            .addOnSuccessListener(aVoid -> {
+                                db.collection("public")
+                                        .document("community")
+                                        .collection("posts")
+                                        .document(postId)
+                                        .update("heartCount", FieldValue.increment(1))
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            post.setLiked(true);
+                                            post.setHeartCount(post.getHeartCount() + 1);
+                                            updateHeartIcon(true);
+                                            txtHeartCount.setText(formatCount(post.getHeartCount()));
+                                            imgHeart.setEnabled(true);
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "좋아요 카운트 증가 실패", e);
+                                            Toast.makeText(itemView.getContext(), "좋아요 실패", Toast.LENGTH_SHORT).show();
+                                            imgHeart.setEnabled(true);
+                                        });
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "좋아요 추가 실패", e);
+                                Toast.makeText(itemView.getContext(), "좋아요 실패", Toast.LENGTH_SHORT).show();
+                                imgHeart.setEnabled(true);
+                            });
+                }
             });
+
+            View.OnClickListener commentClickListener = v -> {
+                if (post.getPostId() != null) {
+                    if (itemView.getContext() instanceof AppCompatActivity) {
+                        CommentsBottomSheetFragment bottomSheet = CommentsBottomSheetFragment.newInstance(post.getPostId());
+                        bottomSheet.show(((AppCompatActivity) itemView.getContext()).getSupportFragmentManager(), bottomSheet.getTag());
+                    }
+                } else {
+                    Toast.makeText(itemView.getContext(), "게시글 정보를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
+                }
+            };
+
+            imgComment.setOnClickListener(commentClickListener);
 
             itemView.setOnClickListener(v -> {
                 if (postClickListener != null) {
                     postClickListener.onPostClick(post, getAdapterPosition());
                 }
             });
+        }
+
+        private void startCommentCountListener(String postId) {
+            cleanupListener();
+
+            if (postId == null || postId.isEmpty()) {
+                txtCommentCount.setText("0개");
+                return;
+            }
+
+            commentListener = db.collection("public").document("community")
+                    .collection("posts").document(postId).collection("comments")
+                    .addSnapshotListener((snapshots, error) -> {
+                        if (error != null) {
+                            Log.w(TAG, "댓글 수 리스너 실패", error);
+                            txtCommentCount.setText("0개");
+                            return;
+                        }
+
+                        if (snapshots != null) {
+                            txtCommentCount.setText(snapshots.size() + "개");
+                        } else {
+                            txtCommentCount.setText("0개");
+                        }
+                    });
+        }
+
+        public void cleanupListener() {
+            if (commentListener != null) {
+                commentListener.remove();
+                commentListener = null;
+            }
         }
 
         private void updateHeartIcon(boolean isLiked) {
