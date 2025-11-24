@@ -1,5 +1,7 @@
 package com.example.tot.MyPage;
 
+import android.content.Context;
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,6 +11,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleDTO;
 
@@ -58,28 +61,38 @@ public class MyPageScheduleAdapter extends RecyclerView.Adapter<MyPageScheduleAd
     class ViewHolder extends RecyclerView.ViewHolder {
         private TextView tvLocationNames;
         private ImageView imgBackground;
-        private TextView tvDates;
-        private TextView tvYearMonth;
+        private Context context;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
+            context = itemView.getContext();
             tvLocationNames = itemView.findViewById(R.id.tv_location_names);
             imgBackground = itemView.findViewById(R.id.img_schedule_background);
-            tvDates = itemView.findViewById(R.id.tv_schedule_dates);
-            tvYearMonth = itemView.findViewById(R.id.tv_schedule_year_month);
         }
 
         public void bind(ScheduleDTO schedule, int position) {
-           /* // 지역명 설정
-            tvLocationNames.setText(schedule.getLocation());
+            if (schedule == null) return;
+
+            // 지역명 설정
+            if (schedule.getLocationName() != null && !schedule.getLocationName().isEmpty()) {
+                tvLocationNames.setText(schedule.getLocationName());
+            } else {
+                tvLocationNames.setText("지역");
+            }
 
             // 배경 이미지 설정
-            imgBackground.setImageResource(schedule.getBackgroundImage());
+            if (schedule.getBackgroundImageUri() != null) {
+                Glide.with(context)
+                        .load(Uri.parse(schedule.getBackgroundImageUri()))
+                        .into(imgBackground);
+            } else if (schedule.getThumbnailRef() != null) {
+                Glide.with(context)
+                        .load(schedule.getThumbnailRef())
+                        .into(imgBackground);
+            } else {
+                imgBackground.setImageResource(R.drawable.sample3);
+            }
 
-            // 날짜 설정
-            tvDates.setText(schedule.getDateRange());
-            tvYearMonth.setText(schedule.getYearMonth());
-*/
             // 클릭 이벤트
             itemView.setOnClickListener(v -> {
                 if (listener != null) {

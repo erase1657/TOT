@@ -31,6 +31,7 @@ import com.example.tot.User.ProfileImageHelper;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -338,7 +339,28 @@ public class MyPageFragment extends Fragment {
         scheduleAdapter = new MyPageScheduleAdapter(scheduleList, (schedule, position) ->
                 Toast.makeText(getContext(), "여행 상세보기", Toast.LENGTH_SHORT).show());
         rvMyTravels.setAdapter(scheduleAdapter);
-        updateEmptyState();
+
+        if (targetUserId == null || targetUserId.isEmpty()) {
+            updateEmptyState();
+            return;
+        }
+
+        db.collection("user").document(targetUserId).collection("schedule").get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    scheduleList.clear();
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        ScheduleDTO schedule = document.toObject(ScheduleDTO.class);
+                        scheduleList.add(schedule);
+                    }
+                    scheduleAdapter.notifyDataSetChanged();
+                    updateEmptyState();
+                    tvPostsCount.setText(String.valueOf(scheduleList.size()));
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Error getting documents: ", e);
+                    Toast.makeText(getContext(), "여행 기록을 불러오는 데 실패했습니다.", Toast.LENGTH_SHORT).show();
+                    updateEmptyState();
+                });
     }
 
     private void updateEmptyState() {
