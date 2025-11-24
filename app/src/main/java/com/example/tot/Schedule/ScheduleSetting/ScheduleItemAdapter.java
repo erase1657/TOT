@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -26,11 +27,23 @@ public class ScheduleItemAdapter extends ListAdapter<ScheduleItemDTO, ScheduleIt
 
     private List<String> docIdList = new ArrayList<>();
     private final OnItemClickListener listener;
+    private OnScheduleMenuItemClickListener onScheduleMenuItemClickListener; // Listener for menu item clicks
     private boolean readOnlyMode = false;
 
     public interface OnItemClickListener {
         void onItemClick(ScheduleItemDTO item, String docId);
     }
+
+    // New interface for menu item clicks
+    public interface OnScheduleMenuItemClickListener {
+        void onDeleteClick(String docId);
+    }
+
+    // Setter for the new listener
+    public void setOnScheduleMenuItemClickListener(OnScheduleMenuItemClickListener listener) {
+        this.onScheduleMenuItemClickListener = listener;
+    }
+
 
     private static final DiffUtil.ItemCallback<ScheduleItemDTO> DIFF_CALLBACK = new DiffUtil.ItemCallback<ScheduleItemDTO>() {
         @Override
@@ -123,6 +136,21 @@ public class ScheduleItemAdapter extends ListAdapter<ScheduleItemDTO, ScheduleIt
 
             item_Schedule.setOnClickListener(v -> {
                 if (listener != null) listener.onItemClick(item, docId);
+            });
+
+            btn_Modify.setOnClickListener(v -> {
+                PopupMenu popup = new PopupMenu(v.getContext(), btn_Modify);
+                popup.getMenuInflater().inflate(R.menu.menu_schedule, popup.getMenu());
+                popup.setOnMenuItemClickListener(menuItem -> {
+                    if (menuItem.getItemId() == R.id.menu_delete) {
+                        if (onScheduleMenuItemClickListener != null) {
+                            onScheduleMenuItemClickListener.onDeleteClick(docId);
+                        }
+                        return true;
+                    }
+                    return false;
+                });
+                popup.show();
             });
         }
     }

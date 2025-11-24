@@ -1,7 +1,9 @@
 package com.example.tot.Community;
 
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -10,6 +12,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
 import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
@@ -31,11 +34,13 @@ public class PostCreateActivity extends AppCompatActivity {
     private TextView tvScheduleInfo;
     private EditText edtPostTitle;
     private Button btnPublish;
+    private ImageView imgThumbnail;
 
     private String scheduleId;
     private String locationName;
     private long startDate;
     private long endDate;
+    private String thumbnailUri;
 
     private FirebaseFirestore db;
     private CollectionReference communityPostsRef;
@@ -59,6 +64,7 @@ public class PostCreateActivity extends AppCompatActivity {
 
         initViews();
         displayScheduleInfo();
+        loadScheduleData();
 
         btnBack.setOnClickListener(v -> finish());
         btnPublish.setOnClickListener(v -> publishPost());
@@ -69,6 +75,7 @@ public class PostCreateActivity extends AppCompatActivity {
         tvScheduleInfo = findViewById(R.id.tv_schedule_info);
         edtPostTitle = findViewById(R.id.edt_post_title);
         btnPublish = findViewById(R.id.btn_publish);
+        imgThumbnail = findViewById(R.id.img_thumbnail);
     }
 
     private void displayScheduleInfo() {
@@ -78,6 +85,29 @@ public class PostCreateActivity extends AppCompatActivity {
 
         String info = locationName + " (" + start + " ~ " + end + ")";
         tvScheduleInfo.setText(info);
+    }
+
+    private void loadScheduleData() {
+        if (scheduleId == null || auth.getCurrentUser() == null) return;
+
+        String uid = auth.getCurrentUser().getUid();
+        db.collection("user").document(uid).collection("schedule").document(scheduleId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String imageUri = documentSnapshot.getString("backgroundImageUri");
+                        if (imageUri != null && !imageUri.isEmpty()) {
+                            thumbnailUri = imageUri;
+                            imgThumbnail.setVisibility(View.VISIBLE);
+                            Glide.with(this)
+                                    .load(Uri.parse(thumbnailUri))
+                                    .into(imgThumbnail);
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load schedule data", e);
+                });
     }
 
     private void publishPost() {
@@ -110,6 +140,10 @@ public class PostCreateActivity extends AppCompatActivity {
         postData.put("createdAt", System.currentTimeMillis());
         postData.put("heartCount", 0);
         postData.put("commentCount", 0);
+        if (thumbnailUri != null) {
+            postData.put("thumbnailUrl", thumbnailUri);
+        }
+
 
         communityPostsRef
                 .document(postId)

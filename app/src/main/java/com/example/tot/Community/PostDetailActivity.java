@@ -2,6 +2,7 @@ package com.example.tot.Community;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -265,9 +266,19 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     Long startDateLong = postDoc.getLong("startDate");
                     Long endDateLong = postDoc.getLong("endDate");
                     Long heartCount = postDoc.getLong("heartCount");
+                    String thumbnailUrl = postDoc.getString("thumbnailUrl");
 
                     if (postTitle != null) tvPostTitle.setText(postTitle);
                     if (locationName != null) tvLocation.setText(locationName);
+
+                    if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+                        imgThumbnail.setVisibility(View.VISIBLE);
+                        Glide.with(this)
+                                .load(Uri.parse(thumbnailUrl))
+                                .into(imgThumbnail);
+                    } else {
+                        imgThumbnail.setVisibility(View.GONE);
+                    }
 
                     if (heartCount != null) currentHeartCount = heartCount.intValue();
 

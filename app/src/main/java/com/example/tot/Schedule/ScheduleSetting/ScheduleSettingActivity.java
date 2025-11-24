@@ -59,6 +59,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private boolean isPostEditMode = false;
     private String relatedPostId = null;
     private ListenerRegistration postUpdateListener;
+    private ScheduleSettingHelper helper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,6 +82,10 @@ public class ScheduleSettingActivity extends AppCompatActivity {
 
         startDate = new Timestamp(new Date(startMillis));
         endDate = new Timestamp(new Date(endMillis));
+
+        // ✅ Helper 초기화
+        helper = new ScheduleSettingHelper(this, db, userUid, scheduleId);
+
         rvDate = findViewById(R.id.rv_datelist);
         rvScheduleItem = findViewById(R.id.rv_schedulelist);
         btn_AddSchedule = findViewById(R.id.btn_add_schedule);
@@ -112,7 +117,11 @@ public class ScheduleSettingActivity extends AppCompatActivity {
             menu.getMenuInflater().inflate(R.menu.schedule_menu, menu.getMenu());
             menu.setOnMenuItemClickListener(item -> {
                 int id = item.getItemId();
-                if (id == R.id.menu_map) {
+                // ✅ 날짜 변경 메뉴 추가
+                if (id == R.id.menu_change_date) {
+                    showDateChangeDialog();
+                    return true;
+                } else if (id == R.id.menu_map) {
                     showAllPlacesOnMap();
                     return true;
                 } else if (id == R.id.menu_album) {
@@ -177,6 +186,16 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                         .addOnFailureListener(e -> Toast.makeText(this, "일정 추가 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show());
             });
             currentBottomSheet.show();
+        });
+    }
+
+    // ✅ 날짜 변경 다이얼로그 표시
+    private void showDateChangeDialog() {
+        helper.showDateChangeDialog(dateList, startDate, endDate, (newStartDate, newEndDate) -> {
+            // 날짜 변경 성공 후 UI 업데이트
+            startDate = newStartDate;
+            endDate = newEndDate;
+            generateScheduleDates(startDate, endDate);
         });
     }
 
@@ -352,6 +371,52 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         }
     }
 
+    private void showDeleteItemConfirmDialog(String docId) {
+        new AlertDialog.Builder(this)
+                .setTitle("일정 삭제")
+                .setMessage("이 일정을 삭제하시겠습니까?")
+                .setPositiveButton("삭제", (dialog, which) -> deleteScheduleItem(docId))
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void deleteScheduleItem(String docId) {
+        if (userUid == null || scheduleId == null || selectedDate == null || docId == null) {
+            Toast.makeText(this, "오류: 삭제 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        db.collection("user").document(userUid)
+                .collection("schedule").document(scheduleId)
+                .collection("scheduleDate").document(selectedDate)
+                .collection("scheduleItem").document(docId)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    db.collection("user").document(userUid)
+                            .collection("alarms").document(docId).delete();
+
+                    Toast.makeText(this, "일정이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                    if (isPostEditMode && relatedPostId != null) {
+                        deleteScheduleItemFromPost(selectedDate, docId);
+                    }
+                })
+                .addOnFailureListener(e -> Toast.makeText(this, "삭제에 실패했습니다: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+    }
+
+    private void deleteScheduleItemFromPost(String dateKey, String itemId) {
+        if (relatedPostId == null) return;
+        db.collection("public")
+                .document("community")
+                .collection("posts")
+                .document(relatedPostId)
+                .collection("scheduleDate")
+                .document(dateKey)
+                .collection("scheduleItem")
+                .document(itemId)
+                .delete();
+    }
+
+
     private void openMapForPlaceSelection() {
         Intent intent = new Intent(this, MapActivity.class);
         ArrayList<LatLng> sortedLocations = new ArrayList<>();
@@ -391,6 +456,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
             currentBottomSheet.setOnAddPlaceListener(this::openMapForPlaceSelection);
             currentBottomSheet.showWithData(item, docID);
         });
+        scheduleItemAdapter.setOnScheduleMenuItemClickListener(this::showDeleteItemConfirmDialog);
         rvScheduleItem.setLayoutManager(new LinearLayoutManager(this));
         rvScheduleItem.setAdapter(scheduleItemAdapter);
     }
@@ -406,19 +472,33 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                 .collection("scheduleItem")
                 .addSnapshotListener((snapshot, e) -> {
                     if (e != null || snapshot == null) return;
-                    List<ScheduleItemDTO> list = new ArrayList<>();
-                    List<String> docIds = new ArrayList<>();
+
+                    Map<String, ScheduleItemDTO> itemMap = new HashMap<>();
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
                         ScheduleItemDTO item = doc.toObject(ScheduleItemDTO.class);
                         if (item != null) {
-                            list.add(item);
-                            docIds.add(doc.getId());
+                            itemMap.put(doc.getId(), item);
                         }
                     }
-                    list.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
-                    localCache.put(dateKey, list);
-                    localCacheDocIds.put(dateKey, docIds);
-                    scheduleItemAdapter.submitList(new ArrayList<>(list), docIds);
+
+                    List<String> sortedDocIds = new ArrayList<>(itemMap.keySet());
+                    sortedDocIds.sort((docId1, docId2) -> {
+                        ScheduleItemDTO item1 = itemMap.get(docId1);
+                        ScheduleItemDTO item2 = itemMap.get(docId2);
+                        if (item1 != null && item1.getStartTime() != null && item2 != null && item2.getStartTime() != null) {
+                            return item1.getStartTime().compareTo(item2.getStartTime());
+                        }
+                        return 0;
+                    });
+
+                    List<ScheduleItemDTO> sortedList = new ArrayList<>();
+                    for (String docId : sortedDocIds) {
+                        sortedList.add(itemMap.get(docId));
+                    }
+
+                    localCache.put(dateKey, sortedList);
+                    localCacheDocIds.put(dateKey, sortedDocIds);
+                    scheduleItemAdapter.submitList(new ArrayList<>(sortedList), sortedDocIds);
                 });
     }
 
@@ -450,40 +530,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     }
 
     private void showAllPlacesOnMap() {
-        final Map<String, List<ScheduleItemDTO>> tempItemsMap = new HashMap<>();
-        AtomicInteger pendingFetches = new AtomicInteger(dateList.size());
-        Collections.sort(dateList);
-        for (String dateKey : dateList) {
-            if (localCache.containsKey(dateKey)) {
-                tempItemsMap.put(dateKey, localCache.get(dateKey));
-                if (pendingFetches.decrementAndGet() == 0) {
-                    launchMapWithAllPlaces(tempItemsMap);
-                }
-            } else {
-                db.collection("user").document(userUid).collection("schedule").document(scheduleId)
-                        .collection("scheduleDate").document(dateKey).collection("scheduleItem").get()
-                        .addOnSuccessListener(queryDocumentSnapshots -> {
-                            List<ScheduleItemDTO> items = new ArrayList<>();
-                            for (DocumentSnapshot doc : queryDocumentSnapshots.getDocuments()) {
-                                ScheduleItemDTO item = doc.toObject(ScheduleItemDTO.class);
-                                if (item != null && item.getPlace() != null) {
-                                    items.add(item);
-                                }
-                            }
-                            items.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
-                            localCache.put(dateKey, new ArrayList<>(items));
-                            tempItemsMap.put(dateKey, items);
-                            if (pendingFetches.decrementAndGet() == 0) {
-                                launchMapWithAllPlaces(tempItemsMap);
-                            }
-                        })
-                        .addOnFailureListener(e -> {
-                            if (pendingFetches.decrementAndGet() == 0) {
-                                launchMapWithAllPlaces(tempItemsMap);
-                            }
-                        });
-            }
-        }
+        helper.launchMapWithAllPlaces(dateList, localCache);
     }
 
     private void generateScheduleDates(Timestamp start, Timestamp end) {

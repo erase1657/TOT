@@ -1,7 +1,10 @@
 package com.example.tot.Schedule;
 
+import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,6 +15,9 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -25,16 +31,22 @@ import com.example.tot.Schedule.ScheduleSetting.ScheduleSettingActivity;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -51,12 +63,28 @@ public class ScheduleFragment extends Fragment {
 
     private FirebaseFirestore db;
     private FirebaseAuth auth;
+    private FirebaseStorage storage;
     private ListenerRegistration scheduleListener;
 
     private String selectedDateRange = "";
+    private int editingPosition = -1;
+    private ActivityResultLauncher<PickVisualMediaRequest> pickMedia;
 
     public ScheduleFragment() {
         super(R.layout.fragment_schedule);
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        pickMedia = registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
+            if (uri != null && editingPosition != -1) {
+                // 변경된 부분: 로컬 URI를 직접 사용하지 않고 업로드 함수 호출
+                uploadImageAndUpdateSchedule(editingPosition, uri);
+            } else {
+                Log.d("PhotoPicker", "No media selected");
+            }
+        });
     }
 
     @Override
@@ -71,6 +99,7 @@ public class ScheduleFragment extends Fragment {
 
         db = FirebaseFirestore.getInstance();
         auth = FirebaseAuth.getInstance();
+        storage = FirebaseStorage.getInstance(); // Firebase Storage 초기화
 
         addScheduleButton.setOnClickListener(v -> showCreateScheduleDialog());
     }
@@ -78,7 +107,7 @@ public class ScheduleFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        listenSchedulesFromFirestore(); // ✅ UI 준비 완료 후 리스너 등록
+        listenSchedulesFromFirestore();
     }
 
     @Override
@@ -104,7 +133,126 @@ public class ScheduleFragment extends Fragment {
             startActivity(intent);
         });
 
+        scheduleAdapter.setOnMenuItemClickListener(new ScheduleAdapter.OnMenuItemClickListener() {
+            @Override
+            public void onChangeBackgroundClick(ScheduleDTO schedule, int position) {
+                editingPosition = position;
+                pickMedia.launch(new PickVisualMediaRequest.Builder()
+                        .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                        .build());
+            }
+
+            @Override
+            public void onDeleteClick(ScheduleDTO schedule, int position) {
+                showDeleteConfirmDialog(schedule.getScheduleId(), position);
+            }
+        });
+
         recyclerView.setAdapter(scheduleAdapter);
+    }
+
+    // 이미지를 Storage에 업로드하고 Firestore 정보를 업데이트하는 통합 메서드
+    private void uploadImageAndUpdateSchedule(int position, Uri imageUri) {
+        if (auth.getCurrentUser() == null) {
+            Toast.makeText(getContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String uid = auth.getCurrentUser().getUid();
+        ScheduleDTO schedule = scheduleList.get(position);
+        String scheduleId = schedule.getScheduleId();
+
+        Toast.makeText(getContext(), "이미지를 업로드 중입니다...", Toast.LENGTH_SHORT).show();
+
+        // Firebase Storage 경로 설정 (유저UID/스케줄ID.jpg)
+        StorageReference imageRef = storage.getReference().child("schedule_backgrounds/" + uid + "/" + scheduleId + ".jpg");
+
+        // 이미지 업로드 실행
+        imageRef.putFile(imageUri)
+                .addOnSuccessListener(taskSnapshot -> {
+                    // 업로드 성공 시, 다운로드 URL 가져오기
+                    imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
+                        String imageUrl = downloadUri.toString();
+
+                        // Firestore 문서 업데이트
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("backgroundImageUri", imageUrl);
+
+                        db.collection("user").document(uid).collection("schedule").document(scheduleId)
+                                .update(updates)
+                                .addOnSuccessListener(aVoid -> {
+                                    // 로컬 데이터 업데이트 및 UI 갱신
+                                    schedule.setBackgroundImageUri(imageUrl);
+                                    scheduleAdapter.updateScheduleItem(position, schedule);
+                                    Toast.makeText(getContext(), "배경 이미지가 변경되었습니다.", Toast.LENGTH_SHORT).show();
+                                })
+                                .addOnFailureListener(e -> {
+                                    Toast.makeText(getContext(), "데이터베이스 업데이트에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                                    Log.e("ScheduleFragment", "Error updating Firestore", e);
+                                });
+                    }).addOnFailureListener(e -> {
+                        Toast.makeText(getContext(), "이미지 URL 가져오기에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                        Log.e("ScheduleFragment", "Error getting download URL", e);
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "이미지 업로드에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                    Log.e("ScheduleFragment", "Error uploading image", e);
+                });
+    }
+
+
+    private void showDeleteConfirmDialog(String scheduleId, int position) {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("스케줄 삭제")
+                .setMessage("이 스케줄을 정말 삭제하시겠습니까? 관련된 모든 정보가 영구적으로 삭제됩니다.")
+                .setPositiveButton("삭제", (dialog, which) -> {
+                    deleteSchedule(scheduleId, position);
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void deleteSchedule(String scheduleId, int position) {
+        if (auth.getCurrentUser() == null) return;
+        String uid = auth.getCurrentUser().getUid();
+
+        CollectionReference scheduleDateRef = db.collection("user").document(uid)
+                .collection("schedule").document(scheduleId)
+                .collection("scheduleDate");
+
+        scheduleDateRef.get().addOnSuccessListener(querySnapshot -> {
+            WriteBatch batch = db.batch();
+            for (DocumentSnapshot dateDoc : querySnapshot.getDocuments()) {
+                // Delete scheduleItems and alarms
+                dateDoc.getReference().collection("scheduleItem").get().addOnSuccessListener(itemSnapshot -> {
+                    for (DocumentSnapshot itemDoc : itemSnapshot.getDocuments()) {
+                        batch.delete(itemDoc.getReference());
+                        // Also delete associated alarm
+                        db.collection("user").document(uid).collection("alarms").document(itemDoc.getId()).delete();
+                    }
+                });
+
+                // Delete album items
+                dateDoc.getReference().collection("album").get().addOnSuccessListener(albumSnapshot -> {
+                    for (DocumentSnapshot albumDoc : albumSnapshot.getDocuments()) {
+                        batch.delete(albumDoc.getReference());
+                    }
+                });
+
+                batch.delete(dateDoc.getReference());
+            }
+
+            batch.commit().addOnSuccessListener(aVoid -> {
+                // Finally, delete the schedule document itself
+                db.collection("user").document(uid).collection("schedule").document(scheduleId)
+                        .delete()
+                        .addOnSuccessListener(aVoid1 -> {
+                            Toast.makeText(getContext(), "스케줄이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                            // The listener will automatically update the UI.
+                        })
+                        .addOnFailureListener(e -> Toast.makeText(getContext(), "스케줄 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show());
+            }).addOnFailureListener(e -> Toast.makeText(getContext(), "하위 데이터 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show());
+        }).addOnFailureListener(e -> Toast.makeText(getContext(), "스케줄 데이터를 불러오지 못했습니다.", Toast.LENGTH_SHORT).show());
     }
 
     private void showCreateScheduleDialog() {
@@ -204,7 +352,8 @@ public class ScheduleFragment extends Fragment {
                 endDate,
                 null,
                 "",
-                0
+                0,
+                null
         );
 
         // Firestore에 저장 (리스너가 자동으로 UI 업데이트함)

@@ -85,8 +85,8 @@
                 <Button
                     android:id="@+id/btn_modify"
                     android:layout_width="27dp"
-                    android:layout_height="29dp"
-                    android:background="@drawable/ic_setting_dot"/>
+                    android:layout_height="match_parent"
+                    android:background="@drawable/ic_setting_dot" />
             </LinearLayout>
 
             <!-- 장소 정보 -->
@@ -100,7 +100,7 @@
                 <ImageView
                     android:layout_width="18dp"
                     android:layout_height="20dp"
-                    android:src="@drawable/ic_location_point"
+                    android:src="@drawable/ic_place"
                     android:scaleType="fitCenter"
                     android:layout_marginEnd="8dp"/>
 

@@ -10,6 +10,7 @@
     android:paddingEnd="35dp"
     tools:context=".Authentication.FindAccountActivity">
     <Button
+        android:id="@+id/btn_back"
         android:layout_width="38dp"
         android:layout_height="38dp"
         android:background="@drawable/ic_back"
