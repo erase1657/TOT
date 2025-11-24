@@ -1,5 +1,7 @@
 package com.example.tot.Schedule;
 
+import android.content.Context;
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,6 +13,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.example.tot.R;
 
 import java.text.SimpleDateFormat;
@@ -24,20 +27,21 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
 
     private final List<ScheduleDTO> scheduleList;
     private final OnScheduleClickListener clickListener;
-    private OnDeleteButtonClickListener deleteButtonClickListener; // Listener for delete button clicks
+    private OnMenuItemClickListener menuClickListener;
 
     // 클릭 리스너 인터페이스
     public interface OnScheduleClickListener {
         void onScheduleClick(ScheduleDTO schedule, int position);
     }
 
-    // 삭제 버튼 클릭 리스너 인터페이스
-    public interface OnDeleteButtonClickListener {
+    // 메뉴 아이템 클릭 리스너 인터페이스
+    public interface OnMenuItemClickListener {
+        void onChangeBackgroundClick(ScheduleDTO schedule, int position);
         void onDeleteClick(ScheduleDTO schedule, int position);
     }
 
-    public void setOnDeleteButtonClickListener(OnDeleteButtonClickListener listener) {
-        this.deleteButtonClickListener = listener;
+    public void setOnMenuItemClickListener(OnMenuItemClickListener listener) {
+        this.menuClickListener = listener;
     }
 
     public ScheduleAdapter(List<ScheduleDTO> scheduleList) {
@@ -61,7 +65,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         ScheduleDTO schedule = scheduleList.get(position);
-        holder.bind(schedule, clickListener, deleteButtonClickListener);
+        holder.bind(schedule, clickListener, menuClickListener);
     }
 
     @Override
@@ -105,24 +109,33 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
             notifyItemRangeChanged(position, scheduleList.size());
         }
     }
+    
+    public void updateScheduleItem(int position, ScheduleDTO schedule) {
+        if (position >= 0 && position < scheduleList.size()) {
+            scheduleList.set(position, schedule);
+            notifyItemChanged(position);
+        }
+    }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         ImageView imgBackground;
         TextView tvLocation;
         TextView tvDateRange;
         TextView tvDate;
-        ImageButton btnDelete;
+        ImageButton btnOptions;
+        Context context;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
+            context = itemView.getContext();
             imgBackground = itemView.findViewById(R.id.img_schedule_background);
             tvLocation = itemView.findViewById(R.id.tv_schedule_location);
             tvDateRange = itemView.findViewById(R.id.tv_date_range);
             tvDate = itemView.findViewById(R.id.tv_date);
-            btnDelete = itemView.findViewById(R.id.btn_delete_schedule);
+            btnOptions = itemView.findViewById(R.id.btn_schedule_options);
         }
 
-        public void bind(ScheduleDTO schedule, OnScheduleClickListener listener, OnDeleteButtonClickListener deleteListener) {
+        public void bind(ScheduleDTO schedule, OnScheduleClickListener listener, OnMenuItemClickListener menuListener) {
             // Null 체크
             if (schedule == null) return;
 
@@ -176,10 +189,18 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
                 tvDate.setText("");
             }
 
-            // TODO: 홀더에 백그라운드 이미지도 설정하게 만들어야함.
-            // if (schedule.getThumbnailRef() != null) {
-            //     // 썸네일 로드 로직
-            // }
+            // 배경 이미지 설정
+            if (schedule.getBackgroundImageUri() != null) {
+                Glide.with(context)
+                    .load(Uri.parse(schedule.getBackgroundImageUri()))
+                    .into(imgBackground);
+            } else if (schedule.getThumbnailRef() != null) {
+                 Glide.with(context)
+                    .load(schedule.getThumbnailRef())
+                    .into(imgBackground);
+            } else {
+                imgBackground.setImageResource(R.drawable.sample3);
+            }
 
             // 클릭 이벤트 설정
             if (listener != null) {
@@ -191,17 +212,23 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
                 });
             }
 
-            // 삭제 버튼 클릭 이벤트
-            if (deleteListener != null) {
-                btnDelete.setOnClickListener(v -> {
-                    PopupMenu popup = new PopupMenu(v.getContext(), btnDelete);
-                    popup.getMenuInflater().inflate(R.menu.menu_schedule, popup.getMenu());
+            // 더보기 버튼 클릭 이벤트
+            if (menuListener != null) {
+                btnOptions.setOnClickListener(v -> {
+                    PopupMenu popup = new PopupMenu(v.getContext(), btnOptions);
+                    popup.getMenuInflater().inflate(R.menu.item_schedule_menu, popup.getMenu());
                     popup.setOnMenuItemClickListener(menuItem -> {
-                        if (menuItem.getItemId() == R.id.menu_delete) {
-                            int position = getAdapterPosition();
-                            if (position != RecyclerView.NO_POSITION) {
-                                deleteListener.onDeleteClick(schedule, position);
-                            }
+                        int position = getAdapterPosition();
+                        if (position == RecyclerView.NO_POSITION) {
+                            return false;
+                        }
+                        
+                        int itemId = menuItem.getItemId();
+                        if (itemId == R.id.action_change_background) {
+                            menuListener.onChangeBackgroundClick(schedule, position);
+                            return true;
+                        } else if (itemId == R.id.action_delete_schedule) {
+                            menuListener.onDeleteClick(schedule, position);
                             return true;
                         }
                         return false;

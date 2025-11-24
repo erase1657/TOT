@@ -1,7 +1,10 @@
 package com.example.tot.Schedule;
 
+import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,6 +15,9 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -35,8 +41,10 @@ import com.google.firebase.firestore.WriteBatch;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -56,9 +64,23 @@ public class ScheduleFragment extends Fragment {
     private ListenerRegistration scheduleListener;
 
     private String selectedDateRange = "";
+    private int editingPosition = -1;
+    private ActivityResultLauncher<PickVisualMediaRequest> pickMedia;
 
     public ScheduleFragment() {
         super(R.layout.fragment_schedule);
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        pickMedia = registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
+            if (uri != null && editingPosition != -1) {
+                updateScheduleBackground(editingPosition, uri);
+            } else {
+                Log.d("PhotoPicker", "No media selected");
+            }
+        });
     }
 
     @Override
@@ -80,7 +102,7 @@ public class ScheduleFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        listenSchedulesFromFirestore(); // ✅ UI 준비 완료 후 리스너 등록
+        listenSchedulesFromFirestore();
     }
 
     @Override
@@ -106,12 +128,46 @@ public class ScheduleFragment extends Fragment {
             startActivity(intent);
         });
 
-        scheduleAdapter.setOnDeleteButtonClickListener((schedule, position) -> {
-            showDeleteConfirmDialog(schedule.getScheduleId(), position);
+        scheduleAdapter.setOnMenuItemClickListener(new ScheduleAdapter.OnMenuItemClickListener() {
+            @Override
+            public void onChangeBackgroundClick(ScheduleDTO schedule, int position) {
+                editingPosition = position;
+                pickMedia.launch(new PickVisualMediaRequest.Builder()
+                        .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                        .build());
+            }
+
+            @Override
+            public void onDeleteClick(ScheduleDTO schedule, int position) {
+                showDeleteConfirmDialog(schedule.getScheduleId(), position);
+            }
         });
 
         recyclerView.setAdapter(scheduleAdapter);
     }
+
+    private void updateScheduleBackground(int position, Uri imageUri) {
+        if (auth.getCurrentUser() == null) return;
+        String uid = auth.getCurrentUser().getUid();
+        ScheduleDTO schedule = scheduleList.get(position);
+        String scheduleId = schedule.getScheduleId();
+
+        schedule.setBackgroundImageUri(imageUri.toString());
+        scheduleAdapter.updateScheduleItem(position, schedule);
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("backgroundImageUri", imageUri.toString());
+
+        db.collection("user").document(uid).collection("schedule").document(scheduleId)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "배경 이미지가 변경되었습니다.", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "배경 이미지 변경에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                });
+    }
+
 
     private void showDeleteConfirmDialog(String scheduleId, int position) {
         new AlertDialog.Builder(requireContext())
@@ -264,7 +320,8 @@ public class ScheduleFragment extends Fragment {
                 endDate,
                 null,
                 "",
-                0
+                0,
+                null
         );
 
         // Firestore에 저장 (리스너가 자동으로 UI 업데이트함)

@@ -73,15 +73,15 @@
                 android:shadowRadius="3" />
         </LinearLayout>
 
-        <!-- 삭제 버튼 -->
+        <!-- 더보기 버튼 -->
         <ImageButton
-            android:id="@+id/btn_delete_schedule"
+            android:id="@+id/btn_schedule_options"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_gravity="top|end"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_more_vert"
-            android:contentDescription="삭제" />
+            android:contentDescription="더보기" />
 
     </FrameLayout>
 </androidx.cardview.widget.CardView>
