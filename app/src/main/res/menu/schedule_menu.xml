@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/menu_change_date"
+        android:title="날짜 변경" />
+    <item
         android:id="@+id/menu_map"
-        android:title="지도"/>
+        android:title="지도" />
     <item
         android:id="@+id/menu_album"
-        android:title="앨범"/>
-
+        android:title="앨범" />
     <item
         android:id="@+id/menu_delete"
-        android:title="스케줄 삭제"/>
+        android:title="삭제" />
 </menu>

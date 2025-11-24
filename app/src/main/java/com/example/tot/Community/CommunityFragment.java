@@ -18,6 +18,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.tot.R;
 import com.google.firebase.auth.FirebaseAuth;
@@ -44,6 +45,9 @@ public class CommunityFragment extends Fragment implements CommunityDataManager.
     private Button btnPopular, btnAll, btnFriends;
     private ImageButton btnWrite;
 
+    // ✅ 새로고침 기능 추가
+    private SwipeRefreshLayout swipeRefreshLayout;
+
     private FilterMode currentFilter = FilterMode.ALL;
     private String searchQuery = "";
 
@@ -65,7 +69,6 @@ public class CommunityFragment extends Fragment implements CommunityDataManager.
     private Set<String> followingSet = new HashSet<>();
     private Set<String> followerSet = new HashSet<>();
 
-    // ✅ 중앙 데이터 관리자
     private CommunityDataManager dataManager;
 
     enum FilterMode {
@@ -89,7 +92,6 @@ public class CommunityFragment extends Fragment implements CommunityDataManager.
                 .collection("posts");
         searchHandler = new Handler(Looper.getMainLooper());
 
-        // ✅ 데이터 관리자 초기화 및 리스너 등록
         dataManager = CommunityDataManager.getInstance();
         dataManager.addListener(this);
 
@@ -97,6 +99,8 @@ public class CommunityFragment extends Fragment implements CommunityDataManager.
         setupRecyclerView();
         setupFilterButtons();
         setupSearch();
+        // ✅ 새로고침 설정
+        setupSwipeRefresh();
 
         btnWrite.setOnClickListener(v -> {
             ScheduleSelectionDialogFragment dialog = new ScheduleSelectionDialogFragment();
@@ -104,12 +108,10 @@ public class CommunityFragment extends Fragment implements CommunityDataManager.
         });
 
         loadFollowRelations(() -> {
-            // ✅ 중앙 데이터 관리자에서 데이터 로드
             dataManager.getPosts(false);
         });
     }
 
-    // ✅ 데이터 업데이트 콜백
     @Override
     public void onDataUpdated(List<CommunityPostDTO> posts) {
         allPosts = new ArrayList<>(posts);
@@ -131,6 +133,44 @@ public class CommunityFragment extends Fragment implements CommunityDataManager.
         btnAll = view.findViewById(R.id.btn_all);
         btnFriends = view.findViewById(R.id.btn_friends);
         btnWrite = view.findViewById(R.id.btn_write);
+        // ✅ SwipeRefreshLayout 초기화
+        swipeRefreshLayout = view.findViewById(R.id.swipe_refresh_community);
+    }
+
+    // ✅ 새로고침 기능 설정
+    private void setupSwipeRefresh() {
+        if (swipeRefreshLayout == null) return;
+
+        swipeRefreshLayout.setColorSchemeColors(
+                getResources().getColor(android.R.color.holo_blue_bright),
+                getResources().getColor(android.R.color.holo_green_light),
+                getResources().getColor(android.R.color.holo_orange_light),
+                getResources().getColor(android.R.color.holo_red_light)
+        );
+
+        swipeRefreshLayout.setOnRefreshListener(this::refreshCommunityData);
+    }
+
+    // ✅ 새로고침 실행
+    private void refreshCommunityData() {
+        Log.d(TAG, "🔄 커뮤니티 새로고침 시작");
+
+        // 팔로우 관계 다시 로드
+        loadFollowRelations(() -> {
+            // 데이터 강제 새로고침
+            dataManager.getPosts(true);
+
+            // 사용자 검색 결과 초기화
+            if (!searchQuery.isEmpty()) {
+                searchUsersInFirestore(searchQuery);
+            }
+        });
+
+        // 1초 후 새로고침 종료
+        swipeRefreshLayout.postDelayed(() -> {
+            swipeRefreshLayout.setRefreshing(false);
+            Toast.makeText(getContext(), "새로고침 완료", Toast.LENGTH_SHORT).show();
+        }, 1000);
     }
 
     private void setupRecyclerView() {
@@ -441,7 +481,6 @@ public class CommunityFragment extends Fragment implements CommunityDataManager.
     public void onResume() {
         super.onResume();
         loadFollowRelations(() -> {
-            // ✅ 강제 새로고침 없이 캐시된 데이터 사용
             dataManager.getPosts(false);
         });
     }
@@ -452,7 +491,6 @@ public class CommunityFragment extends Fragment implements CommunityDataManager.
         if (searchHandler != null && searchRunnable != null) {
             searchHandler.removeCallbacks(searchRunnable);
         }
-        // ✅ 리스너 제거
         if (dataManager != null) {
             dataManager.removeListener(this);
         }
