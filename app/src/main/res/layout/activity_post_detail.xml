@@ -55,31 +55,6 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:layout_marginEnd="16dp" />
 
-                <!-- 하트 버튼 -->
-                <ImageView
-                    android:id="@+id/btn_heart"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_heart"
-                    android:contentDescription="좋아요"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:layout_marginEnd="16dp" />
-
-                <!-- 수정 버튼 (작성자만) -->
-                <ImageView
-                    android:id="@+id/btn_edit"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_edit"
-                    android:contentDescription="수정"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:layout_marginEnd="16dp"
-                    android:visibility="gone" />
-
                 <!-- 삭제 버튼 (작성자만) -->
                 <ImageView
                     android:id="@+id/btn_delete"
@@ -242,13 +217,13 @@
                 android:layout_height="wrap_content"
                 android:nestedScrollingEnabled="false"
                 android:paddingHorizontal="16dp"
-                android:paddingBottom="24dp" />
+                android:paddingBottom="100dp" />
 
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
 
-    <!-- ⭐ 하단 고정 바 -->
+    <!-- ✅ 하단 고정 바 (하트 수를 버튼 아래로) -->
     <LinearLayout
         android:id="@+id/layout_bottom_fixed"
         android:layout_width="match_parent"
@@ -257,15 +232,16 @@
         android:background="#FFFFFF"
         android:elevation="8dp"
         android:orientation="horizontal"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:gravity="center_vertical">
 
-        <!-- 하트 영역 -->
+        <!-- 하트 영역 (수직 구조로 변경) -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center"
-            android:orientation="horizontal">
+            android:orientation="vertical">
 
             <ImageView
                 android:id="@+id/btn_bottom_heart"
@@ -278,14 +254,13 @@
                 android:id="@+id/tv_bottom_heart_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginTop="4dp"
                 android:text="0"
-                android:textSize="16sp"
-                android:textColor="#000000"
-                android:textStyle="bold" />
+                android:textSize="12sp"
+                android:textColor="#666666" />
         </LinearLayout>
 
-        <!-- ⭐ 카피하기 버튼을 더 크게 -->
+        <!-- 카피하기 버튼 -->
         <Button
             android:id="@+id/btn_copy_schedule"
             android:layout_width="0dp"
