@@ -147,6 +147,11 @@ public class ScheduleFragment extends Fragment {
             public void onDeleteClick(ScheduleDTO schedule, int position) {
                 showDeleteConfirmDialog(schedule.getScheduleId(), position);
             }
+
+            @Override
+            public void onEditTitleClick(ScheduleDTO schedule, int position) {
+                showEditTitleDialog(schedule, position);
+            }
         });
 
         recyclerView.setAdapter(scheduleAdapter);
@@ -441,6 +446,51 @@ public class ScheduleFragment extends Fragment {
                             noScheduleLayout.setVisibility(View.VISIBLE);
                         }
                     });
+                });
+    }
+
+    private void showEditTitleDialog(ScheduleDTO schedule, int position) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        LayoutInflater inflater = requireActivity().getLayoutInflater();
+        View dialogView = inflater.inflate(R.layout.dialog_edit_title, null);
+        builder.setView(dialogView);
+
+        EditText etTitle = dialogView.findViewById(R.id.et_title);
+        etTitle.setText(schedule.getLocationName());
+
+        builder.setTitle("제목 수정")
+                .setPositiveButton("저장", (dialog, which) -> {
+                    String newTitle = etTitle.getText().toString();
+                    if (!newTitle.isEmpty()) {
+                        updateScheduleTitle(schedule, newTitle, position);
+                    } else {
+                        Toast.makeText(getContext(), "제목을 입력해주세요.", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("취소", null);
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private void updateScheduleTitle(ScheduleDTO schedule, String newTitle, int position) {
+        if (auth.getCurrentUser() == null) {
+            Toast.makeText(getContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String uid = auth.getCurrentUser().getUid();
+        String scheduleId = schedule.getScheduleId();
+
+        db.collection("user").document(uid).collection("schedule").document(scheduleId)
+                .update("locationName", newTitle)
+                .addOnSuccessListener(aVoid -> {
+                    schedule.setLocationName(newTitle);
+                    scheduleAdapter.updateScheduleItem(position, schedule);
+                    Toast.makeText(getContext(), "제목이 수정되었습니다.", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "제목 수정에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                    Log.e("ScheduleFragment", "Error updating title", e);
                 });
     }
 }
