@@ -69,7 +69,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
     private static final String TAG = "PostDetailActivity";
 
     private com.google.android.flexbox.FlexboxLayout layoutRegionTags;
-    private ImageView btnBack, btnComment, btnEdit, btnDelete;
+    private ImageView btnBack, btnComment, btnDelete;
     private ImageView btnBottomHeart;
     private TextView tvBottomHeartCount;
     private Button btnCopySchedule;
@@ -135,7 +135,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         layoutRegionTags = findViewById(R.id.layout_region_tags);
         btnBack = findViewById(R.id.btn_back);
         btnComment = findViewById(R.id.btn_comment);
-        btnEdit = findViewById(R.id.btn_edit);
         btnDelete = findViewById(R.id.btn_delete);
         imgThumbnail = findViewById(R.id.img_thumbnail);
         tvPostTitle = findViewById(R.id.tv_post_title);
@@ -164,7 +163,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
         btnBack.setOnClickListener(v -> finish());
         btnComment.setOnClickListener(v -> openCommentsBottomSheet());
-        btnEdit.setOnClickListener(v -> editPost());
         btnDelete.setOnClickListener(v -> showDeleteConfirmDialog());
 
         btnBottomHeart.setOnClickListener(v -> toggleHeart());
@@ -193,7 +191,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
     private void loadPostData() {
         isAuthor = currentUid != null && currentUid.equals(authorUid);
 
-        btnEdit.setVisibility(isAuthor ? View.VISIBLE : View.GONE);
         btnDelete.setVisibility(isAuthor ? View.VISIBLE : View.GONE);
 
         if (isAuthor) {
@@ -370,47 +367,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
             layoutRegionTags.addView(tagView);
         }
     }
-
-    private void editPost() {
-        if (scheduleId == null || authorUid == null) {
-            Toast.makeText(this, "스케줄 정보를 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        db.collection("user")
-                .document(authorUid)
-                .collection("schedule")
-                .document(scheduleId)
-                .get()
-                .addOnSuccessListener(doc -> {
-                    if (doc.exists()) {
-                        Long startDateLong = doc.getLong("startDate");
-                        Long endDateLong = doc.getLong("endDate");
-
-                        if (startDateLong != null && endDateLong != null) {
-                            Intent intent = new Intent(PostDetailActivity.this, ScheduleSettingActivity.class);
-                            intent.putExtra("scheduleId", scheduleId);
-                            intent.putExtra("startDate", startDateLong);
-                            intent.putExtra("endDate", endDateLong);
-                            intent.putExtra("fromPostEdit", true);
-                            intent.putExtra("postId", postId);
-                            startActivity(intent);
-                        } else {
-                            Toast.makeText(this, "스케줄 날짜 정보가 없습니다", Toast.LENGTH_SHORT).show();
-                        }
-                    } else {
-                        Toast.makeText(this, "원본 스케줄을 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "스케줄 조회 실패", e);
-                    Toast.makeText(this, "스케줄을 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
-                });
-    }
-
-// Part 2로 계속...
-// Part 1에서 계속...
-
     private void showCopyScheduleDialog() {
         if (currentUid == null) {
             Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();

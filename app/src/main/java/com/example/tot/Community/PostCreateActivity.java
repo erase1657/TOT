@@ -301,9 +301,6 @@ public class PostCreateActivity extends AppCompatActivity {
         }
     }
 
-// Part 2로 계속...
-// Part 1에서 계속...
-
     private void publishPost() {
         String title = edtPostTitle.getText().toString().trim();
 

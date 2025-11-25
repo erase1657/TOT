@@ -55,19 +55,6 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:layout_marginEnd="16dp" />
 
-                <!-- 수정 버튼 (작성자만) -->
-                <ImageView
-                    android:id="@+id/btn_edit"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_edit"
-                    android:contentDescription="수정"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:layout_marginEnd="16dp"
-                    android:visibility="gone" />
-
                 <!-- 삭제 버튼 (작성자만) -->
                 <ImageView
                     android:id="@+id/btn_delete"
@@ -114,7 +101,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <!-- 게시글 제목 (tv_location 위치로 이동) -->
+                <!-- 게시글 제목 -->
                 <TextView
                     android:id="@+id/tv_post_title"
                     android:layout_width="wrap_content"
