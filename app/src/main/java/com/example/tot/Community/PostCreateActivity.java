@@ -395,6 +395,8 @@ public class PostCreateActivity extends AppCompatActivity {
                 .addOnSuccessListener(querySnapshot -> {
                     if (querySnapshot.isEmpty()) {
                         Log.d(TAG, "⚠️ 복사할 일정 데이터가 없음");
+                        // ✅ 게시글 생성 완료 후 커뮤니티 새로고침
+                        refreshCommunityData();
                         Toast.makeText(this, "게시글이 등록되었습니다", Toast.LENGTH_SHORT).show();
                         finish();
                         return;
@@ -416,6 +418,8 @@ public class PostCreateActivity extends AppCompatActivity {
                             pendingCopies[0]--;
                             if (pendingCopies[0] == 0) {
                                 Log.d(TAG, "✅ 모든 일정 복사 완료");
+                                // ✅ 게시글 생성 완료 후 커뮤니티 새로고침
+                                refreshCommunityData();
                                 Toast.makeText(this, "게시글이 등록되었습니다", Toast.LENGTH_SHORT).show();
                                 finish();
                             }
@@ -436,9 +440,19 @@ public class PostCreateActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ 일정 데이터 복사 실패", e);
+                    // ✅ 실패해도 게시글은 등록되었으므로 새로고침
+                    refreshCommunityData();
                     Toast.makeText(this, "게시글이 등록되었습니다 (일정 복사 실패)", Toast.LENGTH_SHORT).show();
                     finish();
                 });
+    }
+
+    /**
+     * ✅ 커뮤니티 데이터 새로고침
+     */
+    private void refreshCommunityData() {
+        CommunityDataManager.getInstance().refresh();
+        Log.d(TAG, "🔄 커뮤니티 데이터 새로고침 완료");
     }
 
     private void copyScheduleItems(String uid, String scheduleId, String dateKey, String postId, Runnable onComplete) {
