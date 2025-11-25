@@ -9,6 +9,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -259,6 +260,7 @@ public class ScheduleFragment extends Fragment {
         LayoutInflater inflater = requireActivity().getLayoutInflater();
         View dialogView = inflater.inflate(R.layout.dialog_create_schedule, null);
 
+        EditText etLocationName = dialogView.findViewById(R.id.et_location_name);
         RelativeLayout dateRangeBox = dialogView.findViewById(R.id.date_range_box);
         TextView tvSelectedDate = dialogView.findViewById(R.id.tv_selected_date);
         Button btnConfirm = dialogView.findViewById(R.id.btn_dialog_confirm);
@@ -271,12 +273,17 @@ public class ScheduleFragment extends Fragment {
         dateRangeBox.setOnClickListener(v -> showGoogleDateRangePicker(tvSelectedDate));
 
         btnConfirm.setOnClickListener(v -> {
+            String locationName = etLocationName.getText().toString();
+            if (locationName.isEmpty()) {
+                Toast.makeText(getContext(), "제목을 입력하세요.", Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (selectedDateRange.isEmpty()) {
                 Toast.makeText(getContext(), "여행 기간을 선택해주세요", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            addNewSchedule();
+            addNewSchedule(locationName);
             dialog.dismiss();
             Toast.makeText(getContext(), "스케줄이 생성되었습니다", Toast.LENGTH_SHORT).show();
         });
@@ -330,7 +337,7 @@ public class ScheduleFragment extends Fragment {
         datePicker.show(getParentFragmentManager(), "date_picker");
     }
 
-    private void addNewSchedule() {
+    private void addNewSchedule(String locationName) {
         if (auth.getCurrentUser() == null) {
             Log.e("ScheduleFragment", "User is not logged in.");
             Toast.makeText(getContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
@@ -347,7 +354,7 @@ public class ScheduleFragment extends Fragment {
 
         ScheduleDTO schedule = new ScheduleDTO(
                 scheduleId,
-                "지역",
+                locationName,
                 startDate,
                 endDate,
                 null,
