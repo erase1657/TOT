@@ -32,6 +32,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -67,6 +68,7 @@ public class MyPageFragment extends Fragment {
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
     private MyPageProfileManager profileManager;
+    private ListenerRegistration postsListener;
 
     private boolean isEditMode = false;
     private EditText etNameEdit;
@@ -132,6 +134,20 @@ public class MyPageFragment extends Fragment {
         loadFollowCounts(() -> loadProfileData());
         loadTravelHistory();
         setupClickListeners();
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        loadPostsCount();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (postsListener != null) {
+            postsListener.remove();
+        }
     }
 
     private void setupActivityResultLaunchers() {
@@ -299,7 +315,6 @@ public class MyPageFragment extends Fragment {
         originalName = tvName.getText().toString();
         originalStatus = tvStatusMessage.getText().toString();
         originalLocation = tvLocation.getText().toString();
-        tvPostsCount.setText("0");
     }
 
     private void setDefaultProfile() {
@@ -316,7 +331,6 @@ public class MyPageFragment extends Fragment {
         originalBackgroundImageUrl = null;
 
         updateFollowCounts();
-        tvPostsCount.setText("0");
     }
 
     private void loadFollowStatus() {
@@ -354,12 +368,33 @@ public class MyPageFragment extends Fragment {
                     }
                     scheduleAdapter.notifyDataSetChanged();
                     updateEmptyState();
-                    tvPostsCount.setText(String.valueOf(scheduleList.size()));
                 })
                 .addOnFailureListener(e -> {
                     Log.w(TAG, "Error getting documents: ", e);
                     Toast.makeText(getContext(), "여행 기록을 불러오는 데 실패했습니다.", Toast.LENGTH_SHORT).show();
                     updateEmptyState();
+                });
+    }
+    
+    private void loadPostsCount() {
+        if (targetUserId == null || targetUserId.isEmpty()) {
+            tvPostsCount.setText("0");
+            return;
+        }
+
+        postsListener = db.collection("public").document("community").collection("posts")
+                .whereEqualTo("authorUid", targetUserId)
+                .addSnapshotListener((queryDocumentSnapshots, e) -> {
+                    if (e != null) {
+                        Log.w(TAG, "Listen failed.", e);
+                        tvPostsCount.setText("0");
+                        return;
+                    }
+
+                    if (queryDocumentSnapshots != null) {
+                        int postsCount = queryDocumentSnapshots.size();
+                        tvPostsCount.setText(String.valueOf(postsCount));
+                    }
                 });
     }
 
