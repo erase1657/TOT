@@ -236,47 +236,138 @@
             android:layout_marginTop="16dp"
             android:background="#E5E7EB" />
 
-        <!-- 여행 기록 타이틀 -->
-        <TextView
-            android:id="@+id/tv_travel_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:text="나의 여행 기록"
-            android:textColor="#6366F1"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="8dp" />
-
-        <!-- 여행 스케줄 없을 때 -->
+        <!-- 게시글/스케줄 탭 -->
         <LinearLayout
-            android:id="@+id/layout_no_travel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:padding="32dp"
-            android:visibility="visible">
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp">
 
             <TextView
-                android:layout_width="wrap_content"
+                android:id="@+id/btn_posts"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="여행 기록이 없습니다 ✈️"
-                android:textColor="#999999"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:paddingBottom="8dp"
+                android:text="게시글"
                 android:textSize="16sp"
-                android:gravity="center" />
+                android:textStyle="bold"
+                android:textColor="#000000" />
+
+            <TextView
+                android:id="@+id/btn_schedule"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:paddingBottom="8dp"
+                android:text="스케줄"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#A0A0A0" />
         </LinearLayout>
 
-        <!-- 여행 스케줄 RecyclerView -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rv_my_travels"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:orientation="horizontal">
+
+            <View
+                android:id="@+id/indicator_posts"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="#000000" />
+
+            <View
+                android:id="@+id/indicator_schedule"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="#E0E0E0"
+                android:visibility="invisible" />
+        </LinearLayout>
+
+
+        <!-- 콘텐츠 영역 -->
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false"
-            android:paddingHorizontal="8dp"
-            android:paddingBottom="16dp"
-            android:clipToPadding="false" />
+            android:paddingTop="8dp">
 
+            <!-- 게시글 목록 -->
+            <LinearLayout
+                android:id="@+id/layout_posts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="visible">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_my_posts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    android:paddingHorizontal="8dp"
+                    android:paddingBottom="16dp"
+                    android:clipToPadding="false" />
+
+                <LinearLayout
+                    android:id="@+id/layout_no_posts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="32dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="게시글이 없습니다 📝"
+                        android:textColor="#999999"
+                        android:textSize="16sp"
+                        android:gravity="center" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- 스케줄 목록 -->
+            <LinearLayout
+                android:id="@+id/layout_schedule"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_my_schedule"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    android:paddingHorizontal="8dp"
+                    android:paddingBottom="16dp"
+                    android:clipToPadding="false" />
+
+                <LinearLayout
+                    android:id="@+id/layout_no_schedule"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="32dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="여행 기록이 없습니다 ✈️"
+                        android:textColor="#999999"
+                        android:textSize="16sp"
+                        android:gravity="center" />
+                </LinearLayout>
+            </LinearLayout>
+        </FrameLayout>
     </LinearLayout>
 </ScrollView>

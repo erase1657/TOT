@@ -17,12 +17,14 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.Authentication.LoginActivity;
 import com.example.tot.Authentication.UserDTO;
+import com.example.tot.Community.CommunityPostDTO;
 import com.example.tot.Follow.FollowActivity;
 import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.R;
@@ -31,6 +33,7 @@ import com.example.tot.User.ProfileImageHelper;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.ListenerRegistration;
 
@@ -56,20 +59,31 @@ public class MyPageFragment extends Fragment {
     private TextView tvFollowersCount;
     private TextView tvFollowingCount;
     private TextView tvPostsCount;
-    private TextView tvTravelTitle;
     private LinearLayout followerSection;
     private LinearLayout followingSection;
-    private RecyclerView rvMyTravels;
-    private LinearLayout layoutNoTravel;
+    private RecyclerView rvMyPosts;
+    private RecyclerView rvMySchedule;
+    private LinearLayout layoutNoPosts;
+    private LinearLayout layoutNoSchedule;
+    private LinearLayout layoutPosts;
+    private LinearLayout layoutSchedule;
+    private TextView btnPosts;
+    private TextView btnSchedule;
+    private View indicatorPosts;
+    private View indicatorSchedule;
 
     private MyPageScheduleAdapter scheduleAdapter;
     private List<ScheduleDTO> scheduleList;
+    private MyPagePostsAdapter postsAdapter;
+    private List<CommunityPostDTO> postList;
+
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
     private MyPageProfileManager profileManager;
-    private ListenerRegistration postsListener;
+    private ListenerRegistration postsCountListener;
     private ListenerRegistration travelHistoryListener;
+    private ListenerRegistration postsListener;
 
     private boolean isEditMode = false;
     private EditText etNameEdit;
@@ -131,9 +145,11 @@ public class MyPageFragment extends Fragment {
 
         initViews(view);
         determineProfileMode();
+        setupTabListeners();
+        setupRecyclerViews(); // RecyclerView 셋업
+        updateTabSelection(true); // 초기 탭 설정
 
         loadFollowCounts(() -> loadProfileData());
-        loadTravelHistory();
         setupClickListeners();
     }
 
@@ -141,16 +157,21 @@ public class MyPageFragment extends Fragment {
     public void onStart() {
         super.onStart();
         loadPostsCount();
+        loadMyPosts();
+        loadTravelHistory();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        if (postsListener != null) {
-            postsListener.remove();
+        if (postsCountListener != null) {
+            postsCountListener.remove();
         }
         if (travelHistoryListener != null) {
             travelHistoryListener.remove();
+        }
+        if (postsListener != null) {
+            postsListener.remove();
         }
     }
 
@@ -172,7 +193,6 @@ public class MyPageFragment extends Fragment {
                 uri -> {
                     if (uri != null && isEditMode) {
                         tempProfileImageUri = uri;
-                        // ✅ ProfileImageHelper 사용
                         ProfileImageHelper.loadProfileImageFromUri(imgProfile, uri);
                         Toast.makeText(getContext(), "프로필 사진이 선택되었습니다", Toast.LENGTH_SHORT).show();
                     }
@@ -184,7 +204,6 @@ public class MyPageFragment extends Fragment {
                 uri -> {
                     if (uri != null && isEditMode) {
                         tempBackgroundImageUri = uri;
-                        // ✅ ProfileImageHelper 사용
                         ProfileImageHelper.loadBackgroundImageFromUri(imgBackground, uri, R.drawable.sample3);
                         Toast.makeText(getContext(), "배경 사진이 선택되었습니다", Toast.LENGTH_SHORT).show();
                     }
@@ -205,12 +224,35 @@ public class MyPageFragment extends Fragment {
         tvFollowersCount = view.findViewById(R.id.tv_followers_count);
         tvFollowingCount = view.findViewById(R.id.tv_following_count);
         tvPostsCount = view.findViewById(R.id.tv_posts_count);
-        tvTravelTitle = view.findViewById(R.id.tv_travel_title);
-        rvMyTravels = view.findViewById(R.id.rv_my_travels);
-        layoutNoTravel = view.findViewById(R.id.layout_no_travel);
+        rvMyPosts = view.findViewById(R.id.rv_my_posts);
+        rvMySchedule = view.findViewById(R.id.rv_my_schedule);
+        layoutNoPosts = view.findViewById(R.id.layout_no_posts);
+        layoutNoSchedule = view.findViewById(R.id.layout_no_schedule);
+        layoutPosts = view.findViewById(R.id.layout_posts);
+        layoutSchedule = view.findViewById(R.id.layout_schedule);
+        btnPosts = view.findViewById(R.id.btn_posts);
+        btnSchedule = view.findViewById(R.id.btn_schedule);
+        indicatorPosts = view.findViewById(R.id.indicator_posts);
+        indicatorSchedule = view.findViewById(R.id.indicator_schedule);
 
         followerSection = (LinearLayout) tvFollowersCount.getParent();
         followingSection = (LinearLayout) tvFollowingCount.getParent();
+    }
+
+    private void setupRecyclerViews() {
+        // Posts RecyclerView
+        rvMyPosts.setLayoutManager(new GridLayoutManager(getContext(), 3));
+        postList = new ArrayList<>();
+        postsAdapter = new MyPagePostsAdapter(postList, (post, position) ->
+                Toast.makeText(getContext(), "게시글 상세보기", Toast.LENGTH_SHORT).show());
+        rvMyPosts.setAdapter(postsAdapter);
+
+        // Schedule RecyclerView
+        rvMySchedule.setLayoutManager(new GridLayoutManager(getContext(), 3));
+        scheduleList = new ArrayList<>();
+        scheduleAdapter = new MyPageScheduleAdapter(scheduleList, (schedule, position) ->
+                Toast.makeText(getContext(), "여행 상세보기", Toast.LENGTH_SHORT).show());
+        rvMySchedule.setAdapter(scheduleAdapter);
     }
 
     private void determineProfileMode() {
@@ -236,7 +278,6 @@ public class MyPageFragment extends Fragment {
             btnBack.setVisibility(View.GONE);
             btnEdit.setVisibility(View.VISIBLE);
             btnFollowButton.setVisibility(View.GONE);
-            tvTravelTitle.setText("나의 여행 기록");
             followerSection.setEnabled(true);
             followingSection.setEnabled(true);
         } else {
@@ -244,11 +285,34 @@ public class MyPageFragment extends Fragment {
             btnBack.setVisibility(View.VISIBLE);
             btnEdit.setVisibility(View.GONE);
             btnFollowButton.setVisibility(View.VISIBLE);
-            tvTravelTitle.setText("여행 기록");
             followerSection.setEnabled(false);
             followingSection.setEnabled(false);
         }
     }
+
+    private void setupTabListeners() {
+        btnPosts.setOnClickListener(v -> updateTabSelection(true));
+        btnSchedule.setOnClickListener(v -> updateTabSelection(false));
+    }
+
+    private void updateTabSelection(boolean isPostsSelected) {
+        if (isPostsSelected) {
+            btnPosts.setTextColor(ContextCompat.getColor(requireContext(), R.color.black));
+            btnSchedule.setTextColor(ContextCompat.getColor(requireContext(), R.color.gray));
+            indicatorPosts.setVisibility(View.VISIBLE);
+            indicatorSchedule.setVisibility(View.INVISIBLE);
+            layoutPosts.setVisibility(View.VISIBLE);
+            layoutSchedule.setVisibility(View.GONE);
+        } else {
+            btnPosts.setTextColor(ContextCompat.getColor(requireContext(), R.color.gray));
+            btnSchedule.setTextColor(ContextCompat.getColor(requireContext(), R.color.black));
+            indicatorPosts.setVisibility(View.INVISIBLE);
+            indicatorSchedule.setVisibility(View.VISIBLE);
+            layoutPosts.setVisibility(View.GONE);
+            layoutSchedule.setVisibility(View.VISIBLE);
+        }
+    }
+
 
     private void loadFollowCounts(Runnable onComplete) {
         if (targetUserId == null || targetUserId.isEmpty()) {
@@ -308,11 +372,9 @@ public class MyPageFragment extends Fragment {
         tvStatusMessage.setText(user.getComment() != null && !user.getComment().isEmpty() ? user.getComment() : "상태메시지");
         tvLocation.setText(user.getAddress() != null && !user.getAddress().isEmpty() ? user.getAddress() : "위치 정보 없음");
 
-        // ✅ 프로필 이미지 로드 - ProfileImageHelper 사용
         originalProfileImageUrl = user.getProfileImageUrl();
         ProfileImageHelper.loadProfileImage(imgProfile, originalProfileImageUrl);
 
-        // ✅ 배경 이미지 로드 - ProfileImageHelper 사용
         originalBackgroundImageUrl = user.getBackgroundImageUrl();
         ProfileImageHelper.loadBackgroundImage(imgBackground, originalBackgroundImageUrl, R.drawable.sample3);
 
@@ -351,16 +413,13 @@ public class MyPageFragment extends Fragment {
     }
 
     private void loadTravelHistory() {
-        GridLayoutManager gridLayoutManager = new GridLayoutManager(getContext(), 3);
-        rvMyTravels.setLayoutManager(gridLayoutManager);
-        scheduleList = new ArrayList<>();
-        scheduleAdapter = new MyPageScheduleAdapter(scheduleList, (schedule, position) ->
-                Toast.makeText(getContext(), "여행 상세보기", Toast.LENGTH_SHORT).show());
-        rvMyTravels.setAdapter(scheduleAdapter);
-
         if (targetUserId == null || targetUserId.isEmpty()) {
-            updateEmptyState();
+            updateScheduleEmptyState();
             return;
+        }
+
+        if (travelHistoryListener != null) {
+            travelHistoryListener.remove();
         }
 
         travelHistoryListener = db.collection("user").document(targetUserId).collection("schedule")
@@ -368,7 +427,7 @@ public class MyPageFragment extends Fragment {
                     if (e != null) {
                         Log.w(TAG, "Error getting documents: ", e);
                         Toast.makeText(getContext(), "여행 기록을 불러오는 데 실패했습니다.", Toast.LENGTH_SHORT).show();
-                        updateEmptyState();
+                        updateScheduleEmptyState();
                         return;
                     }
 
@@ -379,18 +438,55 @@ public class MyPageFragment extends Fragment {
                             scheduleList.add(schedule);
                         }
                         scheduleAdapter.notifyDataSetChanged();
-                        updateEmptyState();
+                        updateScheduleEmptyState();
                     }
                 });
     }
-    
+
+    private void loadMyPosts() {
+        if (targetUserId == null || targetUserId.isEmpty()) {
+            updatePostsEmptyState();
+            return;
+        }
+
+        if (postsListener != null) {
+            postsListener.remove();
+        }
+
+        postsListener = db.collection("public").document("community").collection("posts")
+                .whereEqualTo("authorUid", targetUserId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .addSnapshotListener((queryDocumentSnapshots, e) -> {
+                    if (e != null) {
+                        Log.w(TAG, "Error getting documents: ", e);
+                        Toast.makeText(getContext(), "게시글을 불러오는 데 실패했습니다.", Toast.LENGTH_SHORT).show();
+                        updatePostsEmptyState();
+                        return;
+                    }
+
+                    if (queryDocumentSnapshots != null) {
+                        postList.clear();
+                        for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                            CommunityPostDTO post = document.toObject(CommunityPostDTO.class);
+                            postList.add(post);
+                        }
+                        postsAdapter.notifyDataSetChanged();
+                        updatePostsEmptyState();
+                    }
+                });
+    }
+
     private void loadPostsCount() {
         if (targetUserId == null || targetUserId.isEmpty()) {
             tvPostsCount.setText("0");
             return;
         }
 
-        postsListener = db.collection("public").document("community").collection("posts")
+        if (postsCountListener != null) {
+            postsCountListener.remove();
+        }
+
+        postsCountListener = db.collection("public").document("community").collection("posts")
                 .whereEqualTo("authorUid", targetUserId)
                 .addSnapshotListener((queryDocumentSnapshots, e) -> {
                     if (e != null) {
@@ -406,18 +502,25 @@ public class MyPageFragment extends Fragment {
                 });
     }
 
-    private void updateEmptyState() {
+    private void updateScheduleEmptyState() {
         if (scheduleList.isEmpty()) {
-            rvMyTravels.setVisibility(View.GONE);
-            layoutNoTravel.setVisibility(View.VISIBLE);
+            rvMySchedule.setVisibility(View.GONE);
+            layoutNoSchedule.setVisibility(View.VISIBLE);
         } else {
-            rvMyTravels.setVisibility(View.VISIBLE);
-            layoutNoTravel.setVisibility(View.GONE);
+            rvMySchedule.setVisibility(View.VISIBLE);
+            layoutNoSchedule.setVisibility(View.GONE);
         }
     }
 
-// 계속...
-// MyPageFragment.java 계속...
+    private void updatePostsEmptyState() {
+        if (postList.isEmpty()) {
+            rvMyPosts.setVisibility(View.GONE);
+            layoutNoPosts.setVisibility(View.VISIBLE);
+        } else {
+            rvMyPosts.setVisibility(View.VISIBLE);
+            layoutNoPosts.setVisibility(View.GONE);
+        }
+    }
 
     private void setupClickListeners() {
         btnBack.setOnClickListener(v -> {
@@ -603,13 +706,11 @@ public class MyPageFragment extends Fragment {
                         tvLocation.setText(newLocation.isEmpty() ? "위치 정보 없음" : newLocation);
 
                         if (tempProfileImageUri != null) {
-                            // ✅ ProfileImageHelper 사용
                             ProfileImageHelper.loadProfileImageFromUri(imgProfile, tempProfileImageUri);
                             tempProfileImageUri = null;
                         }
 
                         if (tempBackgroundImageUri != null) {
-                            // ✅ ProfileImageHelper 사용
                             ProfileImageHelper.loadBackgroundImageFromUri(imgBackground, tempBackgroundImageUri, R.drawable.sample3);
                             tempBackgroundImageUri = null;
                         }
@@ -635,13 +736,11 @@ public class MyPageFragment extends Fragment {
 
     private void exitEditMode() {
         if (tempProfileImageUri != null) {
-            // ✅ ProfileImageHelper 사용
             ProfileImageHelper.loadProfileImage(imgProfile, originalProfileImageUrl);
             tempProfileImageUri = null;
         }
 
         if (tempBackgroundImageUri != null) {
-            // ✅ ProfileImageHelper 사용
             ProfileImageHelper.loadBackgroundImage(imgBackground, originalBackgroundImageUrl, R.drawable.sample3);
             tempBackgroundImageUri = null;
         }
