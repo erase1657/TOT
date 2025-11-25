@@ -9,6 +9,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -146,6 +147,11 @@ public class ScheduleFragment extends Fragment {
             public void onDeleteClick(ScheduleDTO schedule, int position) {
                 showDeleteConfirmDialog(schedule.getScheduleId(), position);
             }
+
+            @Override
+            public void onEditTitleClick(ScheduleDTO schedule, int position) {
+                showEditTitleDialog(schedule, position);
+            }
         });
 
         recyclerView.setAdapter(scheduleAdapter);
@@ -259,6 +265,7 @@ public class ScheduleFragment extends Fragment {
         LayoutInflater inflater = requireActivity().getLayoutInflater();
         View dialogView = inflater.inflate(R.layout.dialog_create_schedule, null);
 
+        EditText etLocationName = dialogView.findViewById(R.id.et_location_name);
         RelativeLayout dateRangeBox = dialogView.findViewById(R.id.date_range_box);
         TextView tvSelectedDate = dialogView.findViewById(R.id.tv_selected_date);
         Button btnConfirm = dialogView.findViewById(R.id.btn_dialog_confirm);
@@ -271,12 +278,17 @@ public class ScheduleFragment extends Fragment {
         dateRangeBox.setOnClickListener(v -> showGoogleDateRangePicker(tvSelectedDate));
 
         btnConfirm.setOnClickListener(v -> {
+            String locationName = etLocationName.getText().toString();
+            if (locationName.isEmpty()) {
+                Toast.makeText(getContext(), "제목을 입력하세요.", Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (selectedDateRange.isEmpty()) {
                 Toast.makeText(getContext(), "여행 기간을 선택해주세요", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            addNewSchedule();
+            addNewSchedule(locationName);
             dialog.dismiss();
             Toast.makeText(getContext(), "스케줄이 생성되었습니다", Toast.LENGTH_SHORT).show();
         });
@@ -330,7 +342,7 @@ public class ScheduleFragment extends Fragment {
         datePicker.show(getParentFragmentManager(), "date_picker");
     }
 
-    private void addNewSchedule() {
+    private void addNewSchedule(String locationName) {
         if (auth.getCurrentUser() == null) {
             Log.e("ScheduleFragment", "User is not logged in.");
             Toast.makeText(getContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
@@ -347,7 +359,7 @@ public class ScheduleFragment extends Fragment {
 
         ScheduleDTO schedule = new ScheduleDTO(
                 scheduleId,
-                "지역",
+                locationName,
                 startDate,
                 endDate,
                 null,
@@ -434,6 +446,51 @@ public class ScheduleFragment extends Fragment {
                             noScheduleLayout.setVisibility(View.VISIBLE);
                         }
                     });
+                });
+    }
+
+    private void showEditTitleDialog(ScheduleDTO schedule, int position) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        LayoutInflater inflater = requireActivity().getLayoutInflater();
+        View dialogView = inflater.inflate(R.layout.dialog_edit_title, null);
+        builder.setView(dialogView);
+
+        EditText etTitle = dialogView.findViewById(R.id.et_title);
+        etTitle.setText(schedule.getLocationName());
+
+        builder.setTitle("제목 수정")
+                .setPositiveButton("저장", (dialog, which) -> {
+                    String newTitle = etTitle.getText().toString();
+                    if (!newTitle.isEmpty()) {
+                        updateScheduleTitle(schedule, newTitle, position);
+                    } else {
+                        Toast.makeText(getContext(), "제목을 입력해주세요.", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("취소", null);
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private void updateScheduleTitle(ScheduleDTO schedule, String newTitle, int position) {
+        if (auth.getCurrentUser() == null) {
+            Toast.makeText(getContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String uid = auth.getCurrentUser().getUid();
+        String scheduleId = schedule.getScheduleId();
+
+        db.collection("user").document(uid).collection("schedule").document(scheduleId)
+                .update("locationName", newTitle)
+                .addOnSuccessListener(aVoid -> {
+                    schedule.setLocationName(newTitle);
+                    scheduleAdapter.updateScheduleItem(position, schedule);
+                    Toast.makeText(getContext(), "제목이 수정되었습니다.", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "제목 수정에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                    Log.e("ScheduleFragment", "Error updating title", e);
                 });
     }
 }

@@ -38,6 +38,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
     public interface OnMenuItemClickListener {
         void onChangeBackgroundClick(ScheduleDTO schedule, int position);
         void onDeleteClick(ScheduleDTO schedule, int position);
+        void onEditTitleClick(ScheduleDTO schedule, int position); // 제목 수정 추가
     }
 
     public void setOnMenuItemClickListener(OnMenuItemClickListener listener) {
@@ -109,7 +110,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
             notifyItemRangeChanged(position, scheduleList.size());
         }
     }
-    
+
     public void updateScheduleItem(int position, ScheduleDTO schedule) {
         if (position >= 0 && position < scheduleList.size()) {
             scheduleList.set(position, schedule);
@@ -119,7 +120,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         ImageView imgBackground;
-        TextView tvLocation;
+        TextView tvTitle; // tvLocation에서 tvTitle로 변경
         TextView tvDateRange;
         TextView tvDate;
         ImageButton btnOptions;
@@ -129,7 +130,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
             super(itemView);
             context = itemView.getContext();
             imgBackground = itemView.findViewById(R.id.img_schedule_background);
-            tvLocation = itemView.findViewById(R.id.tv_schedule_location);
+            tvTitle = itemView.findViewById(R.id.tv_schedule_title); // ID 변경
             tvDateRange = itemView.findViewById(R.id.tv_date_range);
             tvDate = itemView.findViewById(R.id.tv_date);
             btnOptions = itemView.findViewById(R.id.btn_schedule_options);
@@ -141,9 +142,9 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
 
             // 지역 정보 설정
             if (schedule.getLocationName() != null && !schedule.getLocationName().isEmpty()) {
-                tvLocation.setText(schedule.getLocationName());
+                tvTitle.setText(schedule.getLocationName());
             } else {
-                tvLocation.setText("지역");
+                tvTitle.setText("제목 없음"); // 기본 텍스트 변경
             }
 
             // 날짜 정보 설정
@@ -192,12 +193,12 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
             // 배경 이미지 설정
             if (schedule.getBackgroundImageUri() != null) {
                 Glide.with(context)
-                    .load(Uri.parse(schedule.getBackgroundImageUri()))
-                    .into(imgBackground);
+                        .load(Uri.parse(schedule.getBackgroundImageUri()))
+                        .into(imgBackground);
             } else if (schedule.getThumbnailRef() != null) {
-                 Glide.with(context)
-                    .load(schedule.getThumbnailRef())
-                    .into(imgBackground);
+                Glide.with(context)
+                        .load(schedule.getThumbnailRef())
+                        .into(imgBackground);
             } else {
                 imgBackground.setImageResource(R.drawable.sample3);
             }
@@ -217,18 +218,22 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
                 btnOptions.setOnClickListener(v -> {
                     PopupMenu popup = new PopupMenu(v.getContext(), btnOptions);
                     popup.getMenuInflater().inflate(R.menu.item_schedule_menu, popup.getMenu());
+
                     popup.setOnMenuItemClickListener(menuItem -> {
                         int position = getAdapterPosition();
                         if (position == RecyclerView.NO_POSITION) {
                             return false;
                         }
-                        
+
                         int itemId = menuItem.getItemId();
                         if (itemId == R.id.action_change_background) {
                             menuListener.onChangeBackgroundClick(schedule, position);
                             return true;
                         } else if (itemId == R.id.action_delete_schedule) {
                             menuListener.onDeleteClick(schedule, position);
+                            return true;
+                        } else if (itemId == R.id.action_edit_title) {
+                            menuListener.onEditTitleClick(schedule, position);
                             return true;
                         }
                         return false;
