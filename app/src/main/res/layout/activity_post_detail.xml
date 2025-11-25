@@ -55,6 +55,19 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:layout_marginEnd="16dp" />
 
+                <!-- 수정 버튼 (작성자만) -->
+                <ImageView
+                    android:id="@+id/btn_edit"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_edit"
+                    android:contentDescription="수정"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:layout_marginEnd="16dp"
+                    android:visibility="gone" />
+
                 <!-- 삭제 버튼 (작성자만) -->
                 <ImageView
                     android:id="@+id/btn_delete"
@@ -83,7 +96,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingBottom="80dp">
 
             <!-- 대표 이미지 -->
             <ImageView
@@ -100,7 +114,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <!-- ✅ 제목 (기존 tv_location 위치) -->
+                <!-- 게시글 제목 (tv_location 위치로 이동) -->
                 <TextView
                     android:id="@+id/tv_post_title"
                     android:layout_width="wrap_content"
@@ -130,7 +144,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="16dp" />
 
-            <!-- ✅ 지역태그 표시 영역 추가 -->
+            <!-- 지역태그 표시 영역 -->
             <com.google.android.flexbox.FlexboxLayout
                 android:id="@+id/layout_region_tags"
                 android:layout_width="match_parent"
@@ -141,7 +155,6 @@
                 app:flexWrap="wrap"
                 app:justifyContent="flex_start"
                 app:alignItems="flex_start" />
-
 
             <!-- 일차 선택 버튼 -->
             <HorizontalScrollView
@@ -190,7 +203,7 @@
                 android:layout_height="360dp"
                 android:layout_marginTop="16dp" />
 
-            <!-- 인디케이터 -->
+            <!-- 사진 인디케이터 -->
             <TextView
                 android:id="@+id/tv_photo_indicator"
                 android:layout_width="wrap_content"
@@ -219,13 +232,13 @@
                 android:layout_height="wrap_content"
                 android:nestedScrollingEnabled="false"
                 android:paddingHorizontal="16dp"
-                android:paddingBottom="100dp" />
+                android:paddingBottom="24dp" />
 
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
 
-    <!-- ✅ 하단 고정 바 (하트 수를 버튼 아래로) -->
+    <!-- 하단 고정 바 (좋아요 + 카피하기) -->
     <LinearLayout
         android:id="@+id/layout_bottom_fixed"
         android:layout_width="match_parent"
@@ -237,7 +250,7 @@
         android:padding="16dp"
         android:gravity="center_vertical">
 
-        <!-- 하트 영역 (수직 구조로 변경) -->
+        <!-- 하트 영역 -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"

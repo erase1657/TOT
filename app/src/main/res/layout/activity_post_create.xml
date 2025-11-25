@@ -49,6 +49,16 @@
                 android:textSize="14sp" />
         </RelativeLayout>
 
+        <!-- 썸네일 이미지 -->
+        <ImageView
+            android:id="@+id/img_thumbnail"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            android:contentDescription="대표 이미지"
+            android:background="#FFE0E0E0" />
+
         <!-- 스케줄 정보 -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -69,7 +79,7 @@
                 android:id="@+id/tv_schedule_info"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text=" "
+                android:text="서울 (2024.01.01 ~ 2024.01.05)"
                 android:textSize="14sp"
                 android:textColor="@android:color/black"
                 android:textStyle="bold" />
@@ -102,7 +112,7 @@
                 android:maxLines="2" />
         </LinearLayout>
 
-        <!-- ✅ 지역태그 추가 섹션 -->
+        <!-- 지역태그 추가 섹션 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

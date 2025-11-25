@@ -2,8 +2,10 @@ package com.example.tot.Community;
 
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
@@ -14,6 +16,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
 import com.example.tot.Home.RegionDataProvider;
 import com.example.tot.R;
 import com.google.android.flexbox.FlexboxLayout;
@@ -39,8 +42,8 @@ public class PostCreateActivity extends AppCompatActivity {
     private TextView tvScheduleInfo;
     private EditText edtPostTitle;
     private Button btnPublish;
+    private ImageView imgThumbnail;
 
-    // ✅ 지역태그 UI 요소
     private LinearLayout provinceButtonContainer;
     private LinearLayout cityButtonContainer;
     private android.widget.HorizontalScrollView cityScrollView;
@@ -51,8 +54,8 @@ public class PostCreateActivity extends AppCompatActivity {
     private String locationName;
     private long startDate;
     private long endDate;
+    private String thumbnailUri;
 
-    // ✅ 지역태그 선택 상태
     private String selectedProvinceCode = "";
     private String selectedProvinceName = "";
     private String selectedCityCode = "";
@@ -60,7 +63,6 @@ public class PostCreateActivity extends AppCompatActivity {
     private Button currentSelectedProvinceButton;
     private Button currentSelectedCityButton;
 
-    // ✅ 추가된 지역태그 리스트
     private List<CommunityPostDTO.RegionTag> addedRegionTags = new ArrayList<>();
 
     private FirebaseFirestore db;
@@ -85,6 +87,7 @@ public class PostCreateActivity extends AppCompatActivity {
 
         initViews();
         displayScheduleInfo();
+        loadScheduleData();
         setupRegionButtons();
 
         btnBack.setOnClickListener(v -> finish());
@@ -97,6 +100,7 @@ public class PostCreateActivity extends AppCompatActivity {
         tvScheduleInfo = findViewById(R.id.tv_schedule_info);
         edtPostTitle = findViewById(R.id.edt_post_title);
         btnPublish = findViewById(R.id.btn_publish);
+        imgThumbnail = findViewById(R.id.img_thumbnail);
 
         provinceButtonContainer = findViewById(R.id.provinceButtonContainer);
         cityButtonContainer = findViewById(R.id.cityButtonContainer);
@@ -114,7 +118,29 @@ public class PostCreateActivity extends AppCompatActivity {
         tvScheduleInfo.setText(info);
     }
 
-    // ✅ 지역 버튼 설정
+    private void loadScheduleData() {
+        if (scheduleId == null || auth.getCurrentUser() == null) return;
+
+        String uid = auth.getCurrentUser().getUid();
+        db.collection("user").document(uid).collection("schedule").document(scheduleId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String imageUri = documentSnapshot.getString("backgroundImageUri");
+                        if (imageUri != null && !imageUri.isEmpty()) {
+                            thumbnailUri = imageUri;
+                            imgThumbnail.setVisibility(View.VISIBLE);
+                            Glide.with(this)
+                                    .load(Uri.parse(thumbnailUri))
+                                    .into(imgThumbnail);
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load schedule data", e);
+                });
+    }
+
     private void setupRegionButtons() {
         List<RegionDataProvider.Region> provinces = RegionDataProvider.getProvinces();
 
@@ -140,10 +166,10 @@ public class PostCreateActivity extends AppCompatActivity {
 
         List<RegionDataProvider.Region> cities = RegionDataProvider.getCities(provinceCode);
         if (cities == null || cities.isEmpty()) {
-            cityScrollView.setVisibility(android.view.View.GONE);
+            cityScrollView.setVisibility(View.GONE);
             return;
         }
-        cityScrollView.setVisibility(android.view.View.VISIBLE);
+        cityScrollView.setVisibility(View.VISIBLE);
 
         for (RegionDataProvider.Region city : cities) {
             Button button = createRegionButton(city.getName(), city.getCode(), false);
@@ -204,14 +230,12 @@ public class PostCreateActivity extends AppCompatActivity {
         currentSelectedCityButton = selectedButton;
     }
 
-    // ✅ 지역태그 추가
     private void addRegionTag() {
         if (selectedProvinceCode.isEmpty()) {
             Toast.makeText(this, "지역을 선택해주세요", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // 중복 체크
         for (CommunityPostDTO.RegionTag tag : addedRegionTags) {
             if (tag.getProvinceCode().equals(selectedProvinceCode) &&
                     (selectedCityCode.isEmpty() || tag.getCityCode().equals(selectedCityCode))) {
@@ -232,7 +256,6 @@ public class PostCreateActivity extends AppCompatActivity {
         Toast.makeText(this, "지역태그가 추가되었습니다", Toast.LENGTH_SHORT).show();
     }
 
-    // ✅ 추가된 태그 표시
     private void displayAddedTags() {
         layoutAddedTags.removeAllViews();
 
@@ -278,6 +301,9 @@ public class PostCreateActivity extends AppCompatActivity {
         }
     }
 
+// Part 2로 계속...
+// Part 1에서 계속...
+
     private void publishPost() {
         String title = edtPostTitle.getText().toString().trim();
 
@@ -309,7 +335,10 @@ public class PostCreateActivity extends AppCompatActivity {
         postData.put("heartCount", 0);
         postData.put("commentCount", 0);
 
-        // ✅ 지역태그 저장
+        if (thumbnailUri != null) {
+            postData.put("thumbnailUrl", thumbnailUri);
+        }
+
         List<Map<String, Object>> tagMaps = new ArrayList<>();
         for (CommunityPostDTO.RegionTag tag : addedRegionTags) {
             Map<String, Object> tagMap = new HashMap<>();
@@ -351,7 +380,6 @@ public class PostCreateActivity extends AppCompatActivity {
                     Log.e(TAG, "❌ 작성자 정보 조회 실패 (알림 전송 불가)", e);
                 });
     }
-    // Part 1에서 계속...
 
     private void copyScheduleToPost(String uid, String scheduleId, String postId) {
         Log.d(TAG, "📋 일정 데이터 복사 시작: " + scheduleId);

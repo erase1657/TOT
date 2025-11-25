@@ -2,6 +2,7 @@ package com.example.tot.Community;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -67,9 +68,8 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
     private static final String TAG = "PostDetailActivity";
 
-    // ✅ 지역태그 레이아웃 추가
     private com.google.android.flexbox.FlexboxLayout layoutRegionTags;
-    private ImageView btnBack, btnComment, btnDelete;
+    private ImageView btnBack, btnComment, btnEdit, btnDelete;
     private ImageView btnBottomHeart;
     private TextView tvBottomHeartCount;
     private Button btnCopySchedule;
@@ -135,6 +135,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         layoutRegionTags = findViewById(R.id.layout_region_tags);
         btnBack = findViewById(R.id.btn_back);
         btnComment = findViewById(R.id.btn_comment);
+        btnEdit = findViewById(R.id.btn_edit);
         btnDelete = findViewById(R.id.btn_delete);
         imgThumbnail = findViewById(R.id.img_thumbnail);
         tvPostTitle = findViewById(R.id.tv_post_title);
@@ -163,10 +164,10 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
         btnBack.setOnClickListener(v -> finish());
         btnComment.setOnClickListener(v -> openCommentsBottomSheet());
+        btnEdit.setOnClickListener(v -> editPost());
         btnDelete.setOnClickListener(v -> showDeleteConfirmDialog());
 
         btnBottomHeart.setOnClickListener(v -> toggleHeart());
-
         btnCopySchedule.setOnClickListener(v -> showCopyScheduleDialog());
 
         rvScheduleItems.setLayoutManager(new LinearLayoutManager(this));
@@ -184,7 +185,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
     private void setupMap() {
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map_fragment);
-
         if (mapFragment != null) {
             mapFragment.getMapAsync(this);
         }
@@ -193,6 +193,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
     private void loadPostData() {
         isAuthor = currentUid != null && currentUid.equals(authorUid);
 
+        btnEdit.setVisibility(isAuthor ? View.VISIBLE : View.GONE);
         btnDelete.setVisibility(isAuthor ? View.VISIBLE : View.GONE);
 
         if (isAuthor) {
@@ -283,15 +284,24 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     Long startDateLong = postDoc.getLong("startDate");
                     Long endDateLong = postDoc.getLong("endDate");
                     Long heartCount = postDoc.getLong("heartCount");
+                    String thumbnailUrl = postDoc.getString("thumbnailUrl");
 
                     if (postTitle != null) tvPostTitle.setText(postTitle);
+
+                    if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+                        imgThumbnail.setVisibility(View.VISIBLE);
+                        Glide.with(this)
+                                .load(Uri.parse(thumbnailUrl))
+                                .into(imgThumbnail);
+                    } else {
+                        imgThumbnail.setVisibility(View.GONE);
+                    }
 
                     if (heartCount != null) {
                         currentHeartCount = heartCount.intValue();
                         tvBottomHeartCount.setText(String.valueOf(currentHeartCount));
                     }
 
-                    // ✅ 지역태그 표시
                     displayRegionTags(postDoc);
 
                     if (startDateLong != null && endDateLong != null) {
@@ -318,18 +328,17 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                 });
     }
 
-    // ✅ 지역태그 표시 메서드
     private void displayRegionTags(DocumentSnapshot postDoc) {
         layoutRegionTags.removeAllViews();
 
         List<Map<String, Object>> tagMaps = (List<Map<String, Object>>) postDoc.get("regionTags");
 
         if (tagMaps == null || tagMaps.isEmpty()) {
-            layoutRegionTags.setVisibility(android.view.View.GONE);
+            layoutRegionTags.setVisibility(View.GONE);
             return;
         }
 
-        layoutRegionTags.setVisibility(android.view.View.VISIBLE);
+        layoutRegionTags.setVisibility(View.VISIBLE);
 
         for (Map<String, Object> tagMap : tagMaps) {
             String cityName = (String) tagMap.get("cityName");
@@ -342,18 +351,18 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
             TextView tagView = new TextView(this);
             tagView.setText("#" + displayName);
             tagView.setTextSize(13);
-            tagView.setTextColor(android.graphics.Color.parseColor("#6366F1"));
+            tagView.setTextColor(Color.parseColor("#6366F1"));
             tagView.setPadding(dpToPx(10), dpToPx(4), dpToPx(10), dpToPx(4));
 
             android.graphics.drawable.GradientDrawable tagBg = new android.graphics.drawable.GradientDrawable();
-            tagBg.setColor(android.graphics.Color.parseColor("#EEF2FF"));
+            tagBg.setColor(Color.parseColor("#EEF2FF"));
             tagBg.setCornerRadius(dpToPx(12));
             tagView.setBackground(tagBg);
 
             com.google.android.flexbox.FlexboxLayout.LayoutParams params =
                     new com.google.android.flexbox.FlexboxLayout.LayoutParams(
-                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
-                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
                     );
             params.setMargins(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4));
             tagView.setLayoutParams(params);
@@ -362,7 +371,46 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         }
     }
 
-    // ✅ 카피하기 다이얼로그
+    private void editPost() {
+        if (scheduleId == null || authorUid == null) {
+            Toast.makeText(this, "스케줄 정보를 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        db.collection("user")
+                .document(authorUid)
+                .collection("schedule")
+                .document(scheduleId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        Long startDateLong = doc.getLong("startDate");
+                        Long endDateLong = doc.getLong("endDate");
+
+                        if (startDateLong != null && endDateLong != null) {
+                            Intent intent = new Intent(PostDetailActivity.this, ScheduleSettingActivity.class);
+                            intent.putExtra("scheduleId", scheduleId);
+                            intent.putExtra("startDate", startDateLong);
+                            intent.putExtra("endDate", endDateLong);
+                            intent.putExtra("fromPostEdit", true);
+                            intent.putExtra("postId", postId);
+                            startActivity(intent);
+                        } else {
+                            Toast.makeText(this, "스케줄 날짜 정보가 없습니다", Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        Toast.makeText(this, "원본 스케줄을 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "스케줄 조회 실패", e);
+                    Toast.makeText(this, "스케줄을 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+// Part 2로 계속...
+// Part 1에서 계속...
+
     private void showCopyScheduleDialog() {
         if (currentUid == null) {
             Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
@@ -377,7 +425,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                 .setNeutralButton("취소", null)
                 .show();
     }
-    // Part 1에서 계속...
 
     private void showDatePickerForCopy() {
         MaterialDatePicker.Builder<Pair<Long, Long>> builder = MaterialDatePicker.Builder.dateRangePicker()
@@ -605,66 +652,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         });
     }
 
-    private void toggleHeart() {
-        if (currentUid == null || postId == null) {
-            Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        btnBottomHeart.setEnabled(false);
-
-        if (isLiked) {
-            communityPostsRef.document(postId)
-                    .collection("likes")
-                    .document(currentUid)
-                    .delete()
-                    .addOnSuccessListener(aVoid -> {
-                        communityPostsRef.document(postId)
-                                .update("heartCount", FieldValue.increment(-1))
-                                .addOnSuccessListener(aVoid2 -> {
-                                    btnBottomHeart.setEnabled(true);
-                                })
-                                .addOnFailureListener(e -> {
-                                    Toast.makeText(this, "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
-                                    btnBottomHeart.setEnabled(true);
-                                });
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(this, "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
-                        btnBottomHeart.setEnabled(true);
-                    });
-        } else {
-            Map<String, Object> likeData = new HashMap<>();
-            likeData.put("userId", currentUid);
-            likeData.put("timestamp", System.currentTimeMillis());
-
-            communityPostsRef.document(postId)
-                    .collection("likes")
-                    .document(currentUid)
-                    .set(likeData)
-                    .addOnSuccessListener(aVoid -> {
-                        communityPostsRef.document(postId)
-                                .update("heartCount", FieldValue.increment(1))
-                                .addOnSuccessListener(aVoid2 -> {
-                                    btnBottomHeart.setEnabled(true);
-                                })
-                                .addOnFailureListener(e -> {
-                                    Toast.makeText(this, "좋아요 실패", Toast.LENGTH_SHORT).show();
-                                    btnBottomHeart.setEnabled(true);
-                                });
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(this, "좋아요 실패", Toast.LENGTH_SHORT).show();
-                        btnBottomHeart.setEnabled(true);
-                    });
-        }
-    }
-
-    private void updateHeartUI() {
-        int iconRes = isLiked ? R.drawable.ic_heart_c : R.drawable.ic_heart;
-        btnBottomHeart.setImageResource(iconRes);
-    }
-
     private void showDeleteConfirmDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("게시글 삭제")
@@ -798,6 +785,66 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     collectionsToDelete[0]--;
                     if (collectionsToDelete[0] == 0) onComplete.run();
                 });
+    }
+
+    private void toggleHeart() {
+        if (currentUid == null || postId == null) {
+            Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        btnBottomHeart.setEnabled(false);
+
+        if (isLiked) {
+            communityPostsRef.document(postId)
+                    .collection("likes")
+                    .document(currentUid)
+                    .delete()
+                    .addOnSuccessListener(aVoid -> {
+                        communityPostsRef.document(postId)
+                                .update("heartCount", FieldValue.increment(-1))
+                                .addOnSuccessListener(aVoid2 -> {
+                                    btnBottomHeart.setEnabled(true);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Toast.makeText(this, "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
+                                    btnBottomHeart.setEnabled(true);
+                                });
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "좋아요 취소 실패", Toast.LENGTH_SHORT).show();
+                        btnBottomHeart.setEnabled(true);
+                    });
+        } else {
+            Map<String, Object> likeData = new HashMap<>();
+            likeData.put("userId", currentUid);
+            likeData.put("timestamp", System.currentTimeMillis());
+
+            communityPostsRef.document(postId)
+                    .collection("likes")
+                    .document(currentUid)
+                    .set(likeData)
+                    .addOnSuccessListener(aVoid -> {
+                        communityPostsRef.document(postId)
+                                .update("heartCount", FieldValue.increment(1))
+                                .addOnSuccessListener(aVoid2 -> {
+                                    btnBottomHeart.setEnabled(true);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Toast.makeText(this, "좋아요 실패", Toast.LENGTH_SHORT).show();
+                                    btnBottomHeart.setEnabled(true);
+                                });
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "좋아요 실패", Toast.LENGTH_SHORT).show();
+                        btnBottomHeart.setEnabled(true);
+                    });
+        }
+    }
+
+    private void updateHeartUI() {
+        int iconRes = isLiked ? R.drawable.ic_heart_c : R.drawable.ic_heart;
+        btnBottomHeart.setImageResource(iconRes);
     }
 
     private void checkFollowStatus() {
