@@ -162,14 +162,12 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                     unreadBadgeContainer.setVisibility(View.GONE);
                     followBackContainer.setVisibility(View.VISIBLE);
 
-                    // ✅ FollowButtonHelper로 상태 확인 및 UI 업데이트
                     FollowButtonHelper.checkFollowStatus(notification.getUserId(), (following, follower) -> {
                         isFollowing = following;
                         isFollower = follower;
                         FollowButtonHelper.updateFollowButton(followBackButton, isFollowing, isFollower);
                     });
 
-                    // ✅ FollowButtonHelper로 클릭 처리
                     followBackButton.setOnClickListener(v -> {
                         FollowButtonHelper.handleFollowButtonClick(
                                 itemView.getContext(),
@@ -182,7 +180,6 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                                         isFollowing = nowFollowing;
                                         FollowButtonHelper.updateFollowButton(followBackButton, isFollowing, isFollower);
 
-                                        // 알림 읽음 처리
                                         NotificationManager.getInstance().markAsRead(notification.getId());
                                         notification.setRead(true);
                                     }
@@ -209,6 +206,38 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                     commentTitleSpan.setSpan(new StyleSpan(android.graphics.Typeface.BOLD),
                             0, commenterNameEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     titleText.setText(commentTitleSpan);
+
+                    contentText.setText(notification.getContent());
+
+                    followBackContainer.setVisibility(View.GONE);
+                    if (!notification.isRead() && notification.getUnreadCount() > 0) {
+                        unreadBadgeContainer.setVisibility(View.VISIBLE);
+                        String badgeText = notification.getUnreadCount() > 10 ?
+                                "10+" : String.valueOf(notification.getUnreadCount());
+                        unreadBadge.setText(badgeText);
+
+                        GradientDrawable badgeBg = new GradientDrawable();
+                        badgeBg.setShape(GradientDrawable.OVAL);
+                        badgeBg.setColor(Color.parseColor("#0F9687"));
+                        unreadBadge.setBackground(badgeBg);
+                    } else {
+                        unreadBadgeContainer.setVisibility(View.GONE);
+                    }
+                    break;
+
+                case POST:  // ✅ 친구 게시글 알림 UI
+                    iconBg.setColor(Color.parseColor("#FFF4E8"));  // 연한 주황색 배경
+                    iconContainer.setBackground(iconBg);
+                    iconImage.setImageResource(R.drawable.ic_community);
+                    iconImage.setColorFilter(Color.parseColor("#FF8A00"));  // 주황색 아이콘
+
+                    String postTitle = notification.getTitle();
+                    String authorName = notification.getUserName();
+                    SpannableString postTitleSpan = new SpannableString(postTitle);
+                    int authorNameEnd = authorName.length();
+                    postTitleSpan.setSpan(new StyleSpan(android.graphics.Typeface.BOLD),
+                            0, authorNameEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    titleText.setText(postTitleSpan);
 
                     contentText.setText(notification.getContent());
 

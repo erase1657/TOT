@@ -95,10 +95,10 @@ public class PostCreateActivity extends AppCompatActivity {
 
         String uid = auth.getCurrentUser().getUid();
         String postId = communityPostsRef.document().getId();
+        final String postTitle = title;  // ✅ 알림 전송을 위해 제목 저장
 
         btnPublish.setEnabled(false);
 
-        // ✅ 통합 구조: posts/{postId} 안에 모든 정보 저장
         Map<String, Object> postData = new HashMap<>();
         postData.put("postId", postId);
         postData.put("authorUid", uid);
@@ -116,12 +116,38 @@ public class PostCreateActivity extends AppCompatActivity {
                 .set(postData)
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "✅ 게시글 등록 성공: " + postId);
+
+                    // ✅ 게시글 등록 후 팔로워들에게 알림 전송
+                    sendNotificationToFollowers(uid, postId, postTitle);
+
                     copyScheduleToPost(uid, scheduleId, postId);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ 게시글 등록 실패", e);
                     Toast.makeText(this, "게시글 등록 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     btnPublish.setEnabled(true);
+                });
+    }
+
+    /**
+     * ✅ 팔로워들에게 게시글 알림 전송
+     */
+    private void sendNotificationToFollowers(String authorUid, String postId, String postTitle) {
+        // 작성자 닉네임 조회 후 알림 전송
+        db.collection("user")
+                .document(authorUid)
+                .get()
+                .addOnSuccessListener(userDoc -> {
+                    String authorName = userDoc.exists() ? userDoc.getString("nickname") : "사용자";
+                    if (authorName == null || authorName.isEmpty()) {
+                        authorName = "사용자";
+                    }
+
+                    // 헬퍼 클래스를 통해 알림 전송
+                    PostCreateNotificationHelper.notifyFollowers(authorUid, authorName, postId, postTitle);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 작성자 정보 조회 실패 (알림 전송 불가)", e);
                 });
     }
 

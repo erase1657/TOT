@@ -272,11 +272,20 @@ public class NotificationActivity extends AppCompatActivity {
                 break;
 
             case COMMENT:
-                // ✅ 댓글 알림 클릭 시 PostDetailActivity로 이동 + 댓글창 자동 열기
                 String postId = notification.getPostId();
                 if (postId != null && !postId.isEmpty()) {
                     openPostDetailWithComments(postId);
                     Log.d(TAG, "✅ 게시글 상세 화면으로 이동 (댓글창 자동 열기): " + postId);
+                } else {
+                    Toast.makeText(this, "게시글 정보를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                }
+                break;
+
+            case POST:  // ✅ 친구 게시글 알림 클릭
+                String friendPostId = notification.getPostId();
+                if (friendPostId != null && !friendPostId.isEmpty()) {
+                    openPostDetail(friendPostId);
+                    Log.d(TAG, "✅ 친구 게시글 상세 화면으로 이동: " + friendPostId);
                 } else {
                     Toast.makeText(this, "게시글 정보를 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
                 }
@@ -307,8 +316,41 @@ public class NotificationActivity extends AppCompatActivity {
                         intent.putExtra("scheduleId", scheduleId);
                         intent.putExtra("authorUid", authorUid);
                         intent.putExtra("postId", postId);
-                        // ✅ 댓글창을 자동으로 열도록 플래그 추가
                         intent.putExtra("openComments", true);
+                        startActivity(intent);
+                    } else {
+                        Toast.makeText(this, "게시글 정보가 올바르지 않습니다", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "게시글 조회 실패", e);
+                    Toast.makeText(this, "게시글을 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * ✅ 친구 게시글 알림에서 게시글 상세 화면으로 이동
+     */
+    private void openPostDetail(String postId) {
+        db.collection("public")
+                .document("community")
+                .collection("posts")
+                .document(postId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (!doc.exists()) {
+                        Toast.makeText(this, "게시글을 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    String scheduleId = doc.getString("scheduleId");
+                    String authorUid = doc.getString("authorUid");
+
+                    if (scheduleId != null && authorUid != null) {
+                        Intent intent = new Intent(this, PostDetailActivity.class);
+                        intent.putExtra("scheduleId", scheduleId);
+                        intent.putExtra("authorUid", authorUid);
+                        intent.putExtra("postId", postId);
                         startActivity(intent);
                     } else {
                         Toast.makeText(this, "게시글 정보가 올바르지 않습니다", Toast.LENGTH_SHORT).show();
@@ -336,13 +378,10 @@ public class NotificationActivity extends AppCompatActivity {
             return;
         }
 
-        // ✅ FollowButtonHelper로 팔로우 상태 확인
         FollowButtonHelper.checkFollowStatus(targetUserId, (isFollowing, isFollower) -> {
             if (isFollowing) {
-                // 이미 팔로우 중이면 언팔로우
                 performUnfollowWithHelper(targetUserId, notification);
             } else {
-                // 팔로우하지 않았으면 팔로우
                 performFollowBackWithHelper(targetUserId, notification);
             }
         });
@@ -356,7 +395,7 @@ public class NotificationActivity extends AppCompatActivity {
             FollowButtonHelper.handleFollowButtonClick(
                     this,
                     targetUserId,
-                    false, // 현재 팔로우하지 않음
+                    false,
                     isFollower,
                     new FollowButtonHelper.FollowActionCallback() {
                         @Override
@@ -391,7 +430,7 @@ public class NotificationActivity extends AppCompatActivity {
             FollowButtonHelper.handleFollowButtonClick(
                     this,
                     targetUserId,
-                    true, // 현재 팔로우 중
+                    true,
                     isFollower,
                     new FollowButtonHelper.FollowActionCallback() {
                         @Override
