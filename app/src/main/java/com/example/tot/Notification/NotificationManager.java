@@ -38,6 +38,7 @@ public class NotificationManager {
     private ListenerRegistration followerListener;
     private ListenerRegistration commentListener;
     private ListenerRegistration postListener;  // ✅ 게시글 알림 리스너 추가
+    private List<ListenerRegistration> inviteListeners = new ArrayList<>();
     private boolean isListening = false;
 
     // ✅ 게시글별 읽지 않은 댓글 수 추적
@@ -82,6 +83,7 @@ public class NotificationManager {
         loadNotificationsFromCache();
         startListeningForFollowers();
         startListeningForComments();
+        startListeningForInvites();
         startListeningForPosts();  // ✅ 게시글 알림 리스너 시작
     }
 
@@ -281,7 +283,97 @@ public class NotificationManager {
                     cache.setLastCheckTime(System.currentTimeMillis());
                 });
     }
+    private void startListeningForInvites() {
 
+        if (mAuth.getCurrentUser() == null) return;
+
+        String uid = mAuth.getCurrentUser().getUid();
+        long lastCheck = cache.getLastCheckTime();
+
+        Log.d(TAG, "👂 inviteReceived 리스너 시작");
+
+        ListenerRegistration reg =
+                db.collectionGroup("invited")
+                        .whereEqualTo("receiverUid", uid)   // 내가 받은 초대만 필터
+                .addSnapshotListener((snapshots, error) -> {
+
+                    if (error != null) {
+                        Log.e(TAG, "❌ inviteReceived 리스너 오류", error);
+                        return;
+                    }
+                    if (snapshots == null || snapshots.isEmpty()) return;
+
+                    for (DocumentChange change : snapshots.getDocumentChanges()) {
+                        if (change.getType() == DocumentChange.Type.ADDED) {
+
+                            DocumentSnapshot doc = change.getDocument();
+                            Long createdAt = doc.getLong("createdAt");
+
+                            if (createdAt != null && createdAt > lastCheck) {
+
+                                String inviteId = doc.getId();
+
+                                String scheduleId = doc.getReference()
+                                        .getParent()
+                                        .getParent()
+                                        .getId();
+
+                                String senderUid = doc.getString("senderUid");
+                                Log.d(TAG, "🎉 새로운 초대 감지: " + inviteId);
+
+                                createLocalScheduleInviteNotification(
+                                        inviteId,
+                                        scheduleId,
+                                        senderUid,
+                                        createdAt
+                                );
+                            }
+                        }
+                    }
+
+                    cache.setLastCheckTime(System.currentTimeMillis());
+                });
+
+        inviteListeners.add(reg);
+    }
+    private void createLocalScheduleInviteNotification(String inviteId,
+                                                       String scheduleId,
+                                                       String senderUid,
+                                                       long createdAt) {
+        /**
+         * NOTE: 초대 알림을 생성하는 시점에서 이미 invite콜렉션에 데이터가 저장된 상태임
+         * 필요한 값들이 있다면 내가 invite콜렉션 필드값을 가져와서 notification 객체에 저장해서 사용할 수 있음
+         */
+        db.collection("user")
+                .document(senderUid)
+                .get()
+                .addOnSuccessListener(doc -> {
+
+                    String nickname = doc.getString("nickname");//위 노트의 예시
+                    if (nickname == null) nickname = "사용자";
+
+
+
+                    NotificationDTO notification = NotificationDTO.createScheduleInvite(
+                            "invite_" + inviteId,
+                            nickname,
+                            "여행 일정에 참여하고 싶으시다면 여기를 클릭해 여행 일정에 참가해주세요",
+                            getTimeDisplay(createdAt),
+                            false,
+                            0,
+                            R.drawable.ic_schedule,
+                            senderUid,
+                            createdAt,
+                            scheduleId   // ← ⭐ 여기 추가됨
+                    );
+
+                    notification.setPostId(null);
+
+                    addNotificationToCache(notification);
+
+                    Log.d(TAG, "🎉 스케줄 초대 알림 생성됨!");
+                });
+    }
     /**
      * ✅ 친구 게시글 알림 리스너 시작
      */

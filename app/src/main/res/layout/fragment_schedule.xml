@@ -22,12 +22,56 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <LinearLayout
+        android:id="@+id/layout_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+
+        android:layout_marginTop="20dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/tv_schedule_title"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/tab_my_schedule"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="내 스케줄"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#303748" />
+
+        <TextView
+            android:id="@+id/tab_invited_schedule"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="초대 스케줄"
+            android:textSize="16sp"
+            android:textColor="#B0B2B8" />
+    </LinearLayout>
+
+
+    <View
+        android:id="@+id/view_tab_indicator"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E5E5E5"
+        app:layout_constraintTop_toBottomOf="@id/layout_tabs"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- RecyclerView + EmptyLayout 함께 관리 -->
     <FrameLayout
         android:id="@+id/frame_schedule_container"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/tv_schedule_title"
+        app:layout_constraintTop_toBottomOf="@id/view_tab_indicator"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
