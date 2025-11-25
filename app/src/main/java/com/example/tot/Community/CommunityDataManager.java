@@ -85,6 +85,10 @@ public class CommunityDataManager {
     /**
      * Firestore에서 게시글 로드 (썸네일 이미지 포함)
      */
+
+    // ✅ CommunityDataManager.java의 loadPostsFromFirestore() 메서드 내부 수정
+    // 기존 코드에서 regionTags 로드 부분 추가
+
     private void loadPostsFromFirestore() {
         if (isLoading) {
             Log.d(TAG, "⏳ 이미 로딩 중...");
@@ -129,12 +133,27 @@ public class CommunityDataManager {
                             post.setCommentCount(commentCount != null ? commentCount.intValue() : 0);
                             post.setCreatedAt(createdAt != null ? createdAt : 0);
 
+                            // ✅ 지역태그 로드
+                            List<Map<String, Object>> tagMaps = (List<Map<String, Object>>) doc.get("regionTags");
+                            if (tagMaps != null) {
+                                List<CommunityPostDTO.RegionTag> regionTags = new ArrayList<>();
+                                for (Map<String, Object> tagMap : tagMaps) {
+                                    CommunityPostDTO.RegionTag tag = new CommunityPostDTO.RegionTag(
+                                            (String) tagMap.get("provinceCode"),
+                                            (String) tagMap.get("provinceName"),
+                                            (String) tagMap.get("cityCode"),
+                                            (String) tagMap.get("cityName")
+                                    );
+                                    regionTags.add(tag);
+                                }
+                                post.setRegionTags(regionTags);
+                            }
+
                             tempPosts.add(post);
                             authorUidMap.put(postId, authorUid);
                         }
                     }
 
-                    // 작성자 정보 및 썸네일 이미지 로드
                     loadPostDetails(tempPosts, authorUidMap);
                 })
                 .addOnFailureListener(e -> {

@@ -68,6 +68,8 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
     private static final String TAG = "PostDetailActivity";
 
+    // 1. 클래스 상단 변수 선언 부분에 추가
+    private com.google.android.flexbox.FlexboxLayout layoutRegionTags;
     private ImageView btnBack, btnComment, btnDelete;
     private ImageView btnBottomHeart;
     private TextView tvBottomHeartCount;
@@ -131,6 +133,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
     }
 
     private void initViews() {
+        layoutRegionTags = findViewById(R.id.layout_region_tags);
         btnBack = findViewById(R.id.btn_back);
         btnComment = findViewById(R.id.btn_comment);
         btnDelete = findViewById(R.id.btn_delete);
@@ -291,6 +294,9 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                         tvBottomHeartCount.setText(String.valueOf(currentHeartCount));
                     }
 
+                    // ✅ 지역태그 표시
+                    displayRegionTags(postDoc);
+
                     if (startDateLong != null && endDateLong != null) {
                         originalStartDate = startDateLong;
                         originalEndDate = endDateLong;
@@ -313,6 +319,50 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                         }, 500);
                     }
                 });
+    }
+
+    // 4. 새로운 메서드 추가 - 지역태그 표시
+    private void displayRegionTags(DocumentSnapshot postDoc) {
+        layoutRegionTags.removeAllViews();
+
+        List<Map<String, Object>> tagMaps = (List<Map<String, Object>>) postDoc.get("regionTags");
+
+        if (tagMaps == null || tagMaps.isEmpty()) {
+            layoutRegionTags.setVisibility(android.view.View.GONE);
+            return;
+        }
+
+        layoutRegionTags.setVisibility(android.view.View.VISIBLE);
+
+        for (Map<String, Object> tagMap : tagMaps) {
+            String cityName = (String) tagMap.get("cityName");
+            String provinceName = (String) tagMap.get("provinceName");
+
+            String displayName = (cityName != null && !cityName.isEmpty()) ? cityName : provinceName;
+
+            if (displayName == null) continue;
+
+            TextView tagView = new TextView(this);
+            tagView.setText("#" + displayName);
+            tagView.setTextSize(13);
+            tagView.setTextColor(android.graphics.Color.parseColor("#6366F1"));
+            tagView.setPadding(dpToPx(10), dpToPx(4), dpToPx(10), dpToPx(4));
+
+            android.graphics.drawable.GradientDrawable tagBg = new android.graphics.drawable.GradientDrawable();
+            tagBg.setColor(android.graphics.Color.parseColor("#EEF2FF"));
+            tagBg.setCornerRadius(dpToPx(12));
+            tagView.setBackground(tagBg);
+
+            com.google.android.flexbox.FlexboxLayout.LayoutParams params =
+                    new com.google.android.flexbox.FlexboxLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                    );
+            params.setMargins(dpToPx(4), dpToPx(4), dpToPx(4), dpToPx(4));
+            tagView.setLayoutParams(params);
+
+            layoutRegionTags.addView(tagView);
+        }
     }
 
     private void showCopyScheduleDialog() {
