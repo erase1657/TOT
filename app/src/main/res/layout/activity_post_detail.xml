@@ -55,31 +55,6 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:layout_marginEnd="16dp" />
 
-                <!-- 하트 버튼 -->
-                <ImageView
-                    android:id="@+id/btn_heart"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_heart"
-                    android:contentDescription="좋아요"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:layout_marginEnd="16dp" />
-
-                <!-- 수정 버튼 (작성자만) -->
-                <ImageView
-                    android:id="@+id/btn_edit"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_edit"
-                    android:contentDescription="수정"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:layout_marginEnd="16dp"
-                    android:visibility="gone" />
-
                 <!-- 삭제 버튼 (작성자만) -->
                 <ImageView
                     android:id="@+id/btn_delete"
@@ -108,7 +83,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingBottom="80dp">
 
             <!-- 대표 이미지 -->
             <ImageView
@@ -125,9 +101,9 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <!-- 지역명 -->
+                <!-- 게시글 제목 -->
                 <TextView
-                    android:id="@+id/tv_location"
+                    android:id="@+id/tv_post_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text=" "
@@ -155,18 +131,17 @@
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="16dp" />
 
-            <!-- 게시글 제목 -->
-            <TextView
-                android:id="@+id/tv_post_title"
+            <!-- 지역태그 표시 영역 -->
+            <com.google.android.flexbox.FlexboxLayout
+                android:id="@+id/layout_region_tags"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text=" "
-                android:textColor="@color/black"
-                android:textSize="16sp"
-                android:lineSpacingExtra="4dp"
-                android:layout_marginHorizontal="16dp"
-                android:layout_marginTop="12dp"
-                android:layout_marginBottom="4dp" />
+                android:paddingHorizontal="16dp"
+                android:paddingBottom="12dp"
+                android:visibility="gone"
+                app:flexWrap="wrap"
+                app:justifyContent="flex_start"
+                app:alignItems="flex_start" />
 
             <!-- 일차 선택 버튼 -->
             <HorizontalScrollView
@@ -180,10 +155,7 @@
                     android:id="@+id/layout_day_buttons"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-                    <!-- 동적으로 일차 버튼 추가 -->
-                </LinearLayout>
-
+                    android:orientation="horizontal" />
             </HorizontalScrollView>
 
             <!-- 일차 선택 인디케이터 -->
@@ -207,7 +179,7 @@
                     android:name="com.google.android.gms.maps.SupportMapFragment"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    app:mapId="f8eb61d4324a7c0c73cc412c"/>
+                    app:mapId="f8eb61d4324a7c0c73cc412c" />
 
             </FrameLayout>
 
@@ -252,5 +224,55 @@
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
+
+    <!-- 하단 고정 바 (좋아요 + 카피하기) -->
+    <LinearLayout
+        android:id="@+id/layout_bottom_fixed"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#FFFFFF"
+        android:elevation="8dp"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <!-- 하트 영역 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/btn_bottom_heart"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_heart"
+                android:contentDescription="좋아요" />
+
+            <TextView
+                android:id="@+id/tv_bottom_heart_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="0"
+                android:textSize="12sp"
+                android:textColor="#666666" />
+        </LinearLayout>
+
+        <!-- 카피하기 버튼 -->
+        <Button
+            android:id="@+id/btn_copy_schedule"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="5"
+            android:background="@drawable/rounded_button_primary"
+            android:text="카피하기"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

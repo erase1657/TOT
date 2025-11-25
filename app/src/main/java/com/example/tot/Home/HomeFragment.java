@@ -326,11 +326,53 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
         List<CommunityPostDTO> filtered = new ArrayList<>();
 
         if (selectedProvinceCode.equals("ALL")) {
+            // 전체보기: 모든 게시글 표시
             filtered.addAll(allCommunityPosts);
         } else {
-            filtered.addAll(allCommunityPosts);
+            // ✅ 선택된 지역 필터링
+            for (CommunityPostDTO post : allCommunityPosts) {
+                List<CommunityPostDTO.RegionTag> tags = post.getRegionTags();
+
+                // 지역태그가 없으면 전체보기에서만 표시
+                if (tags == null || tags.isEmpty()) {
+                    continue;
+                }
+
+                boolean matchesFilter = false;
+
+                for (CommunityPostDTO.RegionTag tag : tags) {
+                    // 시/도 매칭 체크
+                    boolean provinceMatches = tag.getProvinceCode().equals(selectedProvinceCode);
+
+                    if (!provinceMatches) {
+                        continue;
+                    }
+
+                    // 시/군/구 선택 안했으면 시/도만 매칭해도 OK
+                    if (selectedCityCode.isEmpty()) {
+                        matchesFilter = true;
+                        break;
+                    }
+
+                    // 시/군/구까지 선택했으면
+                    // 1) 게시글의 태그가 시/도만 있으면 OK (상위 지역 포함)
+                    // 2) 게시글의 태그가 시/군/구까지 있으면 정확히 매칭되어야 함
+                    if (tag.getCityCode() == null || tag.getCityCode().isEmpty()) {
+                        matchesFilter = true;
+                        break;
+                    } else if (tag.getCityCode().equals(selectedCityCode)) {
+                        matchesFilter = true;
+                        break;
+                    }
+                }
+
+                if (matchesFilter) {
+                    filtered.add(post);
+                }
+            }
         }
 
+        // 인기순 정렬
         filtered.sort((a, b) -> Integer.compare(b.getHeartCount(), a.getHeartCount()));
 
         if (communityAdapter != null) {

@@ -5,7 +5,8 @@ public class NotificationDTO {
     public enum NotificationType {
         SCHEDULE_INVITE,
         FOLLOW,
-        COMMENT
+        COMMENT,
+        POST  // ✅ 친구 게시글 알림 타입 추가
     }
 
     private String id;
@@ -20,7 +21,7 @@ public class NotificationDTO {
     private String userId;
     private int iconResId;
     private long createdAt;
-    private String postId; // ✅ 추가: 댓글 알림에서 게시글로 이동하기 위해 필요
+    private String postId;
 
     private NotificationDTO(Builder builder) {
         this.id = builder.id;
@@ -97,6 +98,28 @@ public class NotificationDTO {
                 .build();
     }
 
+    /**
+     * ✅ 친구 게시글 알림 생성
+     */
+    public static NotificationDTO createPost(String id, String userName,
+                                             String postTitle, String timeDisplay,
+                                             boolean isRead, int unreadCount,
+                                             int iconResId, String userId,
+                                             String postId, long createdAt) {
+        return new Builder(id, NotificationType.POST)
+                .userName(userName)
+                .userId(userId)
+                .postId(postId)
+                .title(userName + " 님이 새로운 게시글을 올렸습니다")
+                .content(postTitle)
+                .timeDisplay(timeDisplay)
+                .isRead(isRead)
+                .unreadCount(unreadCount)
+                .iconResId(iconResId)
+                .createdAt(createdAt)
+                .build();
+    }
+
     public static class Builder {
         private final String id;
         private final NotificationType type;
@@ -114,7 +137,7 @@ public class NotificationDTO {
         public Builder(String id, NotificationType type) {
             this.id = id;
             this.type = type;
-            this.createdAt = System.currentTimeMillis(); // 기본값: 현재 시간
+            this.createdAt = System.currentTimeMillis();
         }
 
         public Builder title(String title) {
@@ -185,11 +208,11 @@ public class NotificationDTO {
     public String getUserId() { return userId; }
     public int getIconResId() { return iconResId; }
     public long getCreatedAt() { return createdAt; }
-    public String getPostId() { return postId; } // ✅ 추가
+    public String getPostId() { return postId; }
 
     // Setters
     public void setRead(boolean read) { isRead = read; }
     public void setUnreadCount(int count) { unreadCount = count; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
-    public void setPostId(String postId) { this.postId = postId; } // ✅ 추가
+    public void setPostId(String postId) { this.postId = postId; }
 }

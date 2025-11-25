@@ -1,131 +1,204 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/white">
+    android:fillViewport="true"
+    android:background="@android:color/white">
 
-    <!-- 상단 헤더 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingHorizontal="16dp">
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
 
+        <!-- 상단 바 -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:paddingHorizontal="16dp"
+            android:elevation="2dp"
+            android:background="@android:color/white">
+
+            <ImageView
+                android:id="@+id/btn_back"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_centerVertical="true"
+                android:src="@drawable/ic_back"
+                android:contentDescription="뒤로가기" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="게시글 작성"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black" />
+
+            <Button
+                android:id="@+id/btn_publish"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:text="등록"
+                android:textColor="@android:color/white"
+                android:background="@drawable/rounded_button_primary"
+                android:paddingHorizontal="16dp"
+                android:textSize="14sp" />
+        </RelativeLayout>
+
+        <!-- 대표 이미지 -->
         <ImageView
-            android:id="@+id/btn_back"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_back"
-            android:contentDescription="뒤로가기"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackgroundBorderless" />
+            android:id="@+id/img_thumbnail"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            android:contentDescription="대표 이미지"
+            android:background="#FFE0E0E0" />
 
-        <TextView
-            android:layout_width="0dp"
+        <!-- 스케줄 정보 -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="게시글 작성"
-            android:textColor="@color/black"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:layout_marginStart="16dp" />
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="#F5F5F5">
 
-        <Button
-            android:id="@+id/btn_publish"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="등록"
-            android:textColor="@color/white"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:background="@drawable/rounded_button_primary"
-            android:paddingHorizontal="20dp" />
-    </LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="선택한 스케줄"
+                android:textSize="12sp"
+                android:textColor="#666666"
+                android:layout_marginBottom="4dp" />
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#FFE0E0E0" />
+            <TextView
+                android:id="@+id/tv_schedule_info"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="서울 (2024.01.01 ~ 2024.01.05)"
+                android:textSize="14sp"
+                android:textColor="@android:color/black"
+                android:textStyle="bold" />
+        </LinearLayout>
 
-    <!-- 콘텐츠 영역 -->
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true">
-
+        <!-- 제목 입력 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- 대표 이미지 -->
-            <ImageView
-                android:id="@+id/img_thumbnail"
-                android:layout_width="match_parent"
-                android:layout_height="200dp"
-                android:scaleType="centerCrop"
-                android:visibility="gone"
-                android:contentDescription="대표 이미지"
-                android:background="#FFE0E0E0"
-                android:layout_marginBottom="16dp" />
-
-            <!-- 스케줄 정보 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="선택한 스케줄"
-                android:textColor="@color/gray"
-                android:textSize="12sp"
-                android:layout_marginBottom="4dp" />
-
-            <TextView
-                android:id="@+id/tv_schedule_info"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="제주도 (2025.12.15 ~ 2025.12.17)"
-                android:textColor="@color/black"
-                android:textSize="14sp"
-                android:padding="12dp"
-                android:background="#FFF5F5F5"
-                android:layout_marginBottom="24dp" />
-
-            <!-- 제목 입력 -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="게시글 제목"
-                android:textColor="@color/black"
+                android:text="제목"
                 android:textSize="14sp"
                 android:textStyle="bold"
+                android:textColor="@android:color/black"
                 android:layout_marginBottom="8dp" />
 
             <EditText
                 android:id="@+id/edt_post_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="제목을 입력하세요"
-                android:textColor="@color/black"
-                android:textColorHint="@color/gray"
-                android:textSize="16sp"
-                android:padding="16dp"
+                android:hint="게시글 제목을 입력하세요"
+                android:padding="12dp"
                 android:background="@drawable/edittext_background"
+                android:textSize="14sp"
                 android:maxLines="2"
-                android.maxLength="50"
-                android:inputType="text" />
+                android:maxLength="50" />
+        </LinearLayout>
+
+        <!-- 지역태그 추가 섹션 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="#FAFAFA">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="* 스케줄의 사진, 일정, 장소가 자동으로 게시됩니다"
-                android:textColor="@color/gray"
+                android:text="게시글 지역태그 추가"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:layout_marginBottom="12dp" />
+
+            <!-- 시/도 버튼 영역 -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/provinceButtonContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <!-- 시/군/구 버튼 영역 -->
+            <HorizontalScrollView
+                android:id="@+id/cityScrollView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:scrollbars="none"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/cityButtonContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <!-- 태그 추가 버튼 -->
+            <Button
+                android:id="@+id/btn_add_region_tag"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="선택한 지역 태그 추가"
+                android:textColor="@android:color/white"
+                android:background="@drawable/button_style3"
+                android:padding="12dp" />
+
+            <!-- 추가된 지역태그 표시 영역 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="추가된 지역태그"
                 android:textSize="12sp"
-                android:layout_marginTop="12dp" />
+                android:textColor="#666666"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="8dp" />
+
+            <com.google.android.flexbox.FlexboxLayout
+                android:id="@+id/layout_added_tags"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:flexWrap="wrap"
+                app:justifyContent="flex_start"
+                app:alignItems="flex_start" />
 
         </LinearLayout>
-    </ScrollView>
 
-</LinearLayout>
+        <!-- 안내 문구 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp"
+            android:text="• 지역태그를 추가하지 않으면 전체보기에서만 게시글이 표시됩니다\n• 시/도만 선택하면 해당 지역 전체에서 표시됩니다"
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:lineSpacingExtra="4dp" />
+
+    </LinearLayout>
+</ScrollView>

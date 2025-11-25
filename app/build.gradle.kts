@@ -83,4 +83,6 @@ dependencies {
 
     // ✅ Gson 라이브러리 추가 (JSON 직렬화/역직렬화)
     implementation("com.google.code.gson:gson:2.10.1")
+    // FlexboxLayout (지역태그 표시용)
+    implementation("com.google.android.flexbox:flexbox:3.0.0")
 }

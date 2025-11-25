@@ -37,10 +37,14 @@ public class NotificationManager {
 
     private ListenerRegistration followerListener;
     private ListenerRegistration commentListener;
+    private ListenerRegistration postListener;  // ✅ 게시글 알림 리스너 추가
     private boolean isListening = false;
 
     // ✅ 게시글별 읽지 않은 댓글 수 추적
     private Map<String, Integer> unreadCommentCountByPost = new HashMap<>();
+
+    // ✅ 사용자별 읽지 않은 게시글 수 추적
+    private Map<String, Integer> unreadPostCountByUser = new HashMap<>();
 
     public interface UnreadCountListener {
         void onUnreadCountChanged(int count);
@@ -78,6 +82,7 @@ public class NotificationManager {
         loadNotificationsFromCache();
         startListeningForFollowers();
         startListeningForComments();
+        startListeningForPosts();  // ✅ 게시글 알림 리스너 시작
     }
 
     private void loadNotificationsFromCache() {
@@ -94,8 +99,8 @@ public class NotificationManager {
             Log.d(TAG, "🗑️ 오래된 알림 자동 삭제");
         }
 
-        // ✅ 게시글별 읽지 않은 댓글 수 계산
-        recalculateUnreadCommentCounts(cached);
+        // ✅ 게시글별 읽지 않은 댓글 수 계산 및 사용자별 게시글 수 계산
+        recalculateUnreadCounts(cached);
 
         splitNotifications(cached);
         notifyUnreadCountChanged();
@@ -104,13 +109,17 @@ public class NotificationManager {
     }
 
     /**
-     * ✅ 게시글별 읽지 않은 댓글 수 재계산
+     * ✅ 읽지 않은 댓글/게시글 수 재계산
      */
-    private void recalculateUnreadCommentCounts(List<NotificationDTO> notifications) {
+    private void recalculateUnreadCounts(List<NotificationDTO> notifications) {
         unreadCommentCountByPost.clear();
+        unreadPostCountByUser.clear();
 
-        // 댓글 알림만 필터링하고 게시글별로 그룹화
+        // 댓글 알림 그룹화 (게시글별)
         Map<String, List<NotificationDTO>> commentsByPost = new HashMap<>();
+
+        // 게시글 알림 그룹화 (사용자별)
+        Map<String, List<NotificationDTO>> postsByUser = new HashMap<>();
 
         for (NotificationDTO notif : notifications) {
             if (notif.getType() == NotificationDTO.NotificationType.COMMENT && !notif.isRead()) {
@@ -121,32 +130,57 @@ public class NotificationManager {
                     }
                     commentsByPost.get(postId).add(notif);
                 }
+            } else if (notif.getType() == NotificationDTO.NotificationType.POST && !notif.isRead()) {
+                String userId = notif.getUserId();
+                if (userId != null && !userId.isEmpty()) {
+                    if (!postsByUser.containsKey(userId)) {
+                        postsByUser.put(userId, new ArrayList<>());
+                    }
+                    postsByUser.get(userId).add(notif);
+                }
             }
         }
 
-        // 각 게시글별로 가장 최신 알림에만 카운트 설정
+        // 댓글: 게시글별 카운트 설정
         for (Map.Entry<String, List<NotificationDTO>> entry : commentsByPost.entrySet()) {
             String postId = entry.getKey();
             List<NotificationDTO> postComments = entry.getValue();
 
-            // 시간순 정렬 (최신순)
             postComments.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
 
             int unreadCount = postComments.size();
             unreadCommentCountByPost.put(postId, unreadCount);
 
-            // 가장 최신 알림에만 카운트 설정
             if (!postComments.isEmpty()) {
                 postComments.get(0).setUnreadCount(unreadCount);
             }
 
-            // 나머지 알림은 카운트 0
             for (int i = 1; i < postComments.size(); i++) {
                 postComments.get(i).setUnreadCount(0);
             }
         }
 
-        Log.d(TAG, "✅ 게시글별 읽지 않은 댓글 수 계산 완료: " + commentsByPost.size() + "개 게시글");
+        // ✅ 게시글: 사용자별 카운트 설정
+        for (Map.Entry<String, List<NotificationDTO>> entry : postsByUser.entrySet()) {
+            String userId = entry.getKey();
+            List<NotificationDTO> userPosts = entry.getValue();
+
+            userPosts.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
+
+            int unreadCount = userPosts.size();
+            unreadPostCountByUser.put(userId, unreadCount);
+
+            if (!userPosts.isEmpty()) {
+                userPosts.get(0).setUnreadCount(unreadCount);
+            }
+
+            for (int i = 1; i < userPosts.size(); i++) {
+                userPosts.get(i).setUnreadCount(0);
+            }
+        }
+
+        Log.d(TAG, "✅ 댓글 카운트 계산 완료: " + commentsByPost.size() + "개 게시글");
+        Log.d(TAG, "✅ 게시글 카운트 계산 완료: " + postsByUser.size() + "명 사용자");
     }
 
     private void startListeningForFollowers() {
@@ -248,6 +282,68 @@ public class NotificationManager {
                 });
     }
 
+    /**
+     * ✅ 친구 게시글 알림 리스너 시작
+     */
+    private void startListeningForPosts() {
+        if (mAuth.getCurrentUser() == null) {
+            return;
+        }
+
+        String userId = mAuth.getCurrentUser().getUid();
+        long lastCheck = cache.getLastCheckTime();
+
+        Log.d(TAG, "👂 postNotifications 컬렉션 실시간 감지 시작");
+
+        postListener = db.collection("user")
+                .document(userId)
+                .collection("postNotifications")
+                .addSnapshotListener((snapshots, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "❌ postNotifications 리스너 오류", error);
+                        return;
+                    }
+
+                    if (snapshots == null || snapshots.getDocumentChanges().isEmpty()) {
+                        return;
+                    }
+
+                    for (DocumentChange change : snapshots.getDocumentChanges()) {
+                        if (change.getType() == DocumentChange.Type.ADDED) {
+                            DocumentSnapshot doc = change.getDocument();
+                            Long timestamp = doc.getLong("timestamp");
+
+                            if (timestamp != null && timestamp > lastCheck) {
+                                String postId = doc.getString("postId");
+                                String authorId = doc.getString("authorId");
+                                String authorName = doc.getString("authorName");
+                                String postTitle = doc.getString("postTitle");
+
+                                createLocalPostNotification(
+                                        doc.getId(),
+                                        postId,
+                                        authorId,
+                                        authorName,
+                                        postTitle,
+                                        timestamp
+                                );
+
+                                doc.getReference().delete()
+                                        .addOnSuccessListener(aVoid -> {
+                                            Log.d(TAG, "✅ 처리된 게시글 알림 삭제: " + doc.getId());
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "❌ 게시글 알림 삭제 실패", e);
+                                        });
+                            }
+                        }
+                    }
+
+                    cache.setLastCheckTime(System.currentTimeMillis());
+                });
+    }
+    // Part 1에서 이어짐...
+
     private void createLocalFollowNotification(String followerId, long followedAt) {
         db.collection("user")
                 .document(followerId)
@@ -282,19 +378,17 @@ public class NotificationManager {
     private void createLocalCommentNotification(String notificationId, String postId,
                                                 String commenterId, String commenterName,
                                                 String commentContent, long timestamp) {
-        // ✅ 해당 게시글의 읽지 않은 댓글 수 증가
         int currentCount = unreadCommentCountByPost.getOrDefault(postId, 0);
         int newCount = currentCount + 1;
         unreadCommentCountByPost.put(postId, newCount);
 
-        // ✅ 새 알림 생성 (카운트 포함)
         NotificationDTO notification = NotificationDTO.createComment(
                 "comment_" + notificationId,
                 commenterName,
                 commentContent,
                 getTimeDisplay(timestamp),
                 false,
-                newCount,  // 현재 게시글의 총 읽지 않은 댓글 수
+                newCount,
                 R.drawable.ic_comment,
                 commenterId,
                 timestamp
@@ -302,10 +396,37 @@ public class NotificationManager {
 
         notification.setPostId(postId);
 
-        // ✅ 캐시에 추가하고 이전 알림들의 카운트 업데이트
         addCommentNotificationAndUpdateCounts(notification, postId);
 
         Log.d(TAG, "✅ 로컬 댓글 알림 생성: " + commenterName + " - " + commentContent + " (카운트: " + newCount + ")");
+    }
+
+    /**
+     * ✅ 친구 게시글 알림 생성
+     */
+    private void createLocalPostNotification(String notificationId, String postId,
+                                             String authorId, String authorName,
+                                             String postTitle, long timestamp) {
+        int currentCount = unreadPostCountByUser.getOrDefault(authorId, 0);
+        int newCount = currentCount + 1;
+        unreadPostCountByUser.put(authorId, newCount);
+
+        NotificationDTO notification = NotificationDTO.createPost(
+                "post_" + notificationId,
+                authorName,
+                postTitle,
+                getTimeDisplay(timestamp),
+                false,
+                newCount,
+                R.drawable.ic_community,
+                authorId,
+                postId,
+                timestamp
+        );
+
+        addPostNotificationAndUpdateCounts(notification, authorId);
+
+        Log.d(TAG, "✅ 로컬 게시글 알림 생성: " + authorName + " - " + postTitle + " (카운트: " + newCount + ")");
     }
 
     /**
@@ -314,7 +435,6 @@ public class NotificationManager {
     private void addCommentNotificationAndUpdateCounts(NotificationDTO newNotification, String postId) {
         List<NotificationDTO> current = cache.loadNotifications();
 
-        // 같은 게시글의 이전 댓글 알림들의 카운트를 0으로 설정
         for (NotificationDTO notif : current) {
             if (notif.getType() == NotificationDTO.NotificationType.COMMENT &&
                     postId.equals(notif.getPostId()) &&
@@ -323,17 +443,40 @@ public class NotificationManager {
             }
         }
 
-        // 새 알림을 맨 앞에 추가
         current.add(0, newNotification);
 
-        // 최대 개수 제한
         if (current.size() > MAX_CACHED_NOTIFICATIONS) {
             current = current.subList(0, MAX_CACHED_NOTIFICATIONS);
         }
 
         cache.saveNotifications(current);
 
-        // UI 업데이트
+        splitNotifications(current);
+        notifyUnreadCountChanged();
+    }
+
+    /**
+     * ✅ 게시글 알림 추가 및 같은 사용자의 이전 알림 카운트 업데이트
+     */
+    private void addPostNotificationAndUpdateCounts(NotificationDTO newNotification, String authorId) {
+        List<NotificationDTO> current = cache.loadNotifications();
+
+        for (NotificationDTO notif : current) {
+            if (notif.getType() == NotificationDTO.NotificationType.POST &&
+                    authorId.equals(notif.getUserId()) &&
+                    !notif.isRead()) {
+                notif.setUnreadCount(0);
+            }
+        }
+
+        current.add(0, newNotification);
+
+        if (current.size() > MAX_CACHED_NOTIFICATIONS) {
+            current = current.subList(0, MAX_CACHED_NOTIFICATIONS);
+        }
+
+        cache.saveNotifications(current);
+
         splitNotifications(current);
         notifyUnreadCountChanged();
     }
@@ -414,7 +557,7 @@ public class NotificationManager {
     }
 
     /**
-     * ✅ 읽음 처리 - 댓글 알림의 경우 게시글별 카운트 업데이트
+     * ✅ 읽음 처리 - 댓글/게시글 알림의 경우 카운트 업데이트
      */
     public void markAsRead(String notificationId) {
         if (cache != null) {
@@ -423,13 +566,14 @@ public class NotificationManager {
 
         NotificationDTO targetNotif = null;
         String postId = null;
+        String userId = null;
 
-        // 알림 찾기
         for (NotificationDTO notif : todayNotifications) {
             if (notif.getId().equals(notificationId)) {
                 notif.setRead(true);
                 targetNotif = notif;
                 postId = notif.getPostId();
+                userId = notif.getUserId();
                 break;
             }
         }
@@ -440,17 +584,20 @@ public class NotificationManager {
                     notif.setRead(true);
                     targetNotif = notif;
                     postId = notif.getPostId();
+                    userId = notif.getUserId();
                     break;
                 }
             }
         }
 
-        // ✅ 댓글 알림인 경우 카운트 업데이트
-        if (targetNotif != null &&
-                targetNotif.getType() == NotificationDTO.NotificationType.COMMENT &&
-                postId != null && !postId.isEmpty()) {
-
-            updateCommentCountsAfterRead(postId);
+        if (targetNotif != null) {
+            if (targetNotif.getType() == NotificationDTO.NotificationType.COMMENT &&
+                    postId != null && !postId.isEmpty()) {
+                updateCommentCountsAfterRead(postId);
+            } else if (targetNotif.getType() == NotificationDTO.NotificationType.POST &&
+                    userId != null && !userId.isEmpty()) {
+                updatePostCountsAfterRead(userId);
+            }
         }
 
         notifyUnreadCountChanged();
@@ -464,7 +611,6 @@ public class NotificationManager {
         List<NotificationDTO> allNotifications = cache.loadNotifications();
         List<NotificationDTO> unreadComments = new ArrayList<>();
 
-        // 해당 게시글의 읽지 않은 댓글 알림 수집
         for (NotificationDTO notif : allNotifications) {
             if (notif.getType() == NotificationDTO.NotificationType.COMMENT &&
                     postId.equals(notif.getPostId()) &&
@@ -473,22 +619,18 @@ public class NotificationManager {
             }
         }
 
-        // 시간순 정렬 (최신순)
         unreadComments.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
 
         int newCount = unreadComments.size();
         unreadCommentCountByPost.put(postId, newCount);
 
-        // 가장 최신 알림에만 카운트 설정
         if (!unreadComments.isEmpty()) {
             unreadComments.get(0).setUnreadCount(newCount);
 
-            // 나머지는 0
             for (int i = 1; i < unreadComments.size(); i++) {
                 unreadComments.get(i).setUnreadCount(0);
             }
 
-            // 캐시 업데이트
             cache.saveNotifications(allNotifications);
             splitNotifications(allNotifications);
         }
@@ -496,23 +638,63 @@ public class NotificationManager {
         Log.d(TAG, "✅ 게시글 " + postId + "의 읽지 않은 댓글 수: " + newCount);
     }
 
+    /**
+     * ✅ 게시글 읽음 처리 후 다음 최신 알림으로 카운트 이동
+     */
+    private void updatePostCountsAfterRead(String authorId) {
+        List<NotificationDTO> allNotifications = cache.loadNotifications();
+        List<NotificationDTO> unreadPosts = new ArrayList<>();
+
+        for (NotificationDTO notif : allNotifications) {
+            if (notif.getType() == NotificationDTO.NotificationType.POST &&
+                    authorId.equals(notif.getUserId()) &&
+                    !notif.isRead()) {
+                unreadPosts.add(notif);
+            }
+        }
+
+        unreadPosts.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
+
+        int newCount = unreadPosts.size();
+        unreadPostCountByUser.put(authorId, newCount);
+
+        if (!unreadPosts.isEmpty()) {
+            unreadPosts.get(0).setUnreadCount(newCount);
+
+            for (int i = 1; i < unreadPosts.size(); i++) {
+                unreadPosts.get(i).setUnreadCount(0);
+            }
+
+            cache.saveNotifications(allNotifications);
+            splitNotifications(allNotifications);
+        }
+
+        Log.d(TAG, "✅ 사용자 " + authorId + "의 읽지 않은 게시글 수: " + newCount);
+    }
+
     public void deleteNotification(String notificationId) {
         if (cache != null) {
             cache.deleteNotification(notificationId);
         }
 
-        // 삭제되는 알림의 postId 확인
         String deletedPostId = null;
+        String deletedUserId = null;
+        NotificationDTO.NotificationType deletedType = null;
+
         for (NotificationDTO notif : todayNotifications) {
             if (notif.getId().equals(notificationId)) {
                 deletedPostId = notif.getPostId();
+                deletedUserId = notif.getUserId();
+                deletedType = notif.getType();
                 break;
             }
         }
-        if (deletedPostId == null) {
+        if (deletedPostId == null && deletedUserId == null) {
             for (NotificationDTO notif : recentNotifications) {
                 if (notif.getId().equals(notificationId)) {
                     deletedPostId = notif.getPostId();
+                    deletedUserId = notif.getUserId();
+                    deletedType = notif.getType();
                     break;
                 }
             }
@@ -521,9 +703,12 @@ public class NotificationManager {
         todayNotifications.removeIf(notif -> notif.getId().equals(notificationId));
         recentNotifications.removeIf(notif -> notif.getId().equals(notificationId));
 
-        // ✅ 댓글 알림 삭제 시 카운트 재계산
-        if (deletedPostId != null && !deletedPostId.isEmpty()) {
+        if (deletedType == NotificationDTO.NotificationType.COMMENT &&
+                deletedPostId != null && !deletedPostId.isEmpty()) {
             updateCommentCountsAfterRead(deletedPostId);
+        } else if (deletedType == NotificationDTO.NotificationType.POST &&
+                deletedUserId != null && !deletedUserId.isEmpty()) {
+            updatePostCountsAfterRead(deletedUserId);
         }
 
         notifyUnreadCountChanged();
@@ -553,6 +738,7 @@ public class NotificationManager {
         todayNotifications.clear();
         recentNotifications.clear();
         unreadCommentCountByPost.clear();
+        unreadPostCountByUser.clear();
         if (cache != null) {
             cache.clearCache();
         }
@@ -575,6 +761,11 @@ public class NotificationManager {
             commentListener.remove();
             commentListener = null;
             Log.d(TAG, "🛑 commentNotifications 리스너 해제");
+        }
+        if (postListener != null) {
+            postListener.remove();
+            postListener = null;
+            Log.d(TAG, "🛑 postNotifications 리스너 해제");
         }
         isListening = false;
     }
