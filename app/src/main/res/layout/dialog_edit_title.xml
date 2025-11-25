@@ -9,7 +9,7 @@
         android:id="@+id/et_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="새로운 제목 입력"
+        android:hint="새로운 제목 입력 (최대 20자)"
         android:maxLength="20" />
 
 </LinearLayout>

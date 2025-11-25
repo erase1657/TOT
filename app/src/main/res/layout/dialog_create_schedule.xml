@@ -29,7 +29,7 @@
         android:layout_height="56dp"
         android:layout_marginTop="8dp"
         android:background="@drawable/button_style2"
-        android:hint="제목을 입력하세요"
+        android:hint="제목을 입력하세요 (최대 20자)"
         android:inputType="text"
         android:maxLength="20"
         android:maxLines="1"
