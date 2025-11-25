@@ -204,9 +204,6 @@ public class PostCreateActivity extends AppCompatActivity {
         currentSelectedCityButton = selectedButton;
     }
 
-// Part 2에 계속...
-// Part 1에서 계속...
-
     // ✅ 지역태그 추가
     private void addRegionTag() {
         if (selectedProvinceCode.isEmpty()) {
@@ -354,6 +351,7 @@ public class PostCreateActivity extends AppCompatActivity {
                     Log.e(TAG, "❌ 작성자 정보 조회 실패 (알림 전송 불가)", e);
                 });
     }
+    // Part 1에서 계속...
 
     private void copyScheduleToPost(String uid, String scheduleId, String postId) {
         Log.d(TAG, "📋 일정 데이터 복사 시작: " + scheduleId);

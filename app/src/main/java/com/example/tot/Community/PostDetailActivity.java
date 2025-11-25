@@ -1,6 +1,5 @@
 package com.example.tot.Community;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -68,14 +67,14 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
     private static final String TAG = "PostDetailActivity";
 
-    // 1. 클래스 상단 변수 선언 부분에 추가
+    // ✅ 지역태그 레이아웃 추가
     private com.google.android.flexbox.FlexboxLayout layoutRegionTags;
     private ImageView btnBack, btnComment, btnDelete;
     private ImageView btnBottomHeart;
     private TextView tvBottomHeartCount;
     private Button btnCopySchedule;
     private ImageView imgThumbnail;
-    private TextView tvLocation, tvDateRange, tvPhotoIndicator, tvPostTitle;
+    private TextView tvPostTitle, tvDateRange, tvPhotoIndicator;
     private LinearLayout layoutDayButtons;
     private View viewDayIndicator;
     private ViewPager2 viewpagerPhotos;
@@ -138,9 +137,8 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         btnComment = findViewById(R.id.btn_comment);
         btnDelete = findViewById(R.id.btn_delete);
         imgThumbnail = findViewById(R.id.img_thumbnail);
-        tvLocation = findViewById(R.id.tv_location);
-        tvDateRange = findViewById(R.id.tv_date_range);
         tvPostTitle = findViewById(R.id.tv_post_title);
+        tvDateRange = findViewById(R.id.tv_date_range);
 
         layoutDayButtons = findViewById(R.id.layout_day_buttons);
         viewDayIndicator = findViewById(R.id.view_day_indicator);
@@ -287,7 +285,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     Long heartCount = postDoc.getLong("heartCount");
 
                     if (postTitle != null) tvPostTitle.setText(postTitle);
-                    if (locationName != null) tvLocation.setText(locationName);
 
                     if (heartCount != null) {
                         currentHeartCount = heartCount.intValue();
@@ -321,7 +318,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                 });
     }
 
-    // 4. 새로운 메서드 추가 - 지역태그 표시
+    // ✅ 지역태그 표시 메서드
     private void displayRegionTags(DocumentSnapshot postDoc) {
         layoutRegionTags.removeAllViews();
 
@@ -365,6 +362,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         }
     }
 
+    // ✅ 카피하기 다이얼로그
     private void showCopyScheduleDialog() {
         if (currentUid == null) {
             Toast.makeText(this, "로그인이 필요합니다", Toast.LENGTH_SHORT).show();
@@ -379,6 +377,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                 .setNeutralButton("취소", null)
                 .show();
     }
+    // Part 1에서 계속...
 
     private void showDatePickerForCopy() {
         MaterialDatePicker.Builder<Pair<Long, Long>> builder = MaterialDatePicker.Builder.dateRangePicker()
@@ -465,6 +464,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     btnCopySchedule.setText("카피하기");
                 });
     }
+
     private void copyScheduleDateData(String newScheduleId, long newStartDate, long newEndDate) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 

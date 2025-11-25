@@ -100,8 +100,9 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
+                <!-- ✅ 제목 (기존 tv_location 위치) -->
                 <TextView
-                    android:id="@+id/tv_location"
+                    android:id="@+id/tv_post_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text=" "
@@ -109,6 +110,7 @@
                     android:textSize="24sp"
                     android:textStyle="bold" />
 
+                <!-- 날짜 -->
                 <TextView
                     android:id="@+id/tv_date_range"
                     android:layout_width="wrap_content"
@@ -127,20 +129,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="16dp" />
-
-            <!-- 게시글 제목 -->
-            <!-- 기존 제목 TextView 다음에 추가 -->
-            <TextView
-                android:id="@+id/tv_post_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="게시글 제목"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@android:color/black"
-                android:paddingHorizontal="16dp"
-                android:paddingTop="16dp"
-                android:paddingBottom="8dp" />
 
             <!-- ✅ 지역태그 표시 영역 추가 -->
             <com.google.android.flexbox.FlexboxLayout
