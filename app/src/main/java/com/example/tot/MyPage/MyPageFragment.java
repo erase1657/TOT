@@ -69,6 +69,7 @@ public class MyPageFragment extends Fragment {
     private FirebaseFirestore db;
     private MyPageProfileManager profileManager;
     private ListenerRegistration postsListener;
+    private ListenerRegistration travelHistoryListener;
 
     private boolean isEditMode = false;
     private EditText etNameEdit;
@@ -147,6 +148,9 @@ public class MyPageFragment extends Fragment {
         super.onStop();
         if (postsListener != null) {
             postsListener.remove();
+        }
+        if (travelHistoryListener != null) {
+            travelHistoryListener.remove();
         }
     }
 
@@ -359,20 +363,24 @@ public class MyPageFragment extends Fragment {
             return;
         }
 
-        db.collection("user").document(targetUserId).collection("schedule").get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    scheduleList.clear();
-                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        ScheduleDTO schedule = document.toObject(ScheduleDTO.class);
-                        scheduleList.add(schedule);
+        travelHistoryListener = db.collection("user").document(targetUserId).collection("schedule")
+                .addSnapshotListener((queryDocumentSnapshots, e) -> {
+                    if (e != null) {
+                        Log.w(TAG, "Error getting documents: ", e);
+                        Toast.makeText(getContext(), "여행 기록을 불러오는 데 실패했습니다.", Toast.LENGTH_SHORT).show();
+                        updateEmptyState();
+                        return;
                     }
-                    scheduleAdapter.notifyDataSetChanged();
-                    updateEmptyState();
-                })
-                .addOnFailureListener(e -> {
-                    Log.w(TAG, "Error getting documents: ", e);
-                    Toast.makeText(getContext(), "여행 기록을 불러오는 데 실패했습니다.", Toast.LENGTH_SHORT).show();
-                    updateEmptyState();
+
+                    if (queryDocumentSnapshots != null) {
+                        scheduleList.clear();
+                        for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                            ScheduleDTO schedule = document.toObject(ScheduleDTO.class);
+                            scheduleList.add(schedule);
+                        }
+                        scheduleAdapter.notifyDataSetChanged();
+                        updateEmptyState();
+                    }
                 });
     }
     
