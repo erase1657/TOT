@@ -258,9 +258,9 @@ public class NotificationManager {
 
         Log.d(TAG, "👂 inviteReceived 리스너 시작");
 
-        ListenerRegistration reg = db.collection("user")
-                .document(uid)
-                .collection("inviteReceived")
+        ListenerRegistration reg =
+                db.collectionGroup("invited")
+                        .whereEqualTo("receiverUid", uid)   // 내가 받은 초대만 필터
                 .addSnapshotListener((snapshots, error) -> {
 
                     if (error != null) {
@@ -278,9 +278,13 @@ public class NotificationManager {
                             if (createdAt != null && createdAt > lastCheck) {
 
                                 String inviteId = doc.getId();
-                                String senderUid = doc.getString("senderUid");
-                                String scheduleId = doc.getString("scheduleId");
 
+                                String scheduleId = doc.getReference()
+                                        .getParent()
+                                        .getParent()
+                                        .getId();
+
+                                String senderUid = doc.getString("senderUid");
                                 Log.d(TAG, "🎉 새로운 초대 감지: " + inviteId);
 
                                 createLocalScheduleInviteNotification(
@@ -302,16 +306,20 @@ public class NotificationManager {
                                                        String scheduleId,
                                                        String senderUid,
                                                        long createdAt) {
-
+        /**
+         * NOTE: 초대 알림을 생성하는 시점에서 이미 invite콜렉션에 데이터가 저장된 상태임
+         * 필요한 값들이 있다면 내가 invite콜렉션 필드값을 가져와서 notification 객체에 저장해서 사용할 수 있음
+         */
         db.collection("user")
                 .document(senderUid)
                 .get()
                 .addOnSuccessListener(doc -> {
 
-                    String nickname = doc.getString("nickname");
+                    String nickname = doc.getString("nickname");//위 노트의 예시
                     if (nickname == null) nickname = "사용자";
 
-                    // ⭐ scheduleId 를 넣는 createScheduleInvite() 사용 (DTO 수정 필수)
+
+
                     NotificationDTO notification = NotificationDTO.createScheduleInvite(
                             "invite_" + inviteId,
                             nickname,

@@ -22,8 +22,7 @@ public class NotificationDTO {
     private long createdAt;
     private String postId; // ✅ 추가: 댓글 알림에서 게시글로 이동하기 위해 필요
     private String scheduleId;
-
-
+    public NotificationDTO() {}
     private NotificationDTO(Builder builder) {
         this.id = builder.id;
         this.type = builder.type;
@@ -37,14 +36,24 @@ public class NotificationDTO {
         this.iconResId = builder.iconResId;
         this.createdAt = builder.createdAt;
         this.postId = builder.postId;
+        this.scheduleId = builder.scheduleId;
     }
 
     /**
      * ✅ 스케줄 초대 알림 생성
      */
-    public static NotificationDTO createScheduleInvite(String id, String scheduleName, String content, String timeDisplay,
-                                                       boolean isRead, int unreadCount, int iconResId, String userId,
-                                                       long createdAt, String scheduleId) {
+    public static NotificationDTO createScheduleInvite(
+            String id,
+            String scheduleName,
+            String content,
+            String timeDisplay,
+            boolean isRead,
+            int unreadCount,
+            int iconResId,
+            String senderUid,    // userId
+            long createdAt,
+            String scheduleId
+    ) {
         return new Builder(id, NotificationType.SCHEDULE_INVITE)
                 .title(scheduleName + " 여행 일정에 초대되었습니다")
                 .content(content)
@@ -52,8 +61,8 @@ public class NotificationDTO {
                 .isRead(isRead)
                 .unreadCount(unreadCount)
                 .iconResId(iconResId)
-                .userId(userId)
-                .scheduleId(scheduleId)   // ⭐ 추가
+                .userId(senderUid)      // ✔ 초대 보낸 사용자 UID
+                .scheduleId(scheduleId) // ✔ 어떤 스케줄인지
                 .createdAt(createdAt)
                 .build();
     }

@@ -24,11 +24,15 @@ import com.example.tot.Community.PostDetailActivity;
 import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
+import com.example.tot.Schedule.ScheduleSetting.ScheduleSettingActivity;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class NotificationActivity extends AppCompatActivity {
 
@@ -256,7 +260,16 @@ public class NotificationActivity extends AppCompatActivity {
 
         switch (notification.getType()) {
             case SCHEDULE_INVITE:
-                Toast.makeText(this, "일정 상세 화면으로 이동", Toast.LENGTH_SHORT).show();
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("초대 확인")
+                        .setMessage("수락 시 초대된 스케줄로 이동됩니다.")
+                        .setPositiveButton("수락", (dialog, which) -> {
+                            acceptInvite(notification);
+                        })
+                        .setNegativeButton("취소", (dialog, which) -> {
+                            dialog.dismiss();
+                        })
+                        .show();
                 break;
 
             case FOLLOW:
@@ -416,6 +429,65 @@ public class NotificationActivity extends AppCompatActivity {
                     }
             );
         });
+    }
+    private void acceptInvite(NotificationDTO n) {
+
+        String myUid = FirebaseAuth.getInstance().getUid();
+        String ownerUid = n.getUserId();
+        String scheduleId = n.getScheduleId();
+        Log.d("DEBUG", "DTO userId = " + n.getUserId());
+        Log.d("DEBUG", "DTO scheduleId = " + n.getScheduleId());
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // 🔥 먼저 owner 의 스케줄 정보를 읽어온다
+        db.collection("user")
+                .document(ownerUid)
+                .collection("schedule")
+                .document(scheduleId)
+                .get()
+                .addOnSuccessListener(doc -> {
+
+                    if (!doc.exists()) {
+                        Toast.makeText(this, "스케줄 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    long startMillis = doc.getTimestamp("startDate").toDate().getTime();
+                    long endMillis = doc.getTimestamp("endDate").toDate().getTime();
+
+                    // sharedSchedule ID 생성
+                    String sharedId = db.collection("user")
+                            .document(myUid)
+                            .collection("sharedSchedule")
+                            .document()
+                            .getId();
+
+                    // Reference 생성
+                    DocumentReference scheduleRef = doc.getReference();
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("ownerUid", ownerUid);
+                    data.put("scheduleRef", scheduleRef);
+                    data.put("joinedAt", System.currentTimeMillis());
+
+                    db.collection("user")
+                            .document(myUid)
+                            .collection("sharedSchedule")
+                            .document(sharedId)
+                            .set(data)
+                            .addOnSuccessListener(a -> {
+
+                                Toast.makeText(this, "초대를 수락했습니다", Toast.LENGTH_SHORT).show();
+
+                                // 🔥 이제 ScheduleSettingActivity 에 필요한 값 모두 전달
+                                Intent intent = new Intent(this, ScheduleSettingActivity.class);
+                                intent.putExtra("scheduleId", scheduleId);
+                                intent.putExtra("startDate", startMillis);
+                                intent.putExtra("endDate", endMillis);
+                                intent.putExtra("sharedId", sharedId);
+                                startActivity(intent);
+                            });
+                });
     }
 
     @Override
