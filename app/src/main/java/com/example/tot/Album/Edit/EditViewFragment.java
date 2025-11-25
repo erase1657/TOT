@@ -6,9 +6,9 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -41,7 +41,7 @@ public class EditViewFragment extends Fragment implements
     private String currentDateForPhoto;
 
     private EditSectionAdapter adapter;
-    private ActivityResultLauncher<String> galleryLauncher;
+    private ActivityResultLauncher<PickVisualMediaRequest> pickMultipleMedia;
 
     private FirebaseFirestore db;
     private StorageReference storageRef;
@@ -59,8 +59,8 @@ public class EditViewFragment extends Fragment implements
             userUid = getArguments().getString("userUid");
         }
 
-        galleryLauncher = registerForActivityResult(
-                new ActivityResultContracts.GetMultipleContents(),
+        pickMultipleMedia = registerForActivityResult(
+                new ActivityResultContracts.PickMultipleVisualMedia(5),
                 uris -> {
                     if (uris != null && !uris.isEmpty() && currentDateForPhoto != null) {
                         for (Uri uri : uris) uploadPhotoToStorage(uri, currentDateForPhoto);
@@ -200,7 +200,9 @@ public class EditViewFragment extends Fragment implements
     @Override
     public void onAddPhoto(String date) {
         currentDateForPhoto = date;
-        galleryLauncher.launch("image/*");
+        pickMultipleMedia.launch(new PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                .build());
     }
 
     @Override

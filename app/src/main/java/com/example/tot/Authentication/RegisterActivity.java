@@ -21,7 +21,7 @@ import android.widget.*;
 
 public class RegisterActivity extends AppCompatActivity {
     private static final String TAG = "RegisterActivity";
-    private Button RegisterBtn, GoLoginBtn;
+    private Button RegisterBtn, GoLoginBtn, btnBack;
     private EditText EmailEt, PasswordEt, NicknameEt;
     private FirebaseAuth mAuth;
     private String uid, email, nickname, profileImageUrl, comment, address;
@@ -34,10 +34,13 @@ public class RegisterActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         RegisterBtn = findViewById(R.id.btn_register);
         GoLoginBtn = findViewById(R.id.btn_login);
+        btnBack = findViewById(R.id.btn_back);
 
         EmailEt = findViewById(R.id.et_email);
         PasswordEt = findViewById(R.id.et_password);
         NicknameEt = findViewById(R.id.et_nickname);
+
+        btnBack.setOnClickListener(v -> finish());
 
         RegisterBtn.setOnClickListener(new View.OnClickListener() {
             @Override

@@ -18,7 +18,7 @@ import com.google.firebase.Firebase;
 import com.google.firebase.auth.FirebaseAuth;
 
 public class FindAccountActivity extends AppCompatActivity {
-    private Button FindPasswordBtn;
+    private Button FindPasswordBtn, btnBack;
     private EditText EmailEt;
     private FirebaseAuth Auth;
 
@@ -30,7 +30,10 @@ public class FindAccountActivity extends AppCompatActivity {
         Auth = FirebaseAuth.getInstance();
 
         FindPasswordBtn = findViewById(R.id.btn_findpassword);
+        btnBack = findViewById(R.id.btn_back);
         EmailEt = findViewById(R.id.et_email);
+
+        btnBack.setOnClickListener(v -> finish());
 
         FindPasswordBtn.setOnClickListener(new View.OnClickListener() {
             @Override

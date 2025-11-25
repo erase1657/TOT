@@ -34,7 +34,7 @@
             android:padding="16dp">
 
             <TextView
-                android:id="@+id/tv_schedule_location"
+                android:id="@+id/tv_schedule_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="스케줄"
@@ -72,5 +72,16 @@
                 android:shadowDy="1"
                 android:shadowRadius="3" />
         </LinearLayout>
+
+        <!-- 더보기 버튼 -->
+        <ImageButton
+            android:id="@+id/btn_schedule_options"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_more_vert"
+            android:contentDescription="더보기" />
+
     </FrameLayout>
 </androidx.cardview.widget.CardView>
