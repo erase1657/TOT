@@ -25,10 +25,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.tot.Authentication.LoginActivity;
 import com.example.tot.Authentication.UserDTO;
 import com.example.tot.Community.CommunityPostDTO;
+import com.example.tot.Community.PostDetailActivity;
 import com.example.tot.Follow.FollowActivity;
 import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleDTO;
+import com.example.tot.Schedule.ScheduleSetting.ScheduleSettingActivity;
 import com.example.tot.User.ProfileImageHelper;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -243,15 +245,29 @@ public class MyPageFragment extends Fragment {
         // Posts RecyclerView
         rvMyPosts.setLayoutManager(new GridLayoutManager(getContext(), 3));
         postList = new ArrayList<>();
-        postsAdapter = new MyPagePostsAdapter(postList, (post, position) ->
-                Toast.makeText(getContext(), "게시글 상세보기", Toast.LENGTH_SHORT).show());
+        postsAdapter = new MyPagePostsAdapter(postList, (post, position) -> {
+            Intent intent = new Intent(getContext(), PostDetailActivity.class);
+            intent.putExtra("postId", post.getPostId());
+            intent.putExtra("authorUid", post.getAuthorUid());
+            intent.putExtra("scheduleId", post.getScheduleId());
+            startActivity(intent);
+        });
         rvMyPosts.setAdapter(postsAdapter);
 
         // Schedule RecyclerView
         rvMySchedule.setLayoutManager(new GridLayoutManager(getContext(), 3));
         scheduleList = new ArrayList<>();
-        scheduleAdapter = new MyPageScheduleAdapter(scheduleList, (schedule, position) ->
-                Toast.makeText(getContext(), "여행 상세보기", Toast.LENGTH_SHORT).show());
+        scheduleAdapter = new MyPageScheduleAdapter(scheduleList, (schedule, position) -> {
+            if (schedule.getStartDate() != null && schedule.getEndDate() != null) {
+                Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
+                intent.putExtra("scheduleId", schedule.getScheduleId());
+                intent.putExtra("startDate", schedule.getStartDate().toDate().getTime());
+                intent.putExtra("endDate", schedule.getEndDate().toDate().getTime());
+                startActivity(intent);
+            } else {
+                Toast.makeText(getContext(), "스케줄 날짜 정보가 없습니다.", Toast.LENGTH_SHORT).show();
+            }
+        });
         rvMySchedule.setAdapter(scheduleAdapter);
     }
 
