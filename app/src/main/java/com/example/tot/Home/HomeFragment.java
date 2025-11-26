@@ -214,6 +214,7 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
             inboxBadge.setTag(null);
         }
     }
+    // ✅ 기존 메서드들 계속...
 
     private void setupProvinceButtons() {
         Button allButton = createRegionButton("전체", "ALL", true);
@@ -326,14 +327,11 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
         List<CommunityPostDTO> filtered = new ArrayList<>();
 
         if (selectedProvinceCode.equals("ALL")) {
-            // 전체보기: 모든 게시글 표시
             filtered.addAll(allCommunityPosts);
         } else {
-            // ✅ 선택된 지역 필터링
             for (CommunityPostDTO post : allCommunityPosts) {
                 List<CommunityPostDTO.RegionTag> tags = post.getRegionTags();
 
-                // 지역태그가 없으면 전체보기에서만 표시
                 if (tags == null || tags.isEmpty()) {
                     continue;
                 }
@@ -341,22 +339,17 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
                 boolean matchesFilter = false;
 
                 for (CommunityPostDTO.RegionTag tag : tags) {
-                    // 시/도 매칭 체크
                     boolean provinceMatches = tag.getProvinceCode().equals(selectedProvinceCode);
 
                     if (!provinceMatches) {
                         continue;
                     }
 
-                    // 시/군/구 선택 안했으면 시/도만 매칭해도 OK
                     if (selectedCityCode.isEmpty()) {
                         matchesFilter = true;
                         break;
                     }
 
-                    // 시/군/구까지 선택했으면
-                    // 1) 게시글의 태그가 시/도만 있으면 OK (상위 지역 포함)
-                    // 2) 게시글의 태그가 시/군/구까지 있으면 정확히 매칭되어야 함
                     if (tag.getCityCode() == null || tag.getCityCode().isEmpty()) {
                         matchesFilter = true;
                         break;
@@ -372,7 +365,6 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
             }
         }
 
-        // 인기순 정렬
         filtered.sort((a, b) -> Integer.compare(b.getHeartCount(), a.getHeartCount()));
 
         if (communityAdapter != null) {
@@ -451,6 +443,7 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
                 });
     }
 
+    // ✅ GPS 좌표 로드 기능 추가 (기존 코드에 GeoPoint 읽기만 추가)
     private void loadAllItemsFromSchedule(String uid, ScheduleData schedule) {
         List<String> dateList = generateDateList(schedule.startDate, schedule.endDate);
 
@@ -478,7 +471,19 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
                             Timestamp startTime = doc.getTimestamp("startTime");
                             Timestamp endTime = doc.getTimestamp("endTime");
 
+                            // ✅ GPS 좌표 가져오기 추가
+                            com.google.firebase.firestore.GeoPoint geoPoint = doc.getGeoPoint("place");
+
+                            double lat = 0.0;
+                            double lng = 0.0;
+
+                            if (geoPoint != null) {
+                                lat = geoPoint.getLatitude();
+                                lng = geoPoint.getLongitude();
+                            }
+
                             if (title != null && startTime != null && endTime != null) {
+                                // ✅ 좌표를 포함한 생성자 사용
                                 HomeAlarmDTO dto = new HomeAlarmDTO(
                                         schedule.scheduleId,
                                         doc.getId(),
@@ -486,7 +491,9 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
                                         dateKey,
                                         placeName,
                                         startTime,
-                                        endTime
+                                        endTime,
+                                        lat,
+                                        lng
                                 );
                                 allItems.add(dto);
                             }
@@ -600,9 +607,16 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
         loadUserProfile();
     }
 
+    // ✅ GPS 리소스 정리 추가
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+
+        // ✅ GPS 어댑터 리소스 정리 추가
+        if (alarmAdapter != null) {
+            alarmAdapter.onDestroy();
+        }
+
         if (notificationManager != null)
             notificationManager.removeListener(this::updateInboxBadge);
         if (dataManager != null) {
