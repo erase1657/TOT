@@ -20,6 +20,8 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.util.Pair;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
@@ -129,6 +131,27 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         initViews();
         setupMap();
         loadPostData();
+
+        View rootView = findViewById(android.R.id.content);
+        View bottomBar = findViewById(R.id.layout_bottom_fixed);
+
+        ViewCompat.setOnApplyWindowInsetsListener(rootView, (v, insets) -> {
+
+            // 네비게이션 바 높이 구하기
+            int insetBottom = insets.getInsets(
+                    WindowInsetsCompat.Type.navigationBars()
+            ).bottom;
+
+            // 기존 padding 유지 + inset 추가
+            bottomBar.setPadding(
+                    bottomBar.getPaddingLeft(),
+                    bottomBar.getPaddingTop(),
+                    bottomBar.getPaddingRight(),
+                    insetBottom
+            );
+
+            return insets;
+        });
     }
 
     private void initViews() {
@@ -1087,4 +1110,5 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
             }
         }
     }
+
 }
