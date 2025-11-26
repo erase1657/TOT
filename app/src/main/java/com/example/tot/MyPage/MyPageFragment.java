@@ -79,13 +79,14 @@ public class MyPageFragment extends Fragment {
     private MyPagePostsAdapter postsAdapter;
     private List<CommunityPostDTO> postList;
 
-
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
     private MyPageProfileManager profileManager;
     private ListenerRegistration postsCountListener;
     private ListenerRegistration travelHistoryListener;
     private ListenerRegistration postsListener;
+    private ListenerRegistration followerCountListener;
+    private ListenerRegistration followingCountListener;
 
     private boolean isEditMode = false;
     private EditText etNameEdit;
@@ -98,9 +99,8 @@ public class MyPageFragment extends Fragment {
     private String originalProfileImageUrl;
     private String originalBackgroundImageUrl;
 
-    private int followerCount = 0;
-    private int followingCount = 0;
-    private boolean isCountsLoaded = false;
+    private int followerCount = -1; // ✅ -1로 초기화 (데이터 로드 전)
+    private int followingCount = -1; // ✅ -1로 초기화 (데이터 로드 전)
 
     private ActivityResultLauncher<Intent> followActivityLauncher;
     private ActivityResultLauncher<String> profileImageLauncher;
@@ -151,7 +151,14 @@ public class MyPageFragment extends Fragment {
         setupRecyclerViews();
         updateTabSelection(true);
 
-        loadFollowCounts(() -> loadProfileData());
+        // ✅ 초기 UI 표시 ("-" 또는 빈 값)
+        tvFollowersCount.setText("-");
+        tvFollowingCount.setText("-");
+
+        // ✅ 실시간 리스너 등록 및 프로필 데이터 로드
+        loadFollowCountsRealtime();
+        loadProfileData();
+
         setupClickListeners();
     }
 
@@ -161,6 +168,20 @@ public class MyPageFragment extends Fragment {
         loadPostsCount();
         loadMyPosts();
         loadTravelHistory();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.d(TAG, "📱 onResume: 화면 복귀");
+
+        // ✅ 타인 프로필인 경우 팔로우 상태만 재확인
+        if (!isMyProfile) {
+            loadFollowStatus();
+        }
+
+        // ✅ 실시간 리스너가 이미 등록되어 있으므로 자동으로 업데이트됨
+        // refreshFollowCounts() 호출 제거 - 중복 방지
     }
 
     @Override
@@ -175,18 +196,20 @@ public class MyPageFragment extends Fragment {
         if (postsListener != null) {
             postsListener.remove();
         }
+        if (followerCountListener != null) {
+            followerCountListener.remove();
+        }
+        if (followingCountListener != null) {
+            followingCountListener.remove();
+        }
     }
 
     private void setupActivityResultLaunchers() {
         followActivityLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                        Intent data = result.getData();
-                        followerCount = data.getIntExtra("followerCount", followerCount);
-                        followingCount = data.getIntExtra("followingCount", followingCount);
-                        updateFollowCounts();
-                    }
+                    // ✅ 팔로우 화면에서 복귀 시 - 실시간 리스너가 자동으로 처리
+                    Log.d(TAG, "✅ 팔로우 화면에서 복귀 - 실시간 리스너가 자동 갱신 중");
                 }
         );
 
@@ -301,8 +324,8 @@ public class MyPageFragment extends Fragment {
             btnBack.setVisibility(View.VISIBLE);
             btnEdit.setVisibility(View.GONE);
             btnFollowButton.setVisibility(View.VISIBLE);
-            followerSection.setEnabled(false);
-            followingSection.setEnabled(false);
+            followerSection.setEnabled(true);
+            followingSection.setEnabled(true);
         }
     }
 
@@ -329,33 +352,56 @@ public class MyPageFragment extends Fragment {
         }
     }
 
-    private void loadFollowCounts(Runnable onComplete) {
+    /**
+     * ✅ 실시간 팔로우 수 갱신 (addSnapshotListener 사용)
+     */
+    private void loadFollowCountsRealtime() {
         if (targetUserId == null || targetUserId.isEmpty()) {
-            if (onComplete != null) onComplete.run();
+            Log.w(TAG, "⚠️ targetUserId가 없어 팔로우 카운트를 로드할 수 없습니다");
+            tvFollowersCount.setText("0");
+            tvFollowingCount.setText("0");
             return;
         }
 
-        db.collection("user").document(targetUserId).collection("follower").get()
-                .addOnSuccessListener(querySnapshot -> {
-                    followerCount = querySnapshot.size();
-                    checkCountsLoadedAndUpdate(onComplete);
-                })
-                .addOnFailureListener(e -> checkCountsLoadedAndUpdate(onComplete));
+        Log.d(TAG, "🔄 실시간 팔로우 카운트 리스너 등록: " + targetUserId);
 
-        db.collection("user").document(targetUserId).collection("following").get()
-                .addOnSuccessListener(querySnapshot -> {
-                    followingCount = querySnapshot.size();
-                    checkCountsLoadedAndUpdate(onComplete);
-                })
-                .addOnFailureListener(e -> checkCountsLoadedAndUpdate(onComplete));
-    }
-
-    private void checkCountsLoadedAndUpdate(Runnable onComplete) {
-        if (!isCountsLoaded) {
-            isCountsLoaded = true;
-            updateFollowCounts();
-            if (onComplete != null) onComplete.run();
+        // ✅ 팔로워 수 실시간 감지
+        if (followerCountListener != null) {
+            followerCountListener.remove();
         }
+        followerCountListener = db.collection("user")
+                .document(targetUserId)
+                .collection("follower")
+                .addSnapshotListener((querySnapshot, e) -> {
+                    if (e != null) {
+                        Log.w(TAG, "❌ 팔로워 수 감지 실패", e);
+                        return;
+                    }
+                    if (querySnapshot != null) {
+                        followerCount = querySnapshot.size();
+                        updateFollowCounts();
+                        Log.d(TAG, "✅ 팔로워 수 실시간 갱신: " + followerCount);
+                    }
+                });
+
+        // ✅ 팔로잉 수 실시간 감지
+        if (followingCountListener != null) {
+            followingCountListener.remove();
+        }
+        followingCountListener = db.collection("user")
+                .document(targetUserId)
+                .collection("following")
+                .addSnapshotListener((querySnapshot, e) -> {
+                    if (e != null) {
+                        Log.w(TAG, "❌ 팔로잉 수 감지 실패", e);
+                        return;
+                    }
+                    if (querySnapshot != null) {
+                        followingCount = querySnapshot.size();
+                        updateFollowCounts();
+                        Log.d(TAG, "✅ 팔로잉 수 실시간 갱신: " + followingCount);
+                    }
+                });
     }
 
     private void loadProfileData() {
@@ -381,7 +427,6 @@ public class MyPageFragment extends Fragment {
                     if (isMyProfile) setDefaultProfile();
                 });
     }
-
     private void displayUserProfile(@NonNull UserDTO user) {
         tvName.setText(user.getNickname() != null && !user.getNickname().isEmpty() ? user.getNickname() : "사용자");
         tvStatusMessage.setText(user.getComment() != null && !user.getComment().isEmpty() ? user.getComment() : "상태메시지");
@@ -412,8 +457,6 @@ public class MyPageFragment extends Fragment {
         originalLocation = tvLocation.getText().toString();
         originalProfileImageUrl = null;
         originalBackgroundImageUrl = null;
-
-        updateFollowCounts();
     }
 
     private void loadFollowStatus() {
@@ -425,8 +468,14 @@ public class MyPageFragment extends Fragment {
     }
 
     private void updateFollowCounts() {
-        tvFollowersCount.setText(String.valueOf(followerCount));
-        tvFollowingCount.setText(String.valueOf(followingCount));
+        // ✅ 데이터가 로드되기 전(-1)에는 UI 업데이트하지 않음
+        if (followerCount >= 0) {
+            tvFollowersCount.setText(String.valueOf(followerCount));
+        }
+        if (followingCount >= 0) {
+            tvFollowingCount.setText(String.valueOf(followingCount));
+        }
+        Log.d(TAG, "📊 팔로우 카운트 UI 업데이트: " + followerCount + "/" + followingCount);
     }
 
     private void loadTravelHistory() {
@@ -558,9 +607,8 @@ public class MyPageFragment extends Fragment {
                         public void onSuccess(boolean nowFollowing) {
                             isFollowing = nowFollowing;
                             FollowButtonHelper.updateFollowButton(btnFollowButton, isFollowing, isFollower);
-                            if (nowFollowing) followerCount++;
-                            else if (followerCount > 0) followerCount--;
-                            updateFollowCounts();
+                            // ✅ 실시간 리스너가 자동으로 카운트 갱신
+                            Log.d(TAG, "✅ 팔로우 상태 변경 완료 - 실시간 리스너가 자동 갱신");
                         }
 
                         @Override
@@ -592,25 +640,23 @@ public class MyPageFragment extends Fragment {
             }
         });
 
-        if (isMyProfile) {
-            followerSection.setOnClickListener(v -> {
-                Intent intent = new Intent(getContext(), FollowActivity.class);
-                intent.putExtra("userId", targetUserId);
-                intent.putExtra("userName", tvName.getText().toString());
-                intent.putExtra("isFollowerMode", true);
-                intent.putExtra("isMyProfile", true);
-                followActivityLauncher.launch(intent);
-            });
+        followerSection.setOnClickListener(v -> {
+            Intent intent = new Intent(getContext(), FollowActivity.class);
+            intent.putExtra("userId", targetUserId);
+            intent.putExtra("userName", tvName.getText().toString());
+            intent.putExtra("isFollowerMode", true);
+            intent.putExtra("isMyProfile", isMyProfile);
+            followActivityLauncher.launch(intent);
+        });
 
-            followingSection.setOnClickListener(v -> {
-                Intent intent = new Intent(getContext(), FollowActivity.class);
-                intent.putExtra("userId", targetUserId);
-                intent.putExtra("userName", tvName.getText().toString());
-                intent.putExtra("isFollowerMode", false);
-                intent.putExtra("isMyProfile", true);
-                followActivityLauncher.launch(intent);
-            });
-        }
+        followingSection.setOnClickListener(v -> {
+            Intent intent = new Intent(getContext(), FollowActivity.class);
+            intent.putExtra("userId", targetUserId);
+            intent.putExtra("userName", tvName.getText().toString());
+            intent.putExtra("isFollowerMode", false);
+            intent.putExtra("isMyProfile", isMyProfile);
+            followActivityLauncher.launch(intent);
+        });
     }
 
     private void showLogoutDialog() {
@@ -746,7 +792,6 @@ public class MyPageFragment extends Fragment {
                         originalStatus = newStatus;
                         originalLocation = newLocation;
 
-                        // 프로필 데이터 재로드
                         loadProfileData();
 
                         Toast.makeText(getContext(), "프로필이 저장되었습니다", Toast.LENGTH_SHORT).show();
