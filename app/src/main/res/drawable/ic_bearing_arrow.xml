@@ -1,0 +1,23 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="80dp"
+    android:height="80dp"
+    android:viewportWidth="80"
+    android:viewportHeight="80">
+
+    <!-- 화살표 몸통 -->
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M37,30 L43,30 L43,55 L37,55 Z" />
+
+    <!-- 화살표 머리 (삼각형) -->
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M40,15 L50,32 L30,32 Z" />
+
+    <!-- 화살표 그림자 효과 (입체감) -->
+    <path
+        android:fillColor="#CC5528"
+        android:fillAlpha="0.3"
+        android:pathData="M43,30 L43,55 L45,55 L45,30 Z" />
+
+</vector>

@@ -4,116 +4,188 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/card_memory"
     android:layout_height="wrap_content"
-
     android:layout_width="match_parent"
     android:layout_marginHorizontal="50dp"
-
     android:layout_marginTop="12dp"
     app:cardCornerRadius="15dp"
     app:cardElevation="2dp"
     app:cardBackgroundColor="#E5E6FF">
 
-    <!--
-    가로를 화면 비율로 변경
-    - android:layout_width="match_parent"
-    - android:layout_marginHorizontal="50dp"
-    + android:layout_width="0dp"
-    + app:layout_constraintWidth_percent="0.7"
-    + app:layout_constraintStart_toStartOf="parent"
-    + app:layout_constraintEnd_toEndOf="parent"
-    -->
-
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp"
-        android:gravity="center_horizontal">
+        android:padding="16dp">
 
-        <!-- 제목 -->
-        <TextView
-            android:id="@+id/text_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="제목"
-            android:textStyle="bold"
-            android:textSize="18sp"
-            android:textColor="@color/black"
-            android:gravity="center"
-            tools:text="제목" />
+        <!-- GPS/베어링 버튼 영역 (왼쪽) -->
+        <FrameLayout
+            android:id="@+id/bearing_container"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
 
-        <!-- 날짜 -->
-        <TextView
-            android:id="@+id/text_date"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="2025.10.15"
-            android:textSize="14sp"
-            android:textColor="@color/black"
-            tools:text="2025.10.15" />
-
-        <!-- 위치 -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:orientation="horizontal"
-            android:gravity="center">
-
+            <!-- GPS 버튼 (기본 상태) -->
             <ImageView
-                android:id="@+id/image_location_point"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:layout_marginEnd="4dp"
-                android:src="@drawable/ic_location_point"
-                app:tint="@color/gray" />
+                android:id="@+id/gps_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_navigation_arrow"
+                android:padding="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:visibility="visible"
+                app:tint="#6366F1" />
 
+            <!-- 베어링 모드 UI -->
+            <RelativeLayout
+                android:id="@+id/bearing_mode_layout"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:visibility="gone">
+
+                <!-- 현재 위치 동그라미 -->
+                <View
+                    android:id="@+id/current_location_circle"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_centerInParent="true"
+                    android:background="@drawable/ic_circle"
+                    android:elevation="1dp" />
+
+                <!-- 현재 보는 방향 (플래시) -->
+                <ImageView
+                    android:id="@+id/direction_indicator"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_centerInParent="true"
+                    android:src="@drawable/ic_direction_view"
+                    android:elevation="2dp" />
+
+                <!-- 목적지 방향 (화살표) -->
+                <ImageView
+                    android:id="@+id/bearing_indicator"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_centerInParent="true"
+                    android:src="@drawable/ic_bearing_arrow"
+                    android:elevation="3dp" />
+
+            </RelativeLayout>
+
+            <!-- 거리 표시 -->
             <TextView
-                android:id="@+id/text_location"
+                android:id="@+id/distance_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Room 6-205"
-                android:textColor="@color/gray"
-                android:textSize="13sp"
-                tools:text="Room 6-205" />
-        </LinearLayout>
+                android:layout_gravity="bottom|center_horizontal"
+                android:textSize="11sp"
+                android:textColor="@color/black"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="80 m" />
 
-        <!-- 시간 -->
+        </FrameLayout>
+
+        <!-- 기존 콘텐츠 영역 (중앙) -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:id="@+id/content_layout"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal"
-            android:gravity="center">
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            app:layout_constraintStart_toEndOf="@id/bearing_container"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
 
+            <!-- 제목 -->
             <TextView
-                android:id="@+id/text_start_time"
+                android:id="@+id/text_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="12:00"
+                android:text="제목"
+                android:textStyle="bold"
+                android:textSize="18sp"
                 android:textColor="@color/black"
-                android:textSize="15sp"
-                tools:text="12:00" />
+                android:gravity="center"
+                tools:text="제목" />
 
+            <!-- 날짜 -->
             <TextView
+                android:id="@+id/text_date"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="8dp"
-                android:text="–"
+                android:layout_marginTop="4dp"
+                android:text="2025.10.15"
+                android:textSize="14sp"
                 android:textColor="@color/black"
-                android:textSize="15sp" />
+                tools:text="2025.10.15" />
 
-            <TextView
-                android:id="@+id/text_end_time"
+            <!-- 위치 -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="13:05"
-                android:textColor="@color/black"
-                android:textSize="15sp"
-                tools:text="13:05" />
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <ImageView
+                    android:id="@+id/image_location_point"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_marginEnd="4dp"
+                    android:src="@drawable/ic_location_point"
+                    app:tint="@color/gray" />
+
+                <TextView
+                    android:id="@+id/text_location"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Room 6-205"
+                    android:textColor="@color/gray"
+                    android:textSize="13sp"
+                    tools:text="Room 6-205" />
+            </LinearLayout>
+
+            <!-- 시간 -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/text_start_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="12:00"
+                    android:textColor="@color/black"
+                    android:textSize="15sp"
+                    tools:text="12:00" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="8dp"
+                    android:text="–"
+                    android:textColor="@color/black"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:id="@+id/text_end_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="13:05"
+                    android:textColor="@color/black"
+                    android:textSize="15sp"
+                    tools:text="13:05" />
+            </LinearLayout>
+
         </LinearLayout>
 
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.cardview.widget.CardView>

@@ -1,6 +1,7 @@
 package com.example.tot.Home;
 
 import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.GeoPoint;
 
 public class HomeAlarmDTO {
     private String ScheduledId;
@@ -10,6 +11,7 @@ public class HomeAlarmDTO {
     private String place;
     private Timestamp startTime;
     private Timestamp endTime;
+    private GeoPoint placeLocation; // 베어링 기능을 위한 좌표 추가
 
     public HomeAlarmDTO(String scheduledId, String scheduleItemId, String title, String date, String place, Timestamp startTime, Timestamp endTime) {
         ScheduledId = scheduledId;
@@ -19,6 +21,18 @@ public class HomeAlarmDTO {
         this.place = place;
         this.startTime = startTime;
         this.endTime = endTime;
+    }
+
+    // 베어링 기능을 위한 생성자 추가 (기존 생성자 유지)
+    public HomeAlarmDTO(String scheduledId, String scheduleItemId, String title, String date, String place, Timestamp startTime, Timestamp endTime, GeoPoint placeLocation) {
+        ScheduledId = scheduledId;
+        ScheduleItemId = scheduleItemId;
+        this.title = title;
+        this.date = date;
+        this.place = place;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.placeLocation = placeLocation;
     }
 
     public String getScheduledId() {
@@ -75,5 +89,14 @@ public class HomeAlarmDTO {
 
     public void setEndTime(Timestamp endTime) {
         this.endTime = endTime;
+    }
+
+    // 베어링 기능을 위한 getter/setter 추가
+    public GeoPoint getPlaceLocation() {
+        return placeLocation;
+    }
+
+    public void setPlaceLocation(GeoPoint placeLocation) {
+        this.placeLocation = placeLocation;
     }
 }

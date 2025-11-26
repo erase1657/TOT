@@ -278,7 +278,7 @@ public class ScheduleFragment extends Fragment {
 
             @Override
             public void onDeleteClick(ScheduleDTO schedule, int position) {
-                showDeleteConfirmDialog(schedule.getScheduleId(), position);
+                showDeleteConfirmDialog(schedule, position);
             }
 
             @Override
@@ -340,23 +340,39 @@ public class ScheduleFragment extends Fragment {
     }
 
 
-    private void showDeleteConfirmDialog(String scheduleId, int position) {
+    private void showDeleteConfirmDialog(ScheduleDTO schedule, int position) {
         new AlertDialog.Builder(requireContext())
                 .setTitle("스케줄 삭제")
                 .setMessage("이 스케줄을 정말 삭제하시겠습니까? 관련된 모든 정보가 영구적으로 삭제됩니다.")
                 .setPositiveButton("삭제", (dialog, which) -> {
-                    deleteSchedule(scheduleId, position);
+                    deleteSchedule(schedule, position);
                 })
                 .setNegativeButton("취소", null)
                 .show();
     }
-
-    private void deleteSchedule(String scheduleId, int position) {
+    // ✅ 수정: ownerUid와 isShared를 고려한 삭제 메서드
+    private void deleteSchedule(ScheduleDTO schedule, int position) {
         if (auth.getCurrentUser() == null) return;
-        String uid = auth.getCurrentUser().getUid();
+
+        String currentUid = auth.getCurrentUser().getUid();
+        String scheduleId = schedule.getScheduleId();
+        String ownerUid = schedule.getOwnerUid();
+        boolean isShared = schedule.isShared();
+
+        // 공유받은 스케줄인 경우
+        if (isShared) {
+            Toast.makeText(getContext(), "공유받은 스케줄은 삭제할 수 없습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 소유자가 아닌 경우
+        if (!currentUid.equals(ownerUid)) {
+            Toast.makeText(getContext(), "본인의 스케줄만 삭제할 수 있습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
         DocumentReference scheduleRef = db.collection("user")
-                .document(uid)
+                .document(ownerUid)
                 .collection("schedule")
                 .document(scheduleId);
 
@@ -371,7 +387,8 @@ public class ScheduleFragment extends Fragment {
                         .addOnSuccessListener(itemSnapshot -> {
                             for (DocumentSnapshot itemDoc : itemSnapshot.getDocuments()) {
                                 batch.delete(itemDoc.getReference());
-                                db.collection("user").document(uid).collection("alarms")
+                                // 알람도 함께 삭제
+                                db.collection("user").document(currentUid).collection("alarms")
                                         .document(itemDoc.getId()).delete();
                             }
                         });
@@ -396,15 +413,23 @@ public class ScheduleFragment extends Fragment {
                 batch.delete(scheduleRef);
 
                 batch.commit().addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "스케줄이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                    // ✅ 추가: UI 업데이트 (리스너가 자동으로 처리하지만, 즉각 반영을 위해 추가)
+                    if (getActivity() != null) {
+                        getActivity().runOnUiThread(() -> {
+                            scheduleAdapter.removeSchedule(position);
+                            Toast.makeText(getContext(), "스케줄이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                        });
+                    }
                 }).addOnFailureListener(e -> {
                     Toast.makeText(getContext(), "삭제 실패", Toast.LENGTH_SHORT).show();
+                    Log.e("ScheduleFragment", "Error deleting schedule", e);
                 });
             });
 
-        }).addOnFailureListener(e ->
-                Toast.makeText(getContext(), "데이터 로딩 실패", Toast.LENGTH_SHORT).show()
-        );
+        }).addOnFailureListener(e -> {
+            Toast.makeText(getContext(), "데이터 로딩 실패", Toast.LENGTH_SHORT).show();
+            Log.e("ScheduleFragment", "Error loading schedule data", e);
+        });
     }
 
     private void showCreateScheduleDialog() {
