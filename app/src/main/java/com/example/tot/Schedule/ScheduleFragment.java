@@ -29,6 +29,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleSetting.ScheduleSettingActivity;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
@@ -353,43 +355,56 @@ public class ScheduleFragment extends Fragment {
         if (auth.getCurrentUser() == null) return;
         String uid = auth.getCurrentUser().getUid();
 
-        CollectionReference scheduleDateRef = db.collection("user").document(uid)
-                .collection("schedule").document(scheduleId)
-                .collection("scheduleDate");
+        DocumentReference scheduleRef = db.collection("user")
+                .document(uid)
+                .collection("schedule")
+                .document(scheduleId);
 
-        scheduleDateRef.get().addOnSuccessListener(querySnapshot -> {
+        scheduleRef.collection("scheduleDate").get().addOnSuccessListener(dateSnapshot -> {
             WriteBatch batch = db.batch();
-            for (DocumentSnapshot dateDoc : querySnapshot.getDocuments()) {
-                // Delete scheduleItems and alarms
-                dateDoc.getReference().collection("scheduleItem").get().addOnSuccessListener(itemSnapshot -> {
-                    for (DocumentSnapshot itemDoc : itemSnapshot.getDocuments()) {
-                        batch.delete(itemDoc.getReference());
-                        // Also delete associated alarm
-                        db.collection("user").document(uid).collection("alarms").document(itemDoc.getId()).delete();
-                    }
-                });
+            List<Task<?>> tasks = new ArrayList<>();
 
-                // Delete album items
-                dateDoc.getReference().collection("album").get().addOnSuccessListener(albumSnapshot -> {
-                    for (DocumentSnapshot albumDoc : albumSnapshot.getDocuments()) {
-                        batch.delete(albumDoc.getReference());
-                    }
-                });
+            for (DocumentSnapshot dateDoc : dateSnapshot.getDocuments()) {
+
+                // scheduleItem 삭제
+                Task<?> itemTask = dateDoc.getReference().collection("scheduleItem").get()
+                        .addOnSuccessListener(itemSnapshot -> {
+                            for (DocumentSnapshot itemDoc : itemSnapshot.getDocuments()) {
+                                batch.delete(itemDoc.getReference());
+                                db.collection("user").document(uid).collection("alarms")
+                                        .document(itemDoc.getId()).delete();
+                            }
+                        });
+                tasks.add(itemTask);
+
+                // album 삭제
+                Task<?> albumTask = dateDoc.getReference().collection("album").get()
+                        .addOnSuccessListener(albumSnapshot -> {
+                            for (DocumentSnapshot albumDoc : albumSnapshot.getDocuments()) {
+                                batch.delete(albumDoc.getReference());
+                            }
+                        });
+                tasks.add(albumTask);
 
                 batch.delete(dateDoc.getReference());
             }
 
-            batch.commit().addOnSuccessListener(aVoid -> {
-                // Finally, delete the schedule document itself
-                db.collection("user").document(uid).collection("schedule").document(scheduleId)
-                        .delete()
-                        .addOnSuccessListener(aVoid1 -> {
-                            Toast.makeText(getContext(), "스케줄이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
-                            // The listener will automatically update the UI.
-                        })
-                        .addOnFailureListener(e -> Toast.makeText(getContext(), "스케줄 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show());
-            }).addOnFailureListener(e -> Toast.makeText(getContext(), "하위 데이터 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show());
-        }).addOnFailureListener(e -> Toast.makeText(getContext(), "스케줄 데이터를 불러오지 못했습니다.", Toast.LENGTH_SHORT).show());
+            // 모든 하위 조회 작업이 완료되면 실행
+            Tasks.whenAllComplete(tasks).addOnSuccessListener(t -> {
+
+                // 마지막에 스케줄 문서 삭제
+                batch.delete(scheduleRef);
+
+                batch.commit().addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "스케줄이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+                }).addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "삭제 실패", Toast.LENGTH_SHORT).show();
+                });
+            });
+
+        }).addOnFailureListener(e ->
+                Toast.makeText(getContext(), "데이터 로딩 실패", Toast.LENGTH_SHORT).show()
+        );
     }
 
     private void showCreateScheduleDialog() {
@@ -499,29 +514,28 @@ public class ScheduleFragment extends Fragment {
                 null
         );
 
-        // Firestore에 저장 (리스너가 자동으로 UI 업데이트함)
         db.collection("user").document(uid)
                 .collection("schedule").document(scheduleId)
                 .set(schedule, SetOptions.merge())
                 .addOnSuccessListener(aVoid -> {
-                    Log.d("ScheduleFragment", "Successfully added schedule: " + scheduleId);
 
-                    // 상세 화면으로 이동
+                    // 🔥 생성 직후 즉시 UI 반영
+                    scheduleList.add(0, schedule);
+                    scheduleAdapter.notifyItemInserted(0);
+                    recyclerView.smoothScrollToPosition(0);
+                    String myUid = auth.getCurrentUser().getUid();
+                    // 🔥 이후 화면 이동
                     Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
                     intent.putExtra("scheduleId", scheduleId);
-                    intent.putExtra("startDate", startDate.toDate().getTime());
-                    intent.putExtra("endDate", endDate.toDate().getTime());
+                    intent.putExtra("ownerUid", myUid);
+                    intent.putExtra("isShared", false);
+                    intent.putExtra("startMillisUtc", startDate.toDate().getTime());  // 🔥 이름 통일
+                    intent.putExtra("endMillisUtc", endDate.toDate().getTime());
                     startActivity(intent);
                 })
                 .addOnFailureListener(e -> {
-                    Log.e("ScheduleFragment", "Error adding schedule", e);
                     Toast.makeText(getContext(), "스케줄 생성에 실패했습니다.", Toast.LENGTH_SHORT).show();
                 });
-
-        // ✅ 수동 리스트 추가 제거 (Firestore 리스너가 자동으로 처리)
-        // scheduleList.add(0, schedule);
-        // scheduleAdapter.notifyItemInserted(0);
-        // recyclerView.smoothScrollToPosition(0);
     }
 
     private String generateScheduleId() {
