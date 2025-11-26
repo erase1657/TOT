@@ -34,6 +34,7 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.GeoPoint;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -214,7 +215,6 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
             inboxBadge.setTag(null);
         }
     }
-
     private void setupProvinceButtons() {
         Button allButton = createRegionButton("전체", "ALL", true);
         allButton.setOnClickListener(v -> {
@@ -326,14 +326,11 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
         List<CommunityPostDTO> filtered = new ArrayList<>();
 
         if (selectedProvinceCode.equals("ALL")) {
-            // 전체보기: 모든 게시글 표시
             filtered.addAll(allCommunityPosts);
         } else {
-            // ✅ 선택된 지역 필터링
             for (CommunityPostDTO post : allCommunityPosts) {
                 List<CommunityPostDTO.RegionTag> tags = post.getRegionTags();
 
-                // 지역태그가 없으면 전체보기에서만 표시
                 if (tags == null || tags.isEmpty()) {
                     continue;
                 }
@@ -341,22 +338,17 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
                 boolean matchesFilter = false;
 
                 for (CommunityPostDTO.RegionTag tag : tags) {
-                    // 시/도 매칭 체크
                     boolean provinceMatches = tag.getProvinceCode().equals(selectedProvinceCode);
 
                     if (!provinceMatches) {
                         continue;
                     }
 
-                    // 시/군/구 선택 안했으면 시/도만 매칭해도 OK
                     if (selectedCityCode.isEmpty()) {
                         matchesFilter = true;
                         break;
                     }
 
-                    // 시/군/구까지 선택했으면
-                    // 1) 게시글의 태그가 시/도만 있으면 OK (상위 지역 포함)
-                    // 2) 게시글의 태그가 시/군/구까지 있으면 정확히 매칭되어야 함
                     if (tag.getCityCode() == null || tag.getCityCode().isEmpty()) {
                         matchesFilter = true;
                         break;
@@ -372,7 +364,6 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
             }
         }
 
-        // 인기순 정렬
         filtered.sort((a, b) -> Integer.compare(b.getHeartCount(), a.getHeartCount()));
 
         if (communityAdapter != null) {
@@ -450,7 +441,7 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
                     showNoSchedule();
                 });
     }
-
+    // 베어링 기능을 위해 GeoPoint도 함께 로드
     private void loadAllItemsFromSchedule(String uid, ScheduleData schedule) {
         List<String> dateList = generateDateList(schedule.startDate, schedule.endDate);
 
@@ -477,6 +468,7 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
                             String placeName = doc.getString("placeName");
                             Timestamp startTime = doc.getTimestamp("startTime");
                             Timestamp endTime = doc.getTimestamp("endTime");
+                            GeoPoint placeLocation = doc.getGeoPoint("place"); // 베어링을 위한 좌표 추가
 
                             if (title != null && startTime != null && endTime != null) {
                                 HomeAlarmDTO dto = new HomeAlarmDTO(
@@ -486,7 +478,8 @@ public class HomeFragment extends Fragment implements CommunityDataManager.DataU
                                         dateKey,
                                         placeName,
                                         startTime,
-                                        endTime
+                                        endTime,
+                                        placeLocation // 베어링을 위한 좌표 전달
                                 );
                                 allItems.add(dto);
                             }
