@@ -126,18 +126,27 @@ public class PostCreateActivity extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
+                        // ✅ 스케줄의 backgroundImageUri를 썸네일로 사용
                         String imageUri = documentSnapshot.getString("backgroundImageUri");
+                        Log.d(TAG, "📸 스케줄 썸네일 로드: " + imageUri);
+
                         if (imageUri != null && !imageUri.isEmpty()) {
                             thumbnailUri = imageUri;
                             imgThumbnail.setVisibility(View.VISIBLE);
                             Glide.with(this)
                                     .load(Uri.parse(thumbnailUri))
+                                    .placeholder(R.drawable.sample3)
+                                    .error(R.drawable.sample3)
+                                    .centerCrop()
                                     .into(imgThumbnail);
+                            Log.d(TAG, "✅ 썸네일 이미지 표시 완료");
+                        } else {
+                            Log.d(TAG, "⚠️ 스케줄에 썸네일 없음");
                         }
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to load schedule data", e);
+                    Log.e(TAG, "❌ 스케줄 데이터 로드 실패", e);
                 });
     }
 
@@ -332,8 +341,12 @@ public class PostCreateActivity extends AppCompatActivity {
         postData.put("heartCount", 0);
         postData.put("commentCount", 0);
 
-        if (thumbnailUri != null) {
+        // ✅ 썸네일 URL 저장 (스케줄의 backgroundImageUri)
+        if (thumbnailUri != null && !thumbnailUri.isEmpty()) {
             postData.put("thumbnailUrl", thumbnailUri);
+            Log.d(TAG, "✅ 게시글에 썸네일 URL 저장: " + thumbnailUri);
+        } else {
+            Log.d(TAG, "⚠️ 썸네일 없이 게시글 생성");
         }
 
         List<Map<String, Object>> tagMaps = new ArrayList<>();

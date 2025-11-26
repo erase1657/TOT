@@ -13,12 +13,6 @@ import com.google.firebase.storage.StorageReference;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * MyPage 프로필 관리 헬퍼 클래스
- * - 이미지 업로드
- * - 프로필 데이터 저장
- * - 코드 분할로 유지보수성 향상
- */
 public class MyPageProfileManager {
 
     private static final String TAG = "MyPageProfileManager";
@@ -43,9 +37,6 @@ public class MyPageProfileManager {
         this.auth = FirebaseAuth.getInstance();
     }
 
-    /**
-     * 프로필 이미지 업로드
-     */
     public void uploadProfileImage(@NonNull String userId, @NonNull Uri imageUri, @NonNull UploadCallback callback) {
         String fileName = "profile_" + System.currentTimeMillis() + ".jpg";
         StorageReference profileRef = storage.getReference()
@@ -53,12 +44,15 @@ public class MyPageProfileManager {
                 .child(userId)
                 .child(fileName);
 
+        Log.d(TAG, "🔄 프로필 이미지 업로드 시작: " + imageUri.toString());
+
         profileRef.putFile(imageUri)
                 .addOnSuccessListener(taskSnapshot -> {
                     profileRef.getDownloadUrl()
                             .addOnSuccessListener(uri -> {
-                                Log.d(TAG, "✅ 프로필 이미지 업로드 성공: " + uri.toString());
-                                callback.onSuccess(uri.toString());
+                                String downloadUrl = uri.toString();
+                                Log.d(TAG, "✅ 프로필 이미지 업로드 성공: " + downloadUrl);
+                                callback.onSuccess(downloadUrl);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "❌ 프로필 URL 가져오기 실패", e);
@@ -71,9 +65,6 @@ public class MyPageProfileManager {
                 });
     }
 
-    /**
-     * 배경 이미지 업로드
-     */
     public void uploadBackgroundImage(@NonNull String userId, @NonNull Uri imageUri, @NonNull UploadCallback callback) {
         String fileName = "background_" + System.currentTimeMillis() + ".jpg";
         StorageReference bgRef = storage.getReference()
@@ -81,12 +72,15 @@ public class MyPageProfileManager {
                 .child(userId)
                 .child(fileName);
 
+        Log.d(TAG, "🔄 배경 이미지 업로드 시작: " + imageUri.toString());
+
         bgRef.putFile(imageUri)
                 .addOnSuccessListener(taskSnapshot -> {
                     bgRef.getDownloadUrl()
                             .addOnSuccessListener(uri -> {
-                                Log.d(TAG, "✅ 배경 이미지 업로드 성공: " + uri.toString());
-                                callback.onSuccess(uri.toString());
+                                String downloadUrl = uri.toString();
+                                Log.d(TAG, "✅ 배경 이미지 업로드 성공: " + downloadUrl);
+                                callback.onSuccess(downloadUrl);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "❌ 배경 URL 가져오기 실패", e);
@@ -99,9 +93,6 @@ public class MyPageProfileManager {
                 });
     }
 
-    /**
-     * 프로필 텍스트 정보 저장
-     */
     public void saveProfileText(@NonNull String userId,
                                 @NonNull String nickname,
                                 @NonNull String comment,
@@ -117,10 +108,12 @@ public class MyPageProfileManager {
 
         if (profileImageUrl != null) {
             updates.put("profileImageUrl", profileImageUrl);
+            Log.d(TAG, "📝 프로필 이미지 URL 업데이트: " + profileImageUrl);
         }
 
         if (backgroundImageUrl != null) {
             updates.put("backgroundImageUrl", backgroundImageUrl);
+            Log.d(TAG, "📝 배경 이미지 URL 업데이트: " + backgroundImageUrl);
         }
 
         db.collection("user")
@@ -136,9 +129,6 @@ public class MyPageProfileManager {
                 });
     }
 
-    /**
-     * 이미지 업로드 후 프로필 저장 (통합 메서드)
-     */
     public void uploadAndSaveProfile(@NonNull String userId,
                                      @NonNull String nickname,
                                      @NonNull String comment,
@@ -149,8 +139,13 @@ public class MyPageProfileManager {
                                      String currentBackgroundUrl,
                                      @NonNull SaveCallback callback) {
 
+        Log.d(TAG, "💾 프로필 저장 시작");
+        Log.d(TAG, "- 프로필 이미지: " + (profileImageUri != null ? "있음" : "없음"));
+        Log.d(TAG, "- 배경 이미지: " + (backgroundImageUri != null ? "있음" : "없음"));
+
         // 업로드할 이미지가 없으면 바로 저장
         if (profileImageUri == null && backgroundImageUri == null) {
+            Log.d(TAG, "⚡ 이미지 업로드 없이 텍스트만 저장");
             saveProfileText(userId, nickname, comment, address, currentProfileUrl, currentBackgroundUrl, callback);
             return;
         }
@@ -160,14 +155,19 @@ public class MyPageProfileManager {
         final int totalUploads = (profileImageUri != null ? 1 : 0) + (backgroundImageUri != null ? 1 : 0);
         final String[] newProfileUrl = {currentProfileUrl};
         final String[] newBackgroundUrl = {currentBackgroundUrl};
+        final boolean[] hasError = {false};
 
         // 프로필 이미지 업로드
         if (profileImageUri != null) {
             uploadProfileImage(userId, profileImageUri, new UploadCallback() {
                 @Override
                 public void onSuccess(String downloadUrl) {
+                    if (hasError[0]) return;
+
                     newProfileUrl[0] = downloadUrl;
                     uploadCount[0]++;
+                    Log.d(TAG, "✅ 프로필 업로드 완료 (" + uploadCount[0] + "/" + totalUploads + ")");
+
                     if (uploadCount[0] == totalUploads) {
                         saveProfileText(userId, nickname, comment, address, newProfileUrl[0], newBackgroundUrl[0], callback);
                     }
@@ -175,7 +175,11 @@ public class MyPageProfileManager {
 
                 @Override
                 public void onFailure(String message) {
-                    callback.onFailure(message);
+                    if (!hasError[0]) {
+                        hasError[0] = true;
+                        Log.e(TAG, "❌ 프로필 업로드 실패: " + message);
+                        callback.onFailure(message);
+                    }
                 }
             });
         }
@@ -185,8 +189,12 @@ public class MyPageProfileManager {
             uploadBackgroundImage(userId, backgroundImageUri, new UploadCallback() {
                 @Override
                 public void onSuccess(String downloadUrl) {
+                    if (hasError[0]) return;
+
                     newBackgroundUrl[0] = downloadUrl;
                     uploadCount[0]++;
+                    Log.d(TAG, "✅ 배경 업로드 완료 (" + uploadCount[0] + "/" + totalUploads + ")");
+
                     if (uploadCount[0] == totalUploads) {
                         saveProfileText(userId, nickname, comment, address, newProfileUrl[0], newBackgroundUrl[0], callback);
                     }
@@ -194,7 +202,11 @@ public class MyPageProfileManager {
 
                 @Override
                 public void onFailure(String message) {
-                    callback.onFailure(message);
+                    if (!hasError[0]) {
+                        hasError[0] = true;
+                        Log.e(TAG, "❌ 배경 업로드 실패: " + message);
+                        callback.onFailure(message);
+                    }
                 }
             });
         }

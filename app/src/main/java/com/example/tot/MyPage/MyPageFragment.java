@@ -148,8 +148,8 @@ public class MyPageFragment extends Fragment {
         initViews(view);
         determineProfileMode();
         setupTabListeners();
-        setupRecyclerViews(); // RecyclerView 셋업
-        updateTabSelection(true); // 초기 탭 설정
+        setupRecyclerViews();
+        updateTabSelection(true);
 
         loadFollowCounts(() -> loadProfileData());
         setupClickListeners();
@@ -196,6 +196,7 @@ public class MyPageFragment extends Fragment {
                     if (uri != null && isEditMode) {
                         tempProfileImageUri = uri;
                         ProfileImageHelper.loadProfileImageFromUri(imgProfile, uri);
+                        Log.d(TAG, "✅ 프로필 이미지 선택됨: " + uri.toString());
                         Toast.makeText(getContext(), "프로필 사진이 선택되었습니다", Toast.LENGTH_SHORT).show();
                     }
                 }
@@ -207,6 +208,7 @@ public class MyPageFragment extends Fragment {
                     if (uri != null && isEditMode) {
                         tempBackgroundImageUri = uri;
                         ProfileImageHelper.loadBackgroundImageFromUri(imgBackground, uri, R.drawable.sample3);
+                        Log.d(TAG, "✅ 배경 이미지 선택됨: " + uri.toString());
                         Toast.makeText(getContext(), "배경 사진이 선택되었습니다", Toast.LENGTH_SHORT).show();
                     }
                 }
@@ -242,7 +244,6 @@ public class MyPageFragment extends Fragment {
     }
 
     private void setupRecyclerViews() {
-        // Posts RecyclerView
         rvMyPosts.setLayoutManager(new GridLayoutManager(getContext(), 3));
         postList = new ArrayList<>();
         postsAdapter = new MyPagePostsAdapter(postList, (post, position) -> {
@@ -254,7 +255,6 @@ public class MyPageFragment extends Fragment {
         });
         rvMyPosts.setAdapter(postsAdapter);
 
-        // Schedule RecyclerView
         rvMySchedule.setLayoutManager(new GridLayoutManager(getContext(), 3));
         scheduleList = new ArrayList<>();
         scheduleAdapter = new MyPageScheduleAdapter(scheduleList, (schedule, position) -> {
@@ -329,7 +329,6 @@ public class MyPageFragment extends Fragment {
         }
     }
 
-
     private void loadFollowCounts(Runnable onComplete) {
         if (targetUserId == null || targetUserId.isEmpty()) {
             if (onComplete != null) onComplete.run();
@@ -390,9 +389,11 @@ public class MyPageFragment extends Fragment {
 
         originalProfileImageUrl = user.getProfileImageUrl();
         ProfileImageHelper.loadProfileImage(imgProfile, originalProfileImageUrl);
+        Log.d(TAG, "✅ 프로필 이미지 로드: " + originalProfileImageUrl);
 
         originalBackgroundImageUrl = user.getBackgroundImageUrl();
         ProfileImageHelper.loadBackgroundImage(imgBackground, originalBackgroundImageUrl, R.drawable.sample3);
+        Log.d(TAG, "✅ 배경 이미지 로드: " + originalBackgroundImageUrl);
 
         originalName = tvName.getText().toString();
         originalStatus = tvStatusMessage.getText().toString();
@@ -571,19 +572,23 @@ public class MyPageFragment extends Fragment {
 
         imgProfile.setOnClickListener(v -> {
             if (isMyProfile) {
-                if (isEditMode) profileImageLauncher.launch("image/*");
-                else Toast.makeText(getContext(), "편집 모드에서 변경 가능합니다", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(getContext(), "프로필 사진 보기", Toast.LENGTH_SHORT).show();
+                if (isEditMode) {
+                    Log.d(TAG, "🖼️ 프로필 이미지 선택 시작");
+                    profileImageLauncher.launch("image/*");
+                } else {
+                    Toast.makeText(getContext(), "편집 모드에서 변경 가능합니다", Toast.LENGTH_SHORT).show();
+                }
             }
         });
 
         imgBackground.setOnClickListener(v -> {
             if (isMyProfile) {
-                if (isEditMode) backgroundImageLauncher.launch("image/*");
-                else Toast.makeText(getContext(), "편집 모드에서 변경 가능합니다", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(getContext(), "배경 사진 보기", Toast.LENGTH_SHORT).show();
+                if (isEditMode) {
+                    Log.d(TAG, "🖼️ 배경 이미지 선택 시작");
+                    backgroundImageLauncher.launch("image/*");
+                } else {
+                    Toast.makeText(getContext(), "편집 모드에서 변경 가능합니다", Toast.LENGTH_SHORT).show();
+                }
             }
         });
 
@@ -710,6 +715,10 @@ public class MyPageFragment extends Fragment {
         Toast.makeText(getContext(), "저장 중...", Toast.LENGTH_SHORT).show();
         btnEdit.setEnabled(false);
 
+        Log.d(TAG, "💾 프로필 저장 시작");
+        Log.d(TAG, "- 프로필 이미지 URI: " + (tempProfileImageUri != null ? tempProfileImageUri.toString() : "null"));
+        Log.d(TAG, "- 배경 이미지 URI: " + (tempBackgroundImageUri != null ? tempBackgroundImageUri.toString() : "null"));
+
         profileManager.uploadAndSaveProfile(
                 uid, newName, newStatus, newLocation,
                 tempProfileImageUri, tempBackgroundImageUri,
@@ -722,12 +731,12 @@ public class MyPageFragment extends Fragment {
                         tvLocation.setText(newLocation.isEmpty() ? "위치 정보 없음" : newLocation);
 
                         if (tempProfileImageUri != null) {
-                            ProfileImageHelper.loadProfileImageFromUri(imgProfile, tempProfileImageUri);
+                            Log.d(TAG, "✅ 프로필 이미지 업데이트 완료");
                             tempProfileImageUri = null;
                         }
 
                         if (tempBackgroundImageUri != null) {
-                            ProfileImageHelper.loadBackgroundImageFromUri(imgBackground, tempBackgroundImageUri, R.drawable.sample3);
+                            Log.d(TAG, "✅ 배경 이미지 업데이트 완료");
                             tempBackgroundImageUri = null;
                         }
 
@@ -736,6 +745,9 @@ public class MyPageFragment extends Fragment {
                         originalName = newName;
                         originalStatus = newStatus;
                         originalLocation = newLocation;
+
+                        // 프로필 데이터 재로드
+                        loadProfileData();
 
                         Toast.makeText(getContext(), "프로필이 저장되었습니다", Toast.LENGTH_SHORT).show();
                         btnEdit.setEnabled(true);
