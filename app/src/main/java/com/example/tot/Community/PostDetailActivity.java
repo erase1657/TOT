@@ -1153,7 +1153,6 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
             Glide.with(PostDetailActivity.this)
                     .load(photo.getImageUrl())
-                    .centerCrop()
                     .into(holder.imgPhoto);
         }
 
@@ -1169,6 +1168,19 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
             PhotoViewHolder(View itemView) {
                 super(itemView);
                 imgPhoto = itemView.findViewById(R.id.img_post_photo);
+
+                itemView.setOnClickListener(v -> {
+                    int position = getAdapterPosition();
+                    if (position != RecyclerView.NO_POSITION) {
+                        ArrayList<String> photoUrls = new ArrayList<>();
+                        for (AlbumDTO photo : photos) {
+                            photoUrls.add(photo.getImageUrl());
+                        }
+
+                        PhotoFullscreenFragment fragment = PhotoFullscreenFragment.newInstance(photoUrls, position);
+                        fragment.show(getSupportFragmentManager(), "photo_fullscreen");
+                    }
+                });
             }
         }
     }
