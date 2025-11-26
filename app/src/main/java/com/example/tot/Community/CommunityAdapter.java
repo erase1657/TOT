@@ -282,21 +282,30 @@ public class CommunityAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             txtUserName.setText(post.getUserName() != null ? post.getUserName() : "사용자");
             txtPostTitle.setText(post.getTitle() != null ? post.getTitle() : "");
 
-            // ✅ 썸네일 이미지 표시 (Glide 사용)
+            // ✅ 게시글 썸네일 이미지 표시 로직 개선
             String thumbnailUrl = post.getThumbnailUrl();
+            Log.d(TAG, "📸 게시글 썸네일: " + (thumbnailUrl != null ? thumbnailUrl : "null"));
+
             if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+                // 1순위: 게시글에 설정된 썸네일 (스케줄의 backgroundImageUri)
                 Glide.with(itemView.getContext())
                         .load(thumbnailUrl)
                         .centerCrop()
-                        .placeholder(R.drawable.sample1)  // 로딩 중 표시할 이미지
-                        .error(R.drawable.sample1)        // 로드 실패 시 표시할 이미지
+                        .placeholder(R.drawable.sample3)
+                        .error(R.drawable.sample3)
                         .into(imgPostPhoto);
                 imgPostPhoto.setVisibility(View.VISIBLE);
+                Log.d(TAG, "✅ 썸네일 URL 사용");
             } else if (post.getPostImage() != 0) {
+                // 2순위: 리소스 이미지 (레거시)
                 imgPostPhoto.setImageResource(post.getPostImage());
                 imgPostPhoto.setVisibility(View.VISIBLE);
+                Log.d(TAG, "✅ 리소스 이미지 사용");
             } else {
-                imgPostPhoto.setVisibility(View.GONE);
+                // 3순위: 기본 이미지
+                imgPostPhoto.setImageResource(R.drawable.sample3);
+                imgPostPhoto.setVisibility(View.VISIBLE);
+                Log.d(TAG, "⚠️ 기본 이미지 사용");
             }
 
             updateHeartIcon(post.isLiked());

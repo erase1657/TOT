@@ -312,17 +312,27 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     Long startDateLong = postDoc.getLong("startDate");
                     Long endDateLong = postDoc.getLong("endDate");
                     Long heartCount = postDoc.getLong("heartCount");
+
+                    // ✅ 썸네일 로드 개선
                     String thumbnailUrl = postDoc.getString("thumbnailUrl");
+                    Log.d(TAG, "📸 게시글 썸네일 URL: " + thumbnailUrl);
 
                     if (postTitle != null) tvPostTitle.setText(postTitle);
 
+                    // ✅ 썸네일 표시 로직 개선
                     if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
                         imgThumbnail.setVisibility(View.VISIBLE);
                         Glide.with(this)
-                                .load(Uri.parse(thumbnailUrl))
+                                .load(thumbnailUrl)
+                                .placeholder(R.drawable.sample3)
+                                .error(R.drawable.sample3)
+                                .centerCrop()
                                 .into(imgThumbnail);
+                        Log.d(TAG, "✅ 썸네일 이미지 로드 완료");
                     } else {
-                        imgThumbnail.setVisibility(View.GONE);
+                        // 썸네일이 없으면 스케줄의 첫 번째 사진을 로드
+                        Log.d(TAG, "⚠️ 썸네일 없음, 첫 번째 앨범 사진 시도");
+                        loadFirstAlbumPhotoAsThumbnail();
                     }
 
                     if (heartCount != null) {
@@ -353,9 +363,53 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                             shouldOpenComments = false;
                         }, 500);
                     }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 게시글 로드 실패", e);
+                    Toast.makeText(this, "게시글을 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
                 });
     }
+    // ✅ 썸네일이 없을 때 첫 번째 앨범 사진을 로드하는 메서드 추가
+    private void loadFirstAlbumPhotoAsThumbnail() {
+        if (dateList.isEmpty()) {
+            imgThumbnail.setVisibility(View.GONE);
+            return;
+        }
 
+        String firstDateKey = dateList.get(0);
+
+        communityPostsRef.document(postId)
+                .collection("scheduleDate")
+                .document(firstDateKey)
+                .collection("album")
+                .orderBy("index")
+                .limit(1)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    if (!snapshot.isEmpty()) {
+                        String imageUrl = snapshot.getDocuments().get(0).getString("imageUrl");
+                        if (imageUrl != null && !imageUrl.isEmpty()) {
+                            imgThumbnail.setVisibility(View.VISIBLE);
+                            Glide.with(this)
+                                    .load(imageUrl)
+                                    .placeholder(R.drawable.sample3)
+                                    .error(R.drawable.sample3)
+                                    .centerCrop()
+                                    .into(imgThumbnail);
+                            Log.d(TAG, "✅ 첫 번째 앨범 사진을 썸네일로 사용");
+                        } else {
+                            imgThumbnail.setVisibility(View.GONE);
+                        }
+                    } else {
+                        imgThumbnail.setVisibility(View.GONE);
+                        Log.d(TAG, "⚠️ 앨범 사진 없음, 썸네일 숨김");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 앨범 사진 로드 실패", e);
+                    imgThumbnail.setVisibility(View.GONE);
+                });
+    }
     private void displayRegionTags(DocumentSnapshot postDoc) {
         layoutRegionTags.removeAllViews();
 
