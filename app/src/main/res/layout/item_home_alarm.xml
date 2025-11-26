@@ -4,24 +4,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/card_memory"
     android:layout_height="wrap_content"
-
     android:layout_width="match_parent"
     android:layout_marginHorizontal="50dp"
-
     android:layout_marginTop="12dp"
     app:cardCornerRadius="15dp"
     app:cardElevation="2dp"
     app:cardBackgroundColor="#E5E6FF">
-
-    <!--
-    가로를 화면 비율로 변경
-    - android:layout_width="match_parent"
-    - android:layout_marginHorizontal="50dp"
-    + android:layout_width="0dp"
-    + app:layout_constraintWidth_percent="0.7"
-    + app:layout_constraintStart_toStartOf="parent"
-    + app:layout_constraintEnd_toEndOf="parent"
-    -->
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -30,19 +18,39 @@
         android:padding="16dp"
         android:gravity="center_horizontal">
 
-        <!-- 제목 -->
-        <TextView
-            android:id="@+id/text_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="제목"
-            android:textStyle="bold"
-            android:textSize="18sp"
-            android:textColor="@color/black"
-            android:gravity="center"
-            tools:text="제목" />
+        <!-- ✅ GPS 버튼 + 제목 (상단) -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
 
-        <!-- 날짜 -->
+            <!-- ✅ GPS 버튼 추가 (왼쪽) -->
+            <ImageButton
+                android:id="@+id/btn_gps"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentStart="true"
+                android:src="@drawable/ic_location_point"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="GPS 베어링 버튼"
+                android:padding="8dp"
+                app:tint="@color/gray"
+                android:visibility="gone"/>
+
+            <!-- ✅ 제목 (중앙) -->
+            <TextView
+                android:id="@+id/text_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="제목"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="@color/black"
+                android:gravity="center"
+                tools:text="제목" />
+        </RelativeLayout>
+
+        <!-- ✅ 날짜 (기존 유지) -->
         <TextView
             android:id="@+id/text_date"
             android:layout_width="wrap_content"
@@ -53,7 +61,7 @@
             android:textColor="@color/black"
             tools:text="2025.10.15" />
 
-        <!-- 위치 -->
+        <!-- ✅ 위치 (기존 유지) -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -79,7 +87,7 @@
                 tools:text="Room 6-205" />
         </LinearLayout>
 
-        <!-- 시간 -->
+        <!-- ✅ 시간 (기존 유지) -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -112,6 +120,85 @@
                 android:textColor="@color/black"
                 android:textSize="15sp"
                 tools:text="13:05" />
+        </LinearLayout>
+
+        <!-- ✅ GPS 베어링 정보 (GPS 활성화 시만 표시) 추가 -->
+        <LinearLayout
+            android:id="@+id/layout_bearing_info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+
+            <!-- 화살표 -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <!-- 현재 방향 화살표 (센서 기반) -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginEnd="24dp">
+
+                    <ImageView
+                        android:id="@+id/iv_current_direction"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_navigation_arrow"
+                        android:contentDescription="현재 방향"
+                        app:tint="#4CAF50"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="현재"
+                        android:textSize="12sp"
+                        android:textColor="@color/gray"/>
+                </LinearLayout>
+
+                <!-- 목적지 방향 화살표 (베어링 계산) -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center">
+
+                    <ImageView
+                        android:id="@+id/iv_dest_direction"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_arrow"
+                        android:contentDescription="목적지 방향"
+                        app:tint="#FF5722"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="목적지"
+                        android:textSize="12sp"
+                        android:textColor="@color/gray"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- 거리 텍스트 -->
+            <TextView
+                android:id="@+id/tv_distance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="📍 남은 거리: 0.0 km"
+                android:textSize="14sp"
+                android:textColor="@color/black"
+                android:textStyle="bold"/>
         </LinearLayout>
 
     </LinearLayout>
