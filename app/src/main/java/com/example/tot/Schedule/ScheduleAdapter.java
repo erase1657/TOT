@@ -212,7 +212,7 @@ public class ScheduleAdapter extends RecyclerView.Adapter<ScheduleAdapter.ViewHo
                     }
                 });
             }
-
+            btnOptions.setVisibility(schedule.isShared() ? View.GONE : View.VISIBLE);
             // 더보기 버튼 클릭 이벤트
             if (menuListener != null) {
                 btnOptions.setOnClickListener(v -> {

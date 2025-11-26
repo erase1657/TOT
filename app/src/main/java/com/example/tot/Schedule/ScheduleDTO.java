@@ -12,6 +12,8 @@ public class ScheduleDTO{
     private String inviteCode;
     private int invitedCount;
     private String backgroundImageUri;
+    private boolean shared = false;  // 기본값: 내가 만든 스케줄
+    private String ownerUid;         // 공유 스케줄일 때 owner UID
 
 
     public ScheduleDTO() {
@@ -91,5 +93,20 @@ public class ScheduleDTO{
 
     public void setBackgroundImageUri(String backgroundImageUri) {
         this.backgroundImageUri = backgroundImageUri;
+    }
+    public boolean isShared() {
+        return shared;
+    }
+
+    public void setShared(boolean shared) {
+        this.shared = shared;
+    }
+
+    public String getOwnerUid() {
+        return ownerUid;
+    }
+
+    public void setOwnerUid(String ownerUid) {
+        this.ownerUid = ownerUid;
     }
 }

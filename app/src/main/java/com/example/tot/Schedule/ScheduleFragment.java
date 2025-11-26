@@ -33,6 +33,7 @@ import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -57,16 +58,18 @@ public class ScheduleFragment extends Fragment {
     private Timestamp startDate;
     private Timestamp endDate;
 
+
     private RecyclerView recyclerView;
     private ScheduleAdapter scheduleAdapter;
     private List<ScheduleDTO> scheduleList;
     private LinearLayout noScheduleLayout;
+    private TextView tabMy, tabInvited;
 
     private FirebaseFirestore db;
     private FirebaseAuth auth;
     private FirebaseStorage storage;
     private ListenerRegistration scheduleListener;
-
+    private ImageButton addScheduleButton;
     private String selectedDateRange = "";
     private int editingPosition = -1;
     private ActivityResultLauncher<PickVisualMediaRequest> pickMedia;
@@ -94,21 +97,26 @@ public class ScheduleFragment extends Fragment {
 
         recyclerView = view.findViewById(R.id.rv_schedules);
         noScheduleLayout = view.findViewById(R.id.layout_no_schedule);
-        ImageButton addScheduleButton = view.findViewById(R.id.btn_add_schedule);
+        addScheduleButton = view.findViewById(R.id.btn_add_schedule);
 
+        tabMy = view.findViewById(R.id.tab_my_schedule);
+        tabInvited = view.findViewById(R.id.tab_invited_schedule);
         setupRecyclerView();
+        setupTabs();
 
         db = FirebaseFirestore.getInstance();
         auth = FirebaseAuth.getInstance();
         storage = FirebaseStorage.getInstance(); // Firebase Storage 초기화
 
         addScheduleButton.setOnClickListener(v -> showCreateScheduleDialog());
+        setTabSelected(true);
+        loadMySchedules();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        listenSchedulesFromFirestore();
+
     }
 
     @Override
@@ -119,6 +127,128 @@ public class ScheduleFragment extends Fragment {
             scheduleListener = null;
         }
     }
+    private void setupTabs() {
+        tabMy.setOnClickListener(v -> {
+            setTabSelected(true);
+            loadMySchedules();
+        });
+
+        tabInvited.setOnClickListener(v -> {
+            setTabSelected(false);
+            loadInvitedSchedules();
+        });
+    }
+    private void setTabSelected(boolean isMy) {
+        tabMy.setTextColor(isMy ? 0xFF303748 : 0xFFB0B2B8);
+        tabInvited.setTextColor(!isMy ? 0xFF303748 : 0xFFB0B2B8);
+        addScheduleButton.setVisibility(isMy ? View.VISIBLE : View.GONE);
+    }
+    private void loadMySchedules() {
+
+        if (auth.getCurrentUser() == null) return;
+        String uid = auth.getCurrentUser().getUid();
+
+        // 기존 리스너 제거
+        if (scheduleListener != null) scheduleListener.remove();
+
+        scheduleListener = db.collection("user")
+                .document(uid)
+                .collection("schedule")
+                .addSnapshotListener((snapshot, e) -> {
+
+                    if (e != null || snapshot == null) return;
+
+                    List<ScheduleDTO> list = new ArrayList<>();
+
+                    for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                        ScheduleDTO dto = doc.toObject(ScheduleDTO.class);
+                        if (dto != null) {
+                            dto.setScheduleId(doc.getId());
+                            dto.setOwnerUid(uid);
+                            dto.setShared(false);
+                            list.add(dto);
+                        }
+                    }
+
+                    updateScheduleUI(list);
+                });
+    }
+    private void updateScheduleUI(List<ScheduleDTO> list) {
+        if (getActivity() == null) return;
+
+        getActivity().runOnUiThread(() -> {
+            scheduleAdapter.updateData(list);
+
+            if (list.isEmpty()) noScheduleLayout.setVisibility(View.VISIBLE);
+            else noScheduleLayout.setVisibility(View.GONE);
+        });
+    }
+
+    // -----------------------------------------------------------
+    // 🔹 2) 초대받은 스케줄 불러오기
+    // -----------------------------------------------------------
+    private void loadInvitedSchedules() {
+
+        if (auth.getCurrentUser() == null) return;
+        String uid = auth.getCurrentUser().getUid();
+
+        if (scheduleListener != null) scheduleListener.remove();
+
+        scheduleListener = db.collection("user")
+                .document(uid)
+                .collection("sharedSchedule")
+                .addSnapshotListener((snapshot, e) -> {
+
+                    if (snapshot == null || e != null) {
+                        updateScheduleUI(new ArrayList<>());
+                        return;
+                    }
+
+                    List<ScheduleDTO> invitedList = new ArrayList<>();
+
+                    int total = snapshot.size();
+                    if (total == 0) {
+                        updateScheduleUI(invitedList);
+                        return;
+                    }
+
+                    final int[] loadedCount = {0};
+
+                    for (DocumentSnapshot doc : snapshot.getDocuments()) {
+
+                        DocumentReference ref = doc.getDocumentReference("scheduleRef");
+                        String ownerUid = doc.getString("ownerUid");
+
+                        if (ref == null) {
+                            loadedCount[0]++;
+                            if (loadedCount[0] == total) {
+                                updateScheduleUI(invitedList);
+                            }
+                            continue;
+                        }
+
+                        ref.get().addOnSuccessListener(scheduleDoc -> {
+
+                            ScheduleDTO dto = scheduleDoc.toObject(ScheduleDTO.class);
+
+                            if (dto != null) {
+                                dto.setScheduleId(scheduleDoc.getId());
+                                dto.setOwnerUid(ownerUid);
+                                dto.setShared(true);
+                                invitedList.add(dto);
+                            }
+
+                            loadedCount[0]++;
+
+                            // ⭐ 모든 문서 로딩이 끝난 후 단 한 번 UI 갱신
+                            if (loadedCount[0] == total) {
+                                updateScheduleUI(invitedList);
+                            }
+                        });
+                    }
+                });
+    }
+
 
     private void setupRecyclerView() {
         GridLayoutManager gridLayoutManager = new GridLayoutManager(getContext(), 2);
@@ -129,9 +259,10 @@ public class ScheduleFragment extends Fragment {
         scheduleAdapter = new ScheduleAdapter(scheduleList, (schedule, position) -> {
             Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
             intent.putExtra("scheduleId", schedule.getScheduleId());
-            intent.putExtra("startDate", schedule.getStartDate().toDate().getTime());
-            intent.putExtra("endDate", schedule.getEndDate().toDate().getTime());
-            startActivity(intent);
+            intent.putExtra("ownerUid", schedule.getOwnerUid());
+            intent.putExtra("isShared", schedule.isShared());
+            intent.putExtra("startMillisUtc", schedule.getStartDate().toDate().getTime());
+            intent.putExtra("endMillisUtc", schedule.getEndDate().toDate().getTime());            startActivity(intent);
         });
 
         scheduleAdapter.setOnMenuItemClickListener(new ScheduleAdapter.OnMenuItemClickListener() {

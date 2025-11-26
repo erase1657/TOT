@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.PopupMenu;
@@ -17,9 +18,12 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.tot.Album.ScheduleAlbumActivity;
+import com.example.tot.Authentication.UserDTO;
 import com.example.tot.Map.MapActivity;
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleSetting.Invite.InviteDialog;
+import com.example.tot.Schedule.ScheduleSetting.Invite.InvitedMemberAdapter;
+
 import com.google.android.gms.maps.model.LatLng;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
@@ -43,9 +47,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class ScheduleSettingActivity extends AppCompatActivity {
     private FirebaseFirestore db;
-    private String userUid, scheduleId, selectedDate;
+    private String userUid,ownerUid,effectiveUid, scheduleId, selectedDate;
     private Timestamp startDate, endDate;
-    private RecyclerView rvDate, rvScheduleItem;
+    private RecyclerView rvDate, rvScheduleItem,rvMembers;
+    private InvitedMemberAdapter memberAdapter;
     private DateAdapter dateAdapter;
     private ScheduleItemAdapter scheduleItemAdapter;
     private List<String> dateList = new ArrayList<>();
@@ -60,6 +65,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private String relatedPostId = null;
     private ListenerRegistration postUpdateListener;
     private ScheduleSettingHelper helper;
+    private boolean isReadOnly;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,22 +75,25 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
         userUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
         scheduleId = getIntent().getStringExtra("scheduleId");
-        long startMillis = getIntent().getLongExtra("startDate", 0);
-        long endMillis = getIntent().getLongExtra("endDate", 0);
         isPostEditMode = getIntent().getBooleanExtra("fromPostEdit", false);
         relatedPostId = getIntent().getStringExtra("postId");
+        ownerUid = getIntent().getStringExtra("ownerUid");
+        Log.e("ScheduleSetting", "ownerUid = " + ownerUid + ", scheduleId = " + scheduleId);
 
+        isReadOnly = !userUid.equals(ownerUid);
+
+        long startMillis = getIntent().getLongExtra("startMillisUtc", 0);
+        long endMillis   = getIntent().getLongExtra("endMillisUtc", 0);
+        startDate = new Timestamp(new Date(startMillis));
+        endDate = new Timestamp(new Date(endMillis));
         if (scheduleId == null || startMillis == 0 || endMillis == 0) {
             Toast.makeText(this, "스케줄 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
-        startDate = new Timestamp(new Date(startMillis));
-        endDate = new Timestamp(new Date(endMillis));
-
         // ✅ Helper 초기화
-        helper = new ScheduleSettingHelper(this, db, userUid, scheduleId);
+        helper = new ScheduleSettingHelper(this, db, ownerUid, scheduleId);
 
         rvDate = findViewById(R.id.rv_datelist);
         rvScheduleItem = findViewById(R.id.rv_schedulelist);
@@ -92,10 +101,20 @@ public class ScheduleSettingActivity extends AppCompatActivity {
         btn_Menu = findViewById(R.id.btn_menu);
         btn_Invite = findViewById(R.id.btn_invite);
 
+        rvMembers = findViewById(R.id.rv_member);
+        memberAdapter = new InvitedMemberAdapter(this);
+        rvMembers.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        rvMembers.setAdapter(memberAdapter);
+        loadMembers(ownerUid, scheduleId);
+
         setRvDate();
         setRvScheduleItem();
         generateScheduleDates(startDate, endDate);
-
+        if (isReadOnly) {
+            btn_AddSchedule.setVisibility(View.GONE);
+            btn_Menu.setVisibility(View.GONE);
+            btn_Invite.setVisibility(View.GONE);
+        }
         if (isPostEditMode && relatedPostId != null) {
             startPostUpdateSync();
         }
@@ -127,7 +146,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                 } else if (id == R.id.menu_album) {
                     Intent intent = new Intent(ScheduleSettingActivity.this, ScheduleAlbumActivity.class);
                     intent.putExtra("scheduleId", scheduleId);
-                    intent.putExtra("userUid", userUid);
+                    intent.putExtra("ownerUid", ownerUid);
                     intent.putStringArrayListExtra("dateList", new ArrayList<>(dateList));
                     startActivity(intent);
                     return true;
@@ -154,7 +173,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                     return;
                 }
                 db.collection("user")
-                        .document(userUid)
+                        .document(ownerUid)
                         .collection("schedule")
                         .document(scheduleId)
                         .collection("scheduleDate")
@@ -174,7 +193,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                                 alarm.put("startTime", item.getStartTime());
                                 alarm.put("endTime", item.getEndTime());
                                 db.collection("user")
-                                        .document(userUid)
+                                        .document(ownerUid)
                                         .collection("alarms")
                                         .document(scheduleItemId)
                                         .set(alarm);
@@ -187,6 +206,74 @@ public class ScheduleSettingActivity extends AppCompatActivity {
             });
             currentBottomSheet.show();
         });
+    }
+    private void loadMembers(String ownerUid, String scheduleId) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // 1) Owner 로드
+        db.collection("user")
+                .document(ownerUid)
+                .get()
+                .addOnSuccessListener(ownerDoc -> {
+
+                    UserDTO owner = ownerDoc.toObject(UserDTO.class);
+                    if (owner == null) {
+                        Log.e("loadMembers", "❌ owner is NULL. UserDTO 필드 mismatch 가능");
+                        return;
+                    }
+                    Log.d("MEMBER", "owner.nickname = " + owner.getNickname());
+                    Log.d("MEMBER", "owner.profileImageUrl = " + owner.getProfileImageUrl());
+                    // 2) invited 서브컬렉션에서 UID 가져오기
+                    db.collection("user")
+                            .document(ownerUid)
+                            .collection("schedule")
+                            .document(scheduleId)
+                            .collection("invited")
+                            .get()
+                            .addOnSuccessListener(inviteQuery -> {
+
+                                List<String> uidList = new ArrayList<>();
+
+                                for (DocumentSnapshot d : inviteQuery.getDocuments()) {
+                                    uidList.add(d.getId());   // 문서 ID = 초대된 유저 UID
+                                }
+
+                                // 초대된 멤버 없으면 owner만 표시
+                                if (uidList.isEmpty()) {
+                                    memberAdapter.setMembers(owner, new ArrayList<>());
+                                    return;
+                                }
+
+                                // invited 멤버들 로드
+                                List<UserDTO> invitedList = new ArrayList<>();
+                                AtomicInteger counter = new AtomicInteger(uidList.size());
+
+                                for (String uid : uidList) {
+
+                                    db.collection("user")
+                                            .document(uid)
+                                            .get()
+                                            .addOnSuccessListener(doc -> {
+
+                                                UserDTO member = doc.toObject(UserDTO.class);
+                                                if (member != null) {
+                                                    invitedList.add(member);
+                                                }
+
+                                                // 모든 문서 로드 끝난 시점
+                                                if (counter.decrementAndGet() == 0) {
+                                                    memberAdapter.setMembers(owner, invitedList);
+                                                }
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                Log.e("loadMembers", "초대 멤버 로드 실패: " + e.getMessage());
+                                                if (counter.decrementAndGet() == 0) {
+                                                    memberAdapter.setMembers(owner, invitedList);
+                                                }
+                                            });
+                                }
+                            });
+                });
     }
 
     // ✅ 날짜 변경 다이얼로그 표시
@@ -202,7 +289,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private void startPostUpdateSync() {
         if (postUpdateListener != null) postUpdateListener.remove();
         postUpdateListener = db.collection("user")
-                .document(userUid)
+                .document(ownerUid)
                 .collection("schedule")
                 .document(scheduleId)
                 .collection("scheduleDate")
@@ -222,7 +309,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                 .document(relatedPostId)
                 .collection("scheduleDate");
         CollectionReference userScheduleRef = db.collection("user")
-                .document(userUid)
+                .document(ownerUid)
                 .collection("schedule")
                 .document(scheduleId)
                 .collection("scheduleDate");
@@ -245,7 +332,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private void syncScheduleItemsForDate(String dateKey) {
         if (relatedPostId == null) return;
         CollectionReference userItems = db.collection("user")
-                .document(userUid)
+                .document(ownerUid)
                 .collection("schedule")
                 .document(scheduleId)
                 .collection("scheduleDate")
@@ -273,7 +360,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private void syncAlbumForDate(String dateKey) {
         if (relatedPostId == null) return;
         CollectionReference userAlbum = db.collection("user")
-                .document(userUid)
+                .document(ownerUid)
                 .collection("schedule")
                 .document(scheduleId)
                 .collection("scheduleDate")
@@ -328,11 +415,11 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     }
 
     private void deleteSchedule() {
-        if (userUid == null || scheduleId == null) return;
+        if (ownerUid == null || scheduleId == null) return;
         AtomicInteger deleteCount = new AtomicInteger(dateList.size());
         for (String dateKey : dateList) {
             db.collection("user")
-                    .document(userUid)
+                    .document(ownerUid)
                     .collection("schedule")
                     .document(scheduleId)
                     .collection("scheduleDate")
@@ -344,13 +431,13 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                             String itemId = doc.getId();
                             doc.getReference().delete();
                             db.collection("user")
-                                    .document(userUid)
+                                    .document(ownerUid)
                                     .collection("alarms")
                                     .document(itemId)
                                     .delete();
                         }
                         db.collection("user")
-                                .document(userUid)
+                                .document(ownerUid)
                                 .collection("schedule")
                                 .document(scheduleId)
                                 .collection("scheduleDate")
@@ -358,7 +445,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
                                 .delete();
                         if (deleteCount.decrementAndGet() == 0) {
                             db.collection("user")
-                                    .document(userUid)
+                                    .document(ownerUid)
                                     .collection("schedule")
                                     .document(scheduleId)
                                     .delete()
@@ -381,18 +468,18 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     }
 
     private void deleteScheduleItem(String docId) {
-        if (userUid == null || scheduleId == null || selectedDate == null || docId == null) {
+        if (ownerUid == null || scheduleId == null || selectedDate == null || docId == null) {
             Toast.makeText(this, "오류: 삭제 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        db.collection("user").document(userUid)
+        db.collection("user").document(ownerUid)
                 .collection("schedule").document(scheduleId)
                 .collection("scheduleDate").document(selectedDate)
                 .collection("scheduleItem").document(docId)
                 .delete()
                 .addOnSuccessListener(aVoid -> {
-                    db.collection("user").document(userUid)
+                    db.collection("user").document(ownerUid)
                             .collection("alarms").document(docId).delete();
 
                     Toast.makeText(this, "일정이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
@@ -464,7 +551,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     private void listenScheduleItems(String dateKey) {
         if (currentListener != null) currentListener.remove();
         currentListener = db.collection("user")
-                .document(userUid)
+                .document(ownerUid)
                 .collection("schedule")
                 .document(scheduleId)
                 .collection("scheduleDate")
@@ -547,7 +634,7 @@ public class ScheduleSettingActivity extends AppCompatActivity {
             scheduleDate.put("dayIndex", i + 1);
             scheduleDate.put("date", dateString);
             db.collection("user")
-                    .document(userUid)
+                    .document(ownerUid)
                     .collection("schedule")
                     .document(scheduleId)
                     .collection("scheduleDate")
@@ -590,6 +677,8 @@ public class ScheduleSettingActivity extends AppCompatActivity {
     public String getUserUid() {
         return userUid;
     }
+
+    public String getOwnerUid() {return ownerUid;}
 
     public String getScheduleId() {
         return scheduleId;

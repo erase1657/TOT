@@ -32,13 +32,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ScheduleSettingHelper {
     private final ScheduleSettingActivity activity;
     private final FirebaseFirestore db;
-    private final String userUid;
+    private final String ownerUid;
     private final String scheduleId;
 
-    public ScheduleSettingHelper(ScheduleSettingActivity activity, FirebaseFirestore db, String userUid, String scheduleId) {
+    public ScheduleSettingHelper(ScheduleSettingActivity activity, FirebaseFirestore db, String ownerUid, String scheduleId) {
         this.activity = activity;
         this.db = db;
-        this.userUid = userUid;
+        this.ownerUid = ownerUid;
         this.scheduleId = scheduleId;
     }
 
@@ -101,7 +101,7 @@ public class ScheduleSettingHelper {
             final int dayIndex = i + 1;
             String dateKey = dateList.get(i);
 
-            db.collection("user").document(userUid)
+            db.collection("user").document(ownerUid)
                     .collection("schedule").document(scheduleId)
                     .collection("scheduleDate").document(dateKey)
                     .collection("scheduleItem")
@@ -126,7 +126,7 @@ public class ScheduleSettingHelper {
                         }
                     });
 
-            db.collection("user").document(userUid)
+            db.collection("user").document(ownerUid)
                     .collection("schedule").document(scheduleId)
                     .collection("scheduleDate").document(dateKey)
                     .collection("album")
@@ -180,7 +180,7 @@ public class ScheduleSettingHelper {
             String oldDateKey = oldDateList.get(i);
 
             // 날짜 문서 데이터
-            db.collection("user").document(userUid)
+            db.collection("user").document(ownerUid)
                     .collection("schedule").document(scheduleId)
                     .collection("scheduleDate").document(oldDateKey)
                     .get()
@@ -199,7 +199,7 @@ public class ScheduleSettingHelper {
                     });
 
             // 일정 데이터
-            db.collection("user").document(userUid)
+            db.collection("user").document(ownerUid)
                     .collection("schedule").document(scheduleId)
                     .collection("scheduleDate").document(oldDateKey)
                     .collection("scheduleItem")
@@ -225,7 +225,7 @@ public class ScheduleSettingHelper {
                     });
 
             // 앨범 데이터
-            db.collection("user").document(userUid)
+            db.collection("user").document(ownerUid)
                     .collection("schedule").document(scheduleId)
                     .collection("scheduleDate").document(oldDateKey)
                     .collection("album")
@@ -291,7 +291,7 @@ public class ScheduleSettingHelper {
             if (oldScheduleItems.containsKey(dayIndex)) {
                 for (Map<String, Object> item : oldScheduleItems.get(dayIndex)) {
                     String docId = (String) item.get("_docId");
-                    db.collection("user").document(userUid)
+                    db.collection("user").document(ownerUid)
                             .collection("schedule").document(scheduleId)
                             .collection("scheduleDate").document(oldDateKey)
                             .collection("scheduleItem").document(docId)
@@ -308,7 +308,7 @@ public class ScheduleSettingHelper {
             if (oldAlbumItems.containsKey(dayIndex)) {
                 for (Map<String, Object> item : oldAlbumItems.get(dayIndex)) {
                     String docId = (String) item.get("_docId");
-                    db.collection("user").document(userUid)
+                    db.collection("user").document(ownerUid)
                             .collection("schedule").document(scheduleId)
                             .collection("scheduleDate").document(oldDateKey)
                             .collection("album").document(docId)
@@ -322,7 +322,7 @@ public class ScheduleSettingHelper {
             }
 
             // 날짜 문서 삭제
-            db.collection("user").document(userUid)
+            db.collection("user").document(ownerUid)
                     .collection("schedule").document(scheduleId)
                     .collection("scheduleDate").document(oldDateKey)
                     .delete()
@@ -354,7 +354,7 @@ public class ScheduleSettingHelper {
             dateDoc.put("dayIndex", dayIndex);
             dateDoc.put("date", newDateKey);
 
-            batch.set(db.collection("user").document(userUid)
+            batch.set(db.collection("user").document(ownerUid)
                     .collection("schedule").document(scheduleId)
                     .collection("scheduleDate").document(newDateKey), dateDoc);
         }
@@ -391,7 +391,7 @@ public class ScheduleSettingHelper {
                 for (Map<String, Object> item : items) {
                     String docId = (String) item.remove("_docId");
 
-                    db.collection("user").document(userUid)
+                    db.collection("user").document(ownerUid)
                             .collection("schedule").document(scheduleId)
                             .collection("scheduleDate").document(newDateKey)
                             .collection("scheduleItem").document(docId)
@@ -412,7 +412,7 @@ public class ScheduleSettingHelper {
                 for (Map<String, Object> item : items) {
                     String docId = (String) item.remove("_docId");
 
-                    db.collection("user").document(userUid)
+                    db.collection("user").document(ownerUid)
                             .collection("schedule").document(scheduleId)
                             .collection("scheduleDate").document(newDateKey)
                             .collection("album").document(docId)
@@ -439,7 +439,7 @@ public class ScheduleSettingHelper {
         updateData.put("startDate", newStartDate);
         updateData.put("endDate", newEndDate);
 
-        db.collection("user").document(userUid)
+        db.collection("user").document(ownerUid)
                 .collection("schedule").document(scheduleId)
                 .update(updateData)
                 .addOnSuccessListener(aVoid -> {
@@ -479,7 +479,7 @@ public class ScheduleSettingHelper {
                     launchMapIntent(dateList, tempItemsMap);
                 }
             } else {
-                db.collection("user").document(userUid).collection("schedule").document(scheduleId)
+                db.collection("user").document(ownerUid).collection("schedule").document(scheduleId)
                         .collection("scheduleDate").document(dateKey).collection("scheduleItem").get()
                         .addOnSuccessListener(queryDocumentSnapshots -> {
                             List<ScheduleItemDTO> items = new ArrayList<>();
@@ -543,7 +543,7 @@ public class ScheduleSettingHelper {
                 .collection("scheduleDate");
 
         CollectionReference userScheduleRef = db.collection("user")
-                .document(userUid)
+                .document(ownerUid)
                 .collection("schedule")
                 .document(scheduleId)
                 .collection("scheduleDate");
@@ -568,7 +568,7 @@ public class ScheduleSettingHelper {
         if (relatedPostId == null) return;
 
         CollectionReference userItems = db.collection("user")
-                .document(userUid)
+                .document(ownerUid)
                 .collection("schedule")
                 .document(scheduleId)
                 .collection("scheduleDate")
@@ -599,7 +599,7 @@ public class ScheduleSettingHelper {
         if (relatedPostId == null) return;
 
         CollectionReference userAlbum = db.collection("user")
-                .document(userUid)
+                .document(ownerUid)
                 .collection("schedule")
                 .document(scheduleId)
                 .collection("scheduleDate")

@@ -25,6 +25,7 @@ import com.example.tot.Follow.FollowButtonHelper;
 import com.example.tot.MyPage.UserProfileActivity;
 import com.example.tot.R;
 import com.example.tot.Schedule.ScheduleSetting.ScheduleSettingActivity;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -474,8 +475,7 @@ public class NotificationActivity extends AppCompatActivity {
         String myUid = FirebaseAuth.getInstance().getUid();
         String ownerUid = n.getUserId();
         String scheduleId = n.getScheduleId();
-        Log.d("DEBUG", "DTO userId = " + n.getUserId());
-        Log.d("DEBUG", "DTO scheduleId = " + n.getScheduleId());
+        Log.d("NotificationActivity", "✅owner" + ownerUid);
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
         // 🔥 먼저 owner 의 스케줄 정보를 읽어온다
@@ -491,8 +491,12 @@ public class NotificationActivity extends AppCompatActivity {
                         return;
                     }
 
-                    long startMillis = doc.getTimestamp("startDate").toDate().getTime();
-                    long endMillis = doc.getTimestamp("endDate").toDate().getTime();
+
+                    Timestamp startTs = doc.getTimestamp("startDate");
+                    Timestamp endTs   = doc.getTimestamp("endDate");
+
+                    long startMillis = startTs.toDate().getTime();  // <-- 핵심
+                    long endMillis   = endTs.toDate().getTime();    // <-- 핵심
 
                     // sharedSchedule ID 생성
                     String sharedId = db.collection("user")
@@ -521,9 +525,11 @@ public class NotificationActivity extends AppCompatActivity {
                                 // 🔥 이제 ScheduleSettingActivity 에 필요한 값 모두 전달
                                 Intent intent = new Intent(this, ScheduleSettingActivity.class);
                                 intent.putExtra("scheduleId", scheduleId);
-                                intent.putExtra("startDate", startMillis);
-                                intent.putExtra("endDate", endMillis);
                                 intent.putExtra("sharedId", sharedId);
+                                intent.putExtra("ownerUid",ownerUid);
+                                // 🔥 Timestamp 대신 long 으로 넘김
+                                intent.putExtra("startMillisUtc", startMillis);
+                                intent.putExtra("endMillisUtc", endMillis);
                                 startActivity(intent);
                             });
                 });
