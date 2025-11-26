@@ -10,6 +10,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -835,6 +837,12 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         }
 
         btnBottomHeart.setEnabled(false);
+
+        // 좋아요를 누를 때만 애니메이션 실행
+        if (!isLiked) {
+            Animation scaleAnim = AnimationUtils.loadAnimation(this, R.anim.heart_scale);
+            btnBottomHeart.startAnimation(scaleAnim);
+        }
 
         if (isLiked) {
             communityPostsRef.document(postId)
