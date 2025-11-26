@@ -134,14 +134,22 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
 
         View rootView = findViewById(android.R.id.content);
         View bottomBar = findViewById(R.id.layout_bottom_fixed);
+        View appBar = findViewById(R.id.app_bar);
 
         ViewCompat.setOnApplyWindowInsetsListener(rootView, (v, insets) -> {
-
+            int insetTop = insets.getInsets(
+                    WindowInsetsCompat.Type.statusBars()
+            ).top;
             // 네비게이션 바 높이 구하기
             int insetBottom = insets.getInsets(
                     WindowInsetsCompat.Type.navigationBars()
             ).bottom;
-
+            appBar.setPadding(
+                    appBar.getPaddingLeft(),
+                    insetTop,
+                    appBar.getPaddingRight(),
+                    appBar.getPaddingBottom()
+            );
             // 기존 padding 유지 + inset 추가
             bottomBar.setPadding(
                     bottomBar.getPaddingLeft(),
