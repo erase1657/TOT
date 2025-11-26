@@ -42,7 +42,7 @@ public class FrameViewFragment extends Fragment {
         if (getArguments() != null) {
             dateList = getArguments().getStringArrayList("dateList");
             scheduleId = getArguments().getString("scheduleId");
-            userUid = getArguments().getString("userUid");
+            userUid = getArguments().getString("ownerUid");
         }
 
         for (String date : dateList) {

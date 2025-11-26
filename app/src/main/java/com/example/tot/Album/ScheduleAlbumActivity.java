@@ -36,7 +36,7 @@ public class ScheduleAlbumActivity extends AppCompatActivity {
         btnModeChange = findViewById(R.id.btn_mode_change);
         btnBack = findViewById(R.id.btn_back);
         scheduleId = getIntent().getStringExtra("scheduleId");
-        userUid = getIntent().getStringExtra("userUid");
+        userUid = getIntent().getStringExtra("ownerUid");
         dateList = getIntent().getStringArrayListExtra("dateList");
 
         // 기본 Fragment (읽기 모드)
@@ -73,7 +73,7 @@ public class ScheduleAlbumActivity extends AppCompatActivity {
     private Fragment createFragmentWithArgs(Fragment fragment) {
         Bundle args = new Bundle();
         args.putString("scheduleId", scheduleId);
-        args.putString("userUid", userUid);
+        args.putString("ownerUid", userUid);
         args.putStringArrayList("dateList", dateList);
         fragment.setArguments(args);
         return fragment;

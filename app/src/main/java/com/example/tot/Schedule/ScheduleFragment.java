@@ -263,8 +263,8 @@ public class ScheduleFragment extends Fragment {
             intent.putExtra("scheduleId", schedule.getScheduleId());
             intent.putExtra("ownerUid", schedule.getOwnerUid());
             intent.putExtra("isShared", schedule.isShared());
-            intent.putExtra("startMillisUtc", schedule.getStartDate().toDate().getTime());
-            intent.putExtra("endMillisUtc", schedule.getEndDate().toDate().getTime());            startActivity(intent);
+            intent.putExtra("startMillis", schedule.getStartDate().toDate().getTime());
+            intent.putExtra("endMillis", schedule.getEndDate().toDate().getTime());            startActivity(intent);
         });
 
         scheduleAdapter.setOnMenuItemClickListener(new ScheduleAdapter.OnMenuItemClickListener() {
@@ -529,8 +529,8 @@ public class ScheduleFragment extends Fragment {
                     intent.putExtra("scheduleId", scheduleId);
                     intent.putExtra("ownerUid", myUid);
                     intent.putExtra("isShared", false);
-                    intent.putExtra("startMillisUtc", startDate.toDate().getTime());  // 🔥 이름 통일
-                    intent.putExtra("endMillisUtc", endDate.toDate().getTime());
+                    intent.putExtra("startMillis", startDate.toDate().getTime());  // 🔥 이름 통일
+                    intent.putExtra("endMillis", endDate.toDate().getTime());
                     startActivity(intent);
                 })
                 .addOnFailureListener(e -> {

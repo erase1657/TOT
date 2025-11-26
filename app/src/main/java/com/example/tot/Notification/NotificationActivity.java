@@ -522,14 +522,12 @@ public class NotificationActivity extends AppCompatActivity {
 
                                 Toast.makeText(this, "초대를 수락했습니다", Toast.LENGTH_SHORT).show();
 
-                                // 🔥 이제 ScheduleSettingActivity 에 필요한 값 모두 전달
                                 Intent intent = new Intent(this, ScheduleSettingActivity.class);
                                 intent.putExtra("scheduleId", scheduleId);
                                 intent.putExtra("sharedId", sharedId);
                                 intent.putExtra("ownerUid",ownerUid);
-                                // 🔥 Timestamp 대신 long 으로 넘김
-                                intent.putExtra("startMillisUtc", startMillis);
-                                intent.putExtra("endMillisUtc", endMillis);
+                                intent.putExtra("startMillis", startMillis);
+                                intent.putExtra("endMillis", endMillis);
                                 startActivity(intent);
                             });
                 });

@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class ScheduleSettingActivity extends AppCompatActivity {
     private FirebaseFirestore db;
-    private String userUid,ownerUid,effectiveUid, scheduleId, selectedDate;
+    private String userUid,ownerUid, sharedId, scheduleId, selectedDate;
     private Timestamp startDate, endDate;
     private RecyclerView rvDate, rvScheduleItem,rvMembers;
     private InvitedMemberAdapter memberAdapter;
@@ -74,16 +74,17 @@ public class ScheduleSettingActivity extends AppCompatActivity {
 
         db = FirebaseFirestore.getInstance();
         userUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        sharedId = getIntent().getStringExtra("sharedId");
         scheduleId = getIntent().getStringExtra("scheduleId");
         isPostEditMode = getIntent().getBooleanExtra("fromPostEdit", false);
         relatedPostId = getIntent().getStringExtra("postId");
         ownerUid = getIntent().getStringExtra("ownerUid");
-        Log.e("ScheduleSetting", "ownerUid = " + ownerUid + ", scheduleId = " + scheduleId);
+
 
         isReadOnly = !userUid.equals(ownerUid);
 
-        long startMillis = getIntent().getLongExtra("startMillisUtc", 0);
-        long endMillis   = getIntent().getLongExtra("endMillisUtc", 0);
+        long startMillis = getIntent().getLongExtra("startMillis", 0);
+        long endMillis   = getIntent().getLongExtra("endMillis", 0);
         startDate = new Timestamp(new Date(startMillis));
         endDate = new Timestamp(new Date(endMillis));
         if (scheduleId == null || startMillis == 0 || endMillis == 0) {

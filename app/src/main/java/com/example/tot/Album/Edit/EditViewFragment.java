@@ -56,7 +56,7 @@ public class EditViewFragment extends Fragment implements
         if (getArguments() != null) {
             dateList = getArguments().getStringArrayList("dateList");
             scheduleId = getArguments().getString("scheduleId");
-            userUid = getArguments().getString("userUid");
+            userUid = getArguments().getString("ownerUid");
         }
 
         pickMultipleMedia = registerForActivityResult(
