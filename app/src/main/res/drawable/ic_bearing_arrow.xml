@@ -4,13 +4,20 @@
     android:viewportWidth="80"
     android:viewportHeight="80">
 
-    <!-- 화살표 -->
+    <!-- 화살표 몸통 -->
     <path
         android:fillColor="#FF6B35"
-        android:pathData="M40,15 L45,40 L40,35 L35,40 Z" />
+        android:pathData="M37,30 L43,30 L43,55 L37,55 Z" />
 
+    <!-- 화살표 머리 (삼각형) -->
     <path
         android:fillColor="#FF6B35"
-        android:pathData="M38,35 L42,35 L42,55 L38,55 Z" />
+        android:pathData="M40,15 L50,32 L30,32 Z" />
+
+    <!-- 화살표 그림자 효과 (입체감) -->
+    <path
+        android:fillColor="#CC5528"
+        android:fillAlpha="0.3"
+        android:pathData="M43,30 L43,55 L45,55 L45,30 Z" />
 
 </vector>
