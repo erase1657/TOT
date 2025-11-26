@@ -71,7 +71,7 @@ public class RegisterActivity extends AppCompatActivity {
                     @Override
                     public void onComplete(@NonNull Task<AuthResult> task) {
                         if (task.isSuccessful()) {
-                            String defaultProfileImageUrl = "https://firebasestorage.googleapis.com/v0/b/trickortrip-71733.firebasestorage.app/o/defaultProfile%2Fic_profile_default.xml?alt=media&token=b2d8211d-ccf1-49de-b423-a7b659089702";
+                            String defaultProfileImageUrl = "https://firebasestorage.googleapis.com/v0/b/trickortrip-71733.firebasestorage.app/o/defaultProfile%2Fic_profile_default.png?alt=media&token=94b6cdbe-53a1-46fb-a453-00860c81cd4f";
                             FirebaseUser user = task.getResult().getUser();
 
                             // ✅ UserDTO 생성자 수정: backgroundImageUrl 추가 (빈 문자열로 초기화)
