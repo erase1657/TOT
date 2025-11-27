@@ -2,7 +2,9 @@ package com.example.tot.Schedule.ScheduleSetting.Invite;
 
 import android.app.Dialog;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -21,6 +23,8 @@ import java.util.Map;
 import java.util.UUID;
 
 public class InviteDialog extends Dialog {
+
+    private static final String TAG = "InviteDialog";
 
     private RecyclerView rv_mutual_list;
     private Button btn_confirm, btn_send_sns;
@@ -49,9 +53,12 @@ public class InviteDialog extends Dialog {
         btn_confirm = findViewById(R.id.btn_confirm);
         btn_send_sns = findViewById(R.id.btn_send_sns);
         memberList = new ArrayList<>();
+
         // 리사이클러뷰 설정
         rv_mutual_list.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapter = new InviteAdapter(getContext(), memberList);
+
+        // ✅ 초대 클릭 콜백 추가
+        adapter = new InviteAdapter(getContext(), memberList, dto -> sendAppInvite(dto));
         rv_mutual_list.setAdapter(adapter);
 
         // 🔥 다이얼로그 열리자마자 맞팔 유저 로드
@@ -137,7 +144,94 @@ public class InviteDialog extends Dialog {
                 });
     }
 
+    /**
+     * -------------------------------------------------------------
+     * ✅ 앱 내부 초대: 수신함에 알림 전송
+     * -------------------------------------------------------------
+     */
+    private void sendAppInvite(InviteDTO dto) {
+        final FirebaseFirestore db = FirebaseFirestore.getInstance();
+        final String myUid = FirebaseAuth.getInstance().getUid();
+        final String scheduleId = parentActivity.getScheduleId();
+        final String receiverUid = dto.getReceiverUID();
 
+        if (myUid == null || scheduleId == null || receiverUid == null) {
+            Toast.makeText(getContext(), "초대 정보가 올바르지 않습니다", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 1) 스케줄 정보 가져오기
+        db.collection("user")
+                .document(myUid)
+                .collection("schedule")
+                .document(scheduleId)
+                .get()
+                .addOnSuccessListener(scheduleDoc -> {
+                    if (!scheduleDoc.exists()) {
+                        Toast.makeText(getContext(), "스케줄을 찾을 수 없습니다", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    final String scheduleName = scheduleDoc.getString("scheduleName") != null ?
+                            scheduleDoc.getString("scheduleName") : "여행 일정";
+
+                    // 2) 내 닉네임 가져오기
+                    db.collection("user")
+                            .document(myUid)
+                            .get()
+                            .addOnSuccessListener(userDoc -> {
+                                final String myNickname = userDoc.exists() && userDoc.getString("nickname") != null ?
+                                        userDoc.getString("nickname") : "알 수 없음";
+
+                                // 3) 수신함에 알림 저장
+                                String notificationId = UUID.randomUUID().toString();
+                                Map<String, Object> notification = new HashMap<>();
+                                notification.put("type", "SCHEDULE_INVITE");
+                                notification.put("senderUid", myUid);
+                                notification.put("senderName", myNickname);
+                                notification.put("scheduleId", scheduleId);
+                                notification.put("scheduleName", scheduleName);
+                                notification.put("content", myNickname + " 님이 " + scheduleName + "에 초대했습니다");
+                                notification.put("isRead", false);
+                                notification.put("createdAt", System.currentTimeMillis());
+
+                                db.collection("user")
+                                        .document(receiverUid)
+                                        .collection("scheduleInvitations")
+                                        .document(notificationId)
+                                        .set(notification)
+                                        .addOnSuccessListener(aVoid -> {
+                                            Log.d(TAG, "✅ 앱 초대 전송 성공: " + receiverUid);
+                                            Toast.makeText(getContext(),
+                                                    "초대를 전송했습니다",
+                                                    Toast.LENGTH_SHORT).show();
+
+                                            // DTO 상태 업데이트
+                                            dto.setStatus("pending");
+                                            adapter.notifyDataSetChanged();
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "❌ 앱 초대 전송 실패", e);
+                                            Toast.makeText(getContext(),
+                                                    "초대 전송에 실패했습니다",
+                                                    Toast.LENGTH_SHORT).show();
+                                        });
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ 사용자 정보 조회 실패", e);
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ 스케줄 정보 조회 실패", e);
+                    Toast.makeText(getContext(), "스케줄 정보를 불러올 수 없습니다", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /**
+     * -------------------------------------------------------------
+     * 카카오톡 초대 (기존 기능 유지)
+     * -------------------------------------------------------------
+     */
     private void sendKakaoInvite(String scheduleId) {
 
         String senderUid = FirebaseAuth.getInstance().getUid();

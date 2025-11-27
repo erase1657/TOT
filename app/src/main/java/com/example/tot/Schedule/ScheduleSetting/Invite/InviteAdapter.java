@@ -22,10 +22,25 @@ public class InviteAdapter extends RecyclerView.Adapter<InviteAdapter.InviteView
 
     private Context context;
     private List<InviteDTO> memberList;
+    private OnInviteClickListener listener; // ✅ 콜백 추가
 
+    // ✅ 초대 클릭 콜백 인터페이스
+    public interface OnInviteClickListener {
+        void onInviteClick(InviteDTO dto);
+    }
+
+    // 기존 생성자 유지 (하위 호환성)
     public InviteAdapter(Context context, List<InviteDTO> memberList) {
         this.context = context;
         this.memberList = memberList;
+        this.listener = null;
+    }
+
+    // ✅ 콜백 포함 생성자 추가
+    public InviteAdapter(Context context, List<InviteDTO> memberList, OnInviteClickListener listener) {
+        this.context = context;
+        this.memberList = memberList;
+        this.listener = listener;
     }
 
     @NonNull
@@ -49,18 +64,18 @@ public class InviteAdapter extends RecyclerView.Adapter<InviteAdapter.InviteView
         holder.btnInvite.setOnClickListener(v -> {
 
             if ("none".equals(dto.getStatus())) {
-                // 초대 실행
-                dto.setStatus("pending");
+                // ✅ 초대 실행 - 콜백 호출
+                if (listener != null) {
+                    listener.onInviteClick(dto);
+                } else {
+                    // 콜백이 없으면 기존 방식대로 상태만 변경
+                    dto.setStatus("pending");
+                    updateInviteIcon(holder, "pending");
+                }
 
-                // 버튼 즉시 업데이트
-                updateInviteIcon(holder, "pending");
-
-                // 여기서 실제 초대 저장 로직(InviteDialog 쪽)으로 콜백 보내도 됨
-                // ex) listener.onInviteClicked(dto);
-
-            } else {
-                // 이미 초대한 상태라면 아무 동작하지 않음
-                // 또는 "초대 취소" 기능을 원하면 여기에 추가
+            } else if ("pending".equals(dto.getStatus())) {
+                // 이미 초대한 상태 - 동작 없음 또는 취소 기능 추가 가능
+                // 현재는 아무 동작 없음
             }
         });
     }

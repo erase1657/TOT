@@ -37,14 +37,12 @@ public class NotificationManager {
 
     private ListenerRegistration followerListener;
     private ListenerRegistration commentListener;
-    private ListenerRegistration postListener;  // ✅ 게시글 알림 리스너 추가
+    private ListenerRegistration postListener;
+    private ListenerRegistration scheduleInviteListener; // ✅ 추가
     private List<ListenerRegistration> inviteListeners = new ArrayList<>();
     private boolean isListening = false;
 
-    // ✅ 게시글별 읽지 않은 댓글 수 추적
     private Map<String, Integer> unreadCommentCountByPost = new HashMap<>();
-
-    // ✅ 사용자별 읽지 않은 게시글 수 추적
     private Map<String, Integer> unreadPostCountByUser = new HashMap<>();
 
     public interface UnreadCountListener {
@@ -84,7 +82,8 @@ public class NotificationManager {
         startListeningForFollowers();
         startListeningForComments();
         startListeningForInvites();
-        startListeningForPosts();  // ✅ 게시글 알림 리스너 시작
+        startListeningForPosts();
+        startListeningForScheduleInvites(); // ✅ 추가
     }
 
     private void loadNotificationsFromCache() {
@@ -101,26 +100,18 @@ public class NotificationManager {
             Log.d(TAG, "🗑️ 오래된 알림 자동 삭제");
         }
 
-        // ✅ 게시글별 읽지 않은 댓글 수 계산 및 사용자별 게시글 수 계산
         recalculateUnreadCounts(cached);
-
         splitNotifications(cached);
         notifyUnreadCountChanged();
 
         Log.d(TAG, "📱 로컬 캐시 로드: " + cached.size() + "개");
     }
 
-    /**
-     * ✅ 읽지 않은 댓글/게시글 수 재계산
-     */
     private void recalculateUnreadCounts(List<NotificationDTO> notifications) {
         unreadCommentCountByPost.clear();
         unreadPostCountByUser.clear();
 
-        // 댓글 알림 그룹화 (게시글별)
         Map<String, List<NotificationDTO>> commentsByPost = new HashMap<>();
-
-        // 게시글 알림 그룹화 (사용자별)
         Map<String, List<NotificationDTO>> postsByUser = new HashMap<>();
 
         for (NotificationDTO notif : notifications) {
@@ -143,11 +134,9 @@ public class NotificationManager {
             }
         }
 
-        // 댓글: 게시글별 카운트 설정
         for (Map.Entry<String, List<NotificationDTO>> entry : commentsByPost.entrySet()) {
             String postId = entry.getKey();
             List<NotificationDTO> postComments = entry.getValue();
-
             postComments.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
 
             int unreadCount = postComments.size();
@@ -156,17 +145,14 @@ public class NotificationManager {
             if (!postComments.isEmpty()) {
                 postComments.get(0).setUnreadCount(unreadCount);
             }
-
             for (int i = 1; i < postComments.size(); i++) {
                 postComments.get(i).setUnreadCount(0);
             }
         }
 
-        // ✅ 게시글: 사용자별 카운트 설정
         for (Map.Entry<String, List<NotificationDTO>> entry : postsByUser.entrySet()) {
             String userId = entry.getKey();
             List<NotificationDTO> userPosts = entry.getValue();
-
             userPosts.sort((a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
 
             int unreadCount = userPosts.size();
@@ -175,7 +161,6 @@ public class NotificationManager {
             if (!userPosts.isEmpty()) {
                 userPosts.get(0).setUnreadCount(unreadCount);
             }
-
             for (int i = 1; i < userPosts.size(); i++) {
                 userPosts.get(i).setUnreadCount(0);
             }
@@ -193,7 +178,7 @@ public class NotificationManager {
         String userId = mAuth.getCurrentUser().getUid();
         long lastCheck = cache.getLastCheckTime();
 
-        Log.d(TAG, "👂 follower 컬렉션 실시간 감지 시작 (마지막 확인: " + lastCheck + ")");
+        Log.d(TAG, "👂 follower 컬렉션 실시간 감지 시작");
 
         followerListener = db.collection("user")
                 .document(userId)
@@ -270,12 +255,10 @@ public class NotificationManager {
                                 );
 
                                 doc.getReference().delete()
-                                        .addOnSuccessListener(aVoid -> {
-                                            Log.d(TAG, "✅ 처리된 댓글 알림 삭제: " + doc.getId());
-                                        })
-                                        .addOnFailureListener(e -> {
-                                            Log.e(TAG, "❌ 댓글 알림 삭제 실패", e);
-                                        });
+                                        .addOnSuccessListener(aVoid ->
+                                                Log.d(TAG, "✅ 처리된 댓글 알림 삭제: " + doc.getId()))
+                                        .addOnFailureListener(e ->
+                                                Log.e(TAG, "❌ 댓글 알림 삭제 실패", e));
                             }
                         }
                     }
@@ -283,8 +266,8 @@ public class NotificationManager {
                     cache.setLastCheckTime(System.currentTimeMillis());
                 });
     }
-    private void startListeningForInvites() {
 
+    private void startListeningForInvites() {
         if (mAuth.getCurrentUser() == null) return;
 
         String uid = mAuth.getCurrentUser().getUid();
@@ -294,89 +277,108 @@ public class NotificationManager {
 
         ListenerRegistration reg =
                 db.collectionGroup("invited")
-                        .whereEqualTo("receiverUid", uid)   // 내가 받은 초대만 필터
-                .addSnapshotListener((snapshots, error) -> {
+                        .whereEqualTo("receiverUid", uid)
+                        .addSnapshotListener((snapshots, error) -> {
+                            if (error != null) {
+                                Log.e(TAG, "❌ inviteReceived 리스너 오류", error);
+                                return;
+                            }
+                            if (snapshots == null || snapshots.isEmpty()) return;
 
+                            for (DocumentChange change : snapshots.getDocumentChanges()) {
+                                if (change.getType() == DocumentChange.Type.ADDED) {
+                                    DocumentSnapshot doc = change.getDocument();
+                                    Long createdAt = doc.getLong("createdAt");
+
+                                    if (createdAt != null && createdAt > lastCheck) {
+                                        String inviteId = doc.getId();
+                                        String scheduleId = doc.getReference()
+                                                .getParent()
+                                                .getParent()
+                                                .getId();
+                                        String senderUid = doc.getString("senderUid");
+
+                                        Log.d(TAG, "🎉 새로운 초대 감지: " + inviteId);
+
+                                        createLocalScheduleInviteNotification(
+                                                inviteId,
+                                                scheduleId,
+                                                senderUid,
+                                                createdAt
+                                        );
+                                    }
+                                }
+                            }
+
+                            cache.setLastCheckTime(System.currentTimeMillis());
+                        });
+
+        inviteListeners.add(reg);
+    }
+
+    /**
+     * ✅ 앱 내부 스케줄 초대 알림 리스너
+     */
+    private void startListeningForScheduleInvites() {
+        if (mAuth.getCurrentUser() == null) {
+            return;
+        }
+
+        String userId = mAuth.getCurrentUser().getUid();
+        long lastCheck = cache.getLastCheckTime();
+
+        Log.d(TAG, "👂 scheduleInvitations 컬렉션 실시간 감지 시작");
+
+        scheduleInviteListener = db.collection("user")
+                .document(userId)
+                .collection("scheduleInvitations")
+                .addSnapshotListener((snapshots, error) -> {
                     if (error != null) {
-                        Log.e(TAG, "❌ inviteReceived 리스너 오류", error);
+                        Log.e(TAG, "❌ scheduleInvitations 리스너 오류", error);
                         return;
                     }
-                    if (snapshots == null || snapshots.isEmpty()) return;
+
+                    if (snapshots == null || snapshots.getDocumentChanges().isEmpty()) {
+                        return;
+                    }
 
                     for (DocumentChange change : snapshots.getDocumentChanges()) {
                         if (change.getType() == DocumentChange.Type.ADDED) {
-
                             DocumentSnapshot doc = change.getDocument();
                             Long createdAt = doc.getLong("createdAt");
 
                             if (createdAt != null && createdAt > lastCheck) {
-
-                                String inviteId = doc.getId();
-
-                                String scheduleId = doc.getReference()
-                                        .getParent()
-                                        .getParent()
-                                        .getId();
-
                                 String senderUid = doc.getString("senderUid");
-                                Log.d(TAG, "🎉 새로운 초대 감지: " + inviteId);
+                                String senderName = doc.getString("senderName");
+                                String scheduleId = doc.getString("scheduleId");
+                                String scheduleName = doc.getString("scheduleName");
+                                String content = doc.getString("content");
 
-                                createLocalScheduleInviteNotification(
-                                        inviteId,
-                                        scheduleId,
+                                createLocalAppInviteNotification(
+                                        doc.getId(),
                                         senderUid,
+                                        senderName,
+                                        scheduleId,
+                                        scheduleName,
+                                        content,
                                         createdAt
                                 );
+
+                                // ✅ 처리 후 삭제 (선택사항)
+                                doc.getReference().delete()
+                                        .addOnSuccessListener(aVoid ->
+                                                Log.d(TAG, "✅ 처리된 스케줄 초대 알림 삭제: " + doc.getId()))
+                                        .addOnFailureListener(e ->
+                                                Log.e(TAG, "❌ 스케줄 초대 알림 삭제 실패", e));
                             }
                         }
                     }
 
                     cache.setLastCheckTime(System.currentTimeMillis());
                 });
-
-        inviteListeners.add(reg);
     }
-    private void createLocalScheduleInviteNotification(String inviteId,
-                                                       String scheduleId,
-                                                       String senderUid,
-                                                       long createdAt) {
-        /**
-         * NOTE: 초대 알림을 생성하는 시점에서 이미 invite콜렉션에 데이터가 저장된 상태임
-         * 필요한 값들이 있다면 내가 invite콜렉션 필드값을 가져와서 notification 객체에 저장해서 사용할 수 있음
-         */
-        db.collection("user")
-                .document(senderUid)
-                .get()
-                .addOnSuccessListener(doc -> {
+    // Part 1에서 이어짐...
 
-                    String nickname = doc.getString("nickname");//위 노트의 예시
-                    if (nickname == null) nickname = "사용자";
-
-
-
-                    NotificationDTO notification = NotificationDTO.createScheduleInvite(
-                            "invite_" + inviteId,
-                            nickname,
-                            "여행 일정에 참여하고 싶으시다면 여기를 클릭해 여행 일정에 참가해주세요",
-                            getTimeDisplay(createdAt),
-                            false,
-                            0,
-                            R.drawable.ic_schedule,
-                            senderUid,
-                            createdAt,
-                            scheduleId   // ← ⭐ 여기 추가됨
-                    );
-
-                    notification.setPostId(null);
-
-                    addNotificationToCache(notification);
-
-                    Log.d(TAG, "🎉 스케줄 초대 알림 생성됨!");
-                });
-    }
-    /**
-     * ✅ 친구 게시글 알림 리스너 시작
-     */
     private void startListeningForPosts() {
         if (mAuth.getCurrentUser() == null) {
             return;
@@ -421,12 +423,10 @@ public class NotificationManager {
                                 );
 
                                 doc.getReference().delete()
-                                        .addOnSuccessListener(aVoid -> {
-                                            Log.d(TAG, "✅ 처리된 게시글 알림 삭제: " + doc.getId());
-                                        })
-                                        .addOnFailureListener(e -> {
-                                            Log.e(TAG, "❌ 게시글 알림 삭제 실패", e);
-                                        });
+                                        .addOnSuccessListener(aVoid ->
+                                                Log.d(TAG, "✅ 처리된 게시글 알림 삭제: " + doc.getId()))
+                                        .addOnFailureListener(e ->
+                                                Log.e(TAG, "❌ 게시글 알림 삭제 실패", e));
                             }
                         }
                     }
@@ -434,7 +434,66 @@ public class NotificationManager {
                     cache.setLastCheckTime(System.currentTimeMillis());
                 });
     }
-    // Part 1에서 이어짐...
+
+    private void createLocalScheduleInviteNotification(String inviteId,
+                                                       String scheduleId,
+                                                       String senderUid,
+                                                       long createdAt) {
+        db.collection("user")
+                .document(senderUid)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    String nickname = doc.getString("nickname");
+                    if (nickname == null) nickname = "사용자";
+
+                    NotificationDTO notification = NotificationDTO.createScheduleInvite(
+                            "invite_" + inviteId,
+                            nickname,
+                            "여행 일정에 참여하고 싶으시다면 여기를 클릭해 여행 일정에 참가해주세요",
+                            getTimeDisplay(createdAt),
+                            false,
+                            0,
+                            R.drawable.ic_schedule,
+                            senderUid,
+                            createdAt,
+                            scheduleId
+                    );
+
+                    notification.setPostId(null);
+                    addNotificationToCache(notification);
+
+                    Log.d(TAG, "🎉 스케줄 초대 알림 생성됨!");
+                });
+    }
+
+    /**
+     * ✅ 앱 내부 초대 알림 생성
+     */
+    private void createLocalAppInviteNotification(String notificationId,
+                                                  String senderUid,
+                                                  String senderName,
+                                                  String scheduleId,
+                                                  String scheduleName,
+                                                  String content,
+                                                  long createdAt) {
+        NotificationDTO notification = NotificationDTO.createScheduleInvite(
+                "app_invite_" + notificationId,
+                scheduleName != null ? scheduleName : "여행 일정",
+                content != null ? content : (senderName + " 님이 초대했습니다"),
+                getTimeDisplay(createdAt),
+                false,
+                0,
+                R.drawable.ic_schedule,
+                senderUid,
+                createdAt,
+                scheduleId
+        );
+
+        notification.setPostId(null);
+        addNotificationToCache(notification);
+
+        Log.d(TAG, "✅ 앱 내부 스케줄 초대 알림 생성: " + senderName + " → " + scheduleName);
+    }
 
     private void createLocalFollowNotification(String followerId, long followedAt) {
         db.collection("user")
@@ -487,15 +546,11 @@ public class NotificationManager {
         );
 
         notification.setPostId(postId);
-
         addCommentNotificationAndUpdateCounts(notification, postId);
 
-        Log.d(TAG, "✅ 로컬 댓글 알림 생성: " + commenterName + " - " + commentContent + " (카운트: " + newCount + ")");
+        Log.d(TAG, "✅ 로컬 댓글 알림 생성: " + commenterName + " (카운트: " + newCount + ")");
     }
 
-    /**
-     * ✅ 친구 게시글 알림 생성
-     */
     private void createLocalPostNotification(String notificationId, String postId,
                                              String authorId, String authorName,
                                              String postTitle, long timestamp) {
@@ -518,12 +573,9 @@ public class NotificationManager {
 
         addPostNotificationAndUpdateCounts(notification, authorId);
 
-        Log.d(TAG, "✅ 로컬 게시글 알림 생성: " + authorName + " - " + postTitle + " (카운트: " + newCount + ")");
+        Log.d(TAG, "✅ 로컬 게시글 알림 생성: " + authorName + " (카운트: " + newCount + ")");
     }
 
-    /**
-     * ✅ 댓글 알림 추가 및 같은 게시글의 이전 알림 카운트 업데이트
-     */
     private void addCommentNotificationAndUpdateCounts(NotificationDTO newNotification, String postId) {
         List<NotificationDTO> current = cache.loadNotifications();
 
@@ -542,14 +594,10 @@ public class NotificationManager {
         }
 
         cache.saveNotifications(current);
-
         splitNotifications(current);
         notifyUnreadCountChanged();
     }
 
-    /**
-     * ✅ 게시글 알림 추가 및 같은 사용자의 이전 알림 카운트 업데이트
-     */
     private void addPostNotificationAndUpdateCounts(NotificationDTO newNotification, String authorId) {
         List<NotificationDTO> current = cache.loadNotifications();
 
@@ -568,7 +616,6 @@ public class NotificationManager {
         }
 
         cache.saveNotifications(current);
-
         splitNotifications(current);
         notifyUnreadCountChanged();
     }
@@ -582,7 +629,6 @@ public class NotificationManager {
         }
 
         cache.saveNotifications(current);
-
         splitNotifications(current);
         notifyUnreadCountChanged();
     }
@@ -648,9 +694,6 @@ public class NotificationManager {
         }
     }
 
-    /**
-     * ✅ 읽음 처리 - 댓글/게시글 알림의 경우 카운트 업데이트
-     */
     public void markAsRead(String notificationId) {
         if (cache != null) {
             cache.markAsReadLocal(notificationId);
@@ -696,9 +739,6 @@ public class NotificationManager {
         Log.d(TAG, "✅ 로컬 알림 읽음 처리: " + notificationId);
     }
 
-    /**
-     * ✅ 댓글 읽음 처리 후 다음 최신 알림으로 카운트 이동
-     */
     private void updateCommentCountsAfterRead(String postId) {
         List<NotificationDTO> allNotifications = cache.loadNotifications();
         List<NotificationDTO> unreadComments = new ArrayList<>();
@@ -730,9 +770,6 @@ public class NotificationManager {
         Log.d(TAG, "✅ 게시글 " + postId + "의 읽지 않은 댓글 수: " + newCount);
     }
 
-    /**
-     * ✅ 게시글 읽음 처리 후 다음 최신 알림으로 카운트 이동
-     */
     private void updatePostCountsAfterRead(String authorId) {
         List<NotificationDTO> allNotifications = cache.loadNotifications();
         List<NotificationDTO> unreadPosts = new ArrayList<>();
@@ -858,6 +895,11 @@ public class NotificationManager {
             postListener.remove();
             postListener = null;
             Log.d(TAG, "🛑 postNotifications 리스너 해제");
+        }
+        if (scheduleInviteListener != null) {
+            scheduleInviteListener.remove();
+            scheduleInviteListener = null;
+            Log.d(TAG, "🛑 scheduleInvitations 리스너 해제");
         }
         isListening = false;
     }
