@@ -7,7 +7,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
+import androidx.fragment.app.FragmentActivity;
+
 import com.example.tot.Album.AlbumDTO;
+import com.example.tot.Community.PhotoFullscreenFragment;
 import com.example.tot.R;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -51,6 +54,19 @@ public class FramePhotoAdapter extends RecyclerView.Adapter<FramePhotoAdapter.Vi
                 .load(dto.getImageUrl())
                 .centerCrop()
                 .into(h.imgPhoto);
+
+        // ✅ 사진 클릭 시 확대 화면 표시
+        h.imgPhoto.setOnClickListener(v -> {
+            ArrayList<String> photoUrls = new ArrayList<>();
+            for (AlbumDTO photo : photos) {
+                photoUrls.add(photo.getImageUrl());
+            }
+
+            if (h.itemView.getContext() instanceof FragmentActivity) {
+                PhotoFullscreenFragment fragment = PhotoFullscreenFragment.newInstance(photoUrls, pos, true);
+                fragment.show(((FragmentActivity) h.itemView.getContext()).getSupportFragmentManager(), "photo_fullscreen");
+            }
+        });
     }
 
     @Override

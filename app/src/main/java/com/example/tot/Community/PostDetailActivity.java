@@ -202,6 +202,21 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
         btnCopySchedule.setOnClickListener(v -> showCopyScheduleDialog());
 
         rvScheduleItems.setLayoutManager(new LinearLayoutManager(this));
+        imgThumbnail.setOnClickListener(v -> {
+            String thumbnailUrl = null;
+
+            // 현재 표시된 썸네일 URL 가져오기
+            if (imgThumbnail.getTag() != null) {
+                thumbnailUrl = (String) imgThumbnail.getTag();
+            }
+
+            if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+                ArrayList<String> urls = new ArrayList<>();
+                urls.add(thumbnailUrl);
+                PhotoFullscreenFragment fragment = PhotoFullscreenFragment.newInstance(urls, 0, false);
+                fragment.show(getSupportFragmentManager(), "photo_fullscreen");
+            }
+        });
     }
 
     private void openCommentsBottomSheet() {
@@ -324,6 +339,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                     // ✅ 썸네일 표시 로직 개선
                     if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
                         imgThumbnail.setVisibility(View.VISIBLE);
+                        imgThumbnail.setTag(thumbnailUrl); // ✅ URL 저장
                         Glide.with(this)
                                 .load(thumbnailUrl)
                                 .placeholder(R.drawable.sample3)
@@ -392,6 +408,7 @@ public class PostDetailActivity extends AppCompatActivity implements OnMapReadyC
                         String imageUrl = snapshot.getDocuments().get(0).getString("imageUrl");
                         if (imageUrl != null && !imageUrl.isEmpty()) {
                             imgThumbnail.setVisibility(View.VISIBLE);
+                            imgThumbnail.setTag(imageUrl); // ✅ URL 저장
                             Glide.with(this)
                                     .load(imageUrl)
                                     .placeholder(R.drawable.sample3)

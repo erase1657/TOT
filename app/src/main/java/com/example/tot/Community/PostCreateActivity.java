@@ -107,6 +107,15 @@ public class PostCreateActivity extends AppCompatActivity {
         cityScrollView = findViewById(R.id.cityScrollView);
         btnAddRegionTag = findViewById(R.id.btn_add_region_tag);
         layoutAddedTags = findViewById(R.id.layout_added_tags);
+        // ✅ 썸네일 클릭 시 확대 화면 표시
+        imgThumbnail.setOnClickListener(v -> {
+            if (thumbnailUri != null && !thumbnailUri.isEmpty()) {
+                ArrayList<String> urls = new ArrayList<>();
+                urls.add(thumbnailUri);
+                PhotoFullscreenFragment fragment = PhotoFullscreenFragment.newInstance(urls, 0, false);
+                fragment.show(getSupportFragmentManager(), "photo_fullscreen");
+            }
+        });
     }
 
     private void displayScheduleInfo() {

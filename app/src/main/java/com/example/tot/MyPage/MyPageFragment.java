@@ -624,7 +624,25 @@ public class MyPageFragment extends Fragment {
                     Log.d(TAG, "🖼️ 프로필 이미지 선택 시작");
                     profileImageLauncher.launch("image/*");
                 } else {
-                    Toast.makeText(getContext(), "편집 모드에서 변경 가능합니다", Toast.LENGTH_SHORT).show();
+                    // ✅ 편집 모드가 아닐 때 프로필 사진 확대
+                    String profileUrl = originalProfileImageUrl;
+                    if (profileUrl != null && !profileUrl.isEmpty()) {
+                        ArrayList<String> urls = new ArrayList<>();
+                        urls.add(profileUrl);
+                        com.example.tot.Community.PhotoFullscreenFragment fragment =
+                                com.example.tot.Community.PhotoFullscreenFragment.newInstance(urls, 0, false);
+                        fragment.show(getParentFragmentManager(), "photo_fullscreen");
+                    }
+                }
+            } else {
+                // ✅ 타인의 프로필 사진도 확대 가능
+                String profileUrl = originalProfileImageUrl;
+                if (profileUrl != null && !profileUrl.isEmpty()) {
+                    ArrayList<String> urls = new ArrayList<>();
+                    urls.add(profileUrl);
+                    com.example.tot.Community.PhotoFullscreenFragment fragment =
+                            com.example.tot.Community.PhotoFullscreenFragment.newInstance(urls, 0, false);
+                    fragment.show(getParentFragmentManager(), "photo_fullscreen");
                 }
             }
         });
@@ -635,7 +653,25 @@ public class MyPageFragment extends Fragment {
                     Log.d(TAG, "🖼️ 배경 이미지 선택 시작");
                     backgroundImageLauncher.launch("image/*");
                 } else {
-                    Toast.makeText(getContext(), "편집 모드에서 변경 가능합니다", Toast.LENGTH_SHORT).show();
+                    // ✅ 편집 모드가 아닐 때 배경 사진 확대
+                    String backgroundUrl = originalBackgroundImageUrl;
+                    if (backgroundUrl != null && !backgroundUrl.isEmpty()) {
+                        ArrayList<String> urls = new ArrayList<>();
+                        urls.add(backgroundUrl);
+                        com.example.tot.Community.PhotoFullscreenFragment fragment =
+                                com.example.tot.Community.PhotoFullscreenFragment.newInstance(urls, 0, false);
+                        fragment.show(getParentFragmentManager(), "photo_fullscreen");
+                    }
+                }
+            } else {
+                // ✅ 타인의 배경 사진도 확대 가능
+                String backgroundUrl = originalBackgroundImageUrl;
+                if (backgroundUrl != null && !backgroundUrl.isEmpty()) {
+                    ArrayList<String> urls = new ArrayList<>();
+                    urls.add(backgroundUrl);
+                    com.example.tot.Community.PhotoFullscreenFragment fragment =
+                            com.example.tot.Community.PhotoFullscreenFragment.newInstance(urls, 0, false);
+                    fragment.show(getParentFragmentManager(), "photo_fullscreen");
                 }
             }
         });

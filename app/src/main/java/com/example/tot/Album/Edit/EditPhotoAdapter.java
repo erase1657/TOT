@@ -10,13 +10,16 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.example.tot.Album.AlbumDTO;
+import com.example.tot.Community.PhotoFullscreenFragment;
 import com.example.tot.R;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -90,6 +93,21 @@ public class EditPhotoAdapter extends RecyclerView.Adapter<EditPhotoAdapter.View
         holder.btnEditComment.setOnClickListener(v -> {
             if (commentListener != null)
                 commentListener.onEditComment(dto, holder.getBindingAdapterPosition());
+        });
+
+        // ✅ 사진 클릭 시 확대 화면 표시
+        holder.imgPhoto.setOnClickListener(v -> {
+            ArrayList<String> photoUrls = new ArrayList<>();
+            for (AlbumDTO photo : photos) {
+                photoUrls.add(photo.getImageUrl());
+            }
+
+            if (holder.itemView.getContext() instanceof FragmentActivity) {
+                PhotoFullscreenFragment fragment = PhotoFullscreenFragment.newInstance(
+                        photoUrls, holder.getBindingAdapterPosition(), true);
+                fragment.show(((FragmentActivity) holder.itemView.getContext()).getSupportFragmentManager(),
+                        "photo_fullscreen");
+            }
         });
 
         holder.dragHandle.setOnTouchListener((v, event) -> {
