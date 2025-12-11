@@ -32,7 +32,6 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.bumptech.glide.Glide;
@@ -88,7 +87,6 @@ public class PhotoFullscreenFragment extends DialogFragment {
             showIndicator = getArguments().getBoolean(ARG_SHOW_INDICATOR, true);
         }
 
-        // 권한 요청 런처 등록
         permissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(),
                 isGranted -> {
@@ -116,11 +114,10 @@ public class PhotoFullscreenFragment extends DialogFragment {
         backButton = view.findViewById(R.id.btn_back);
         saveButton = view.findViewById(R.id.btn_save);
 
-        FullscreenPhotoAdapter adapter = new FullscreenPhotoAdapter(photoUrls);
+        FullscreenPhotoAdapter adapter = new FullscreenPhotoAdapter(photoUrls, viewPager);
         viewPager.setAdapter(adapter);
         viewPager.setCurrentItem(currentPosition, false);
 
-        // 인디케이터 표시 여부 설정
         if (showIndicator) {
             indicator.setVisibility(View.VISIBLE);
             updateIndicator(currentPosition);
@@ -149,10 +146,8 @@ public class PhotoFullscreenFragment extends DialogFragment {
 
     private void checkPermissionAndSave() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Android 10 이상에서는 권한 불필요
             saveCurrentPhoto();
         } else {
-            // Android 9 이하에서는 WRITE_EXTERNAL_STORAGE 권한 필요
             if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE)
                     == PackageManager.PERMISSION_GRANTED) {
                 saveCurrentPhoto();
@@ -170,7 +165,6 @@ public class PhotoFullscreenFragment extends DialogFragment {
 
         String photoUrl = photoUrls.get(currentPosition);
 
-        // Glide를 사용해 이미지 다운로드 후 저장
         Glide.with(requireContext())
                 .asBitmap()
                 .load(photoUrl)
@@ -197,7 +191,6 @@ public class PhotoFullscreenFragment extends DialogFragment {
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Android 10 이상
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
                 values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
@@ -215,7 +208,6 @@ public class PhotoFullscreenFragment extends DialogFragment {
                     }
                 }
             } else {
-                // Android 9 이하
                 String imagesDir = Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_PICTURES).toString() + "/TOT";
                 File dir = new File(imagesDir);
@@ -228,7 +220,6 @@ public class PhotoFullscreenFragment extends DialogFragment {
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
                 fos.close();
 
-                // 갤러리에 스캔 요청
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.Images.Media.DATA, image.getAbsolutePath());
                 requireContext().getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
@@ -240,20 +231,21 @@ public class PhotoFullscreenFragment extends DialogFragment {
             Toast.makeText(getContext(), "저장 실패: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
-    // Part 2: 확대/축소 기능이 포함된 어댑터
 
     private static class FullscreenPhotoAdapter extends RecyclerView.Adapter<FullscreenPhotoAdapter.PhotoViewHolder> {
 
         private final List<String> photoUrls;
+        private final ViewPager2 viewPager;
 
-        public FullscreenPhotoAdapter(List<String> photoUrls) {
+        public FullscreenPhotoAdapter(List<String> photoUrls, ViewPager2 viewPager) {
             this.photoUrls = photoUrls;
+            this.viewPager = viewPager;
         }
 
         @NonNull
         @Override
         public PhotoViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            ImageView imageView = new ZoomableImageView(parent.getContext());
+            ZoomableImageView imageView = new ZoomableImageView(parent.getContext(), viewPager);
             imageView.setLayoutParams(new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
@@ -281,9 +273,9 @@ public class PhotoFullscreenFragment extends DialogFragment {
     }
 
     /**
-     * 확대/축소 기능을 지원하는 ImageView
-     * - 핀치 줌 (두 손가락으로 확대/축소)
-     * - 더블 탭 (확대/축소 토글)
+     * ✨ 개선된 확대/축소 ImageView
+     * - ViewPager2와의 터치 충돌 해결
+     * - 확대 시 ViewPager 스크롤 비활성화
      */
     private static class ZoomableImageView extends androidx.appcompat.widget.AppCompatImageView {
 
@@ -300,9 +292,11 @@ public class PhotoFullscreenFragment extends DialogFragment {
 
         private ScaleGestureDetector scaleDetector;
         private GestureDetector gestureDetector;
+        private ViewPager2 viewPager; // ✨ ViewPager 참조 추가
 
-        public ZoomableImageView(Context context) {
+        public ZoomableImageView(Context context, ViewPager2 viewPager) {
             super(context);
+            this.viewPager = viewPager;
             init();
         }
 
@@ -319,14 +313,22 @@ public class PhotoFullscreenFragment extends DialogFragment {
                 matrix.getValues(matrixValues);
                 float currentScale = matrixValues[Matrix.MSCALE_X];
 
+                // ✨ 확대 상태에 따라 ViewPager 스크롤 제어
+                boolean isZoomed = currentScale > MIN_SCALE + 0.01f;
+                viewPager.setUserInputEnabled(!isZoomed);
+
                 switch (event.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:
                         last.set(event.getX(), event.getY());
                         start.set(last);
+                        // ✨ 확대된 상태면 터치 이벤트 소비
+                        if (isZoomed) {
+                            getParent().requestDisallowInterceptTouchEvent(true);
+                        }
                         break;
 
                     case MotionEvent.ACTION_MOVE:
-                        if (event.getPointerCount() == 1 && currentScale > MIN_SCALE) {
+                        if (event.getPointerCount() == 1 && isZoomed) {
                             float dx = event.getX() - last.x;
                             float dy = event.getY() - last.y;
 
@@ -335,11 +337,19 @@ public class PhotoFullscreenFragment extends DialogFragment {
                             setImageMatrix(matrix);
 
                             last.set(event.getX(), event.getY());
+                            // ✨ 이동 중에도 부모 터치 차단
+                            getParent().requestDisallowInterceptTouchEvent(true);
                         }
                         break;
 
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_POINTER_UP:
+                        // ✨ 터치 종료 시 부모 터치 허용
+                        getParent().requestDisallowInterceptTouchEvent(false);
+                        break;
+
+                    case MotionEvent.ACTION_CANCEL:
+                        getParent().requestDisallowInterceptTouchEvent(false);
                         break;
                 }
 
@@ -355,7 +365,7 @@ public class PhotoFullscreenFragment extends DialogFragment {
 
                 newScale = Math.max(MIN_SCALE, Math.min(newScale, MAX_SCALE));
 
-                if (newScale != scale) {
+                if (Math.abs(newScale - scale) > 0.01f) {
                     matrix.postScale(
                             newScale / scale,
                             newScale / scale,
@@ -365,6 +375,9 @@ public class PhotoFullscreenFragment extends DialogFragment {
                     scale = newScale;
                     fixTranslation();
                     setImageMatrix(matrix);
+
+                    // ✨ 스케일 변경 중 부모 터치 차단
+                    getParent().requestDisallowInterceptTouchEvent(true);
                 }
 
                 return true;
@@ -374,7 +387,7 @@ public class PhotoFullscreenFragment extends DialogFragment {
         private class GestureListener extends GestureDetector.SimpleOnGestureListener {
             @Override
             public boolean onDoubleTap(MotionEvent e) {
-                float targetScale = (scale > MIN_SCALE) ? MIN_SCALE : DOUBLE_TAP_SCALE;
+                float targetScale = (scale > MIN_SCALE + 0.1f) ? MIN_SCALE : DOUBLE_TAP_SCALE;
 
                 matrix.postScale(
                         targetScale / scale,
@@ -386,11 +399,17 @@ public class PhotoFullscreenFragment extends DialogFragment {
                 fixTranslation();
                 setImageMatrix(matrix);
 
+                // ✨ 더블 탭 후 ViewPager 상태 갱신
+                boolean isZoomed = scale > MIN_SCALE + 0.01f;
+                viewPager.setUserInputEnabled(!isZoomed);
+
                 return true;
             }
         }
 
         private void fixTranslation() {
+            if (getDrawable() == null) return;
+
             matrix.getValues(matrixValues);
             float transX = matrixValues[Matrix.MTRANS_X];
             float transY = matrixValues[Matrix.MTRANS_Y];
@@ -398,7 +417,7 @@ public class PhotoFullscreenFragment extends DialogFragment {
             float fixTransX = getFixTranslation(transX, getWidth(), getDrawable().getIntrinsicWidth() * scale);
             float fixTransY = getFixTranslation(transY, getHeight(), getDrawable().getIntrinsicHeight() * scale);
 
-            if (fixTransX != 0 || fixTransY != 0) {
+            if (Math.abs(fixTransX) > 0.1f || Math.abs(fixTransY) > 0.1f) {
                 matrix.postTranslate(fixTransX, fixTransY);
             }
         }
@@ -435,9 +454,11 @@ public class PhotoFullscreenFragment extends DialogFragment {
         @Override
         public void setImageDrawable(@Nullable Drawable drawable) {
             super.setImageDrawable(drawable);
-            if (drawable != null) {
-                fitImageToView();
-            }
+            post(() -> {
+                if (drawable != null && getWidth() > 0 && getHeight() > 0) {
+                    fitImageToView();
+                }
+            });
         }
 
         private void fitImageToView() {
@@ -453,6 +474,10 @@ public class PhotoFullscreenFragment extends DialogFragment {
             int viewWidth = getWidth();
             int viewHeight = getHeight();
 
+            if (drawableWidth == 0 || drawableHeight == 0) {
+                return;
+            }
+
             float scaleX = (float) viewWidth / drawableWidth;
             float scaleY = (float) viewHeight / drawableHeight;
             float fitScale = Math.min(scaleX, scaleY);
@@ -465,6 +490,9 @@ public class PhotoFullscreenFragment extends DialogFragment {
 
             scale = fitScale;
             setImageMatrix(matrix);
+
+            // ✨ 초기화 시 ViewPager 활성화
+            viewPager.setUserInputEnabled(true);
         }
     }
 }
