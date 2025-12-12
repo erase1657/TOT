@@ -19,13 +19,17 @@
             android:elevation="2dp"
             android:background="@android:color/white">
 
+            <!-- ✅ 뒤로가기 버튼 (통일) -->
             <ImageView
                 android:id="@+id/btn_back"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_centerVertical="true"
                 android:src="@drawable/ic_back"
-                android:contentDescription="뒤로가기" />
+                android:contentDescription="뒤로가기"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless" />
 
             <TextView
                 android:layout_width="wrap_content"

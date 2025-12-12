@@ -10,19 +10,35 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- 뒤로가기 버튼 (왼쪽 상단으로 이동) -->
     <ImageButton
-        android:id="@+id/btn_close"
+        android:id="@+id/btn_back"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="24dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:padding="8dp"
+        android:src="@drawable/ic_back"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@android:color/white" />
+
+    <!-- 저장 버튼 (오른쪽 상단에 추가) -->
+    <ImageButton
+        android:id="@+id/btn_save"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
         android:layout_marginEnd="16dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:padding="8dp"
-        android:src="@drawable/ic_close"
+        android:src="@android:drawable/ic_menu_save"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:tint="@android:color/white" />
 
+    <!-- 사진 인디케이터 -->
     <TextView
         android:id="@+id/tv_fullscreen_indicator"
         android:layout_width="wrap_content"

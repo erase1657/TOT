@@ -60,7 +60,6 @@ public class ScheduleFragment extends Fragment {
     private Timestamp startDate;
     private Timestamp endDate;
 
-
     private RecyclerView recyclerView;
     private ScheduleAdapter scheduleAdapter;
     private List<ScheduleDTO> scheduleList;
@@ -76,6 +75,9 @@ public class ScheduleFragment extends Fragment {
     private int editingPosition = -1;
     private ActivityResultLauncher<PickVisualMediaRequest> pickMedia;
 
+    // ✨ 현재 선택된 탭 상태 저장
+    private boolean isMyScheduleTab = true;
+
     public ScheduleFragment() {
         super(R.layout.fragment_schedule);
     }
@@ -85,7 +87,6 @@ public class ScheduleFragment extends Fragment {
         super.onCreate(savedInstanceState);
         pickMedia = registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
             if (uri != null && editingPosition != -1) {
-                // 변경된 부분: 로컬 URI를 직접 사용하지 않고 업로드 함수 호출
                 uploadImageAndUpdateSchedule(editingPosition, uri);
             } else {
                 Log.d("PhotoPicker", "No media selected");
@@ -108,9 +109,11 @@ public class ScheduleFragment extends Fragment {
 
         db = FirebaseFirestore.getInstance();
         auth = FirebaseAuth.getInstance();
-        storage = FirebaseStorage.getInstance(); // Firebase Storage 초기화
+        storage = FirebaseStorage.getInstance();
 
         addScheduleButton.setOnClickListener(v -> showCreateScheduleDialog());
+
+        // ✨ 초기 탭 설정 및 리스너 등록
         setTabSelected(true);
         loadMySchedules();
     }
@@ -118,47 +121,70 @@ public class ScheduleFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-
+        // ✨ 화면 복귀 시 현재 탭의 리스너 재등록
+        if (isMyScheduleTab) {
+            loadMySchedules();
+        } else {
+            loadInvitedSchedules();
+        }
     }
 
     @Override
     public void onPause() {
         super.onPause();
+        // ✨ 화면 이탈 시 리스너 제거 (메모리 누수 방지)
         if (scheduleListener != null) {
             scheduleListener.remove();
             scheduleListener = null;
         }
     }
+
     private void setupTabs() {
         tabMy.setOnClickListener(v -> {
-            setTabSelected(true);
-            loadMySchedules();
+            if (!isMyScheduleTab) { // ✨ 이미 선택된 탭이면 재로드 안함
+                isMyScheduleTab = true;
+                setTabSelected(true);
+                loadMySchedules();
+            }
         });
 
         tabInvited.setOnClickListener(v -> {
-            setTabSelected(false);
-            loadInvitedSchedules();
+            if (isMyScheduleTab) { // ✨ 이미 선택된 탭이면 재로드 안함
+                isMyScheduleTab = false;
+                setTabSelected(false);
+                loadInvitedSchedules();
+            }
         });
     }
+
     private void setTabSelected(boolean isMy) {
         tabMy.setTextColor(isMy ? 0xFF303748 : 0xFFB0B2B8);
         tabInvited.setTextColor(!isMy ? 0xFF303748 : 0xFFB0B2B8);
         addScheduleButton.setVisibility(isMy ? View.VISIBLE : View.GONE);
     }
-    private void loadMySchedules() {
 
+    private void loadMySchedules() {
         if (auth.getCurrentUser() == null) return;
         String uid = auth.getCurrentUser().getUid();
 
-        // 기존 리스너 제거
-        if (scheduleListener != null) scheduleListener.remove();
+        // ✨ 기존 리스너 제거 후 새 리스너 등록
+        if (scheduleListener != null) {
+            scheduleListener.remove();
+        }
 
         scheduleListener = db.collection("user")
                 .document(uid)
                 .collection("schedule")
                 .addSnapshotListener((snapshot, e) -> {
+                    if (e != null) {
+                        Log.e("ScheduleFragment", "Listen failed", e);
+                        return;
+                    }
 
-                    if (e != null || snapshot == null) return;
+                    if (snapshot == null) {
+                        updateScheduleUI(new ArrayList<>());
+                        return;
+                    }
 
                     List<ScheduleDTO> list = new ArrayList<>();
 
@@ -172,36 +198,39 @@ public class ScheduleFragment extends Fragment {
                         }
                     }
 
+                    Log.d("ScheduleFragment", "✅ 내 스케줄 실시간 갱신: " + list.size() + "개");
                     updateScheduleUI(list);
                 });
     }
+
     private void updateScheduleUI(List<ScheduleDTO> list) {
-        if (getActivity() == null) return;
+        if (getActivity() == null || !isAdded()) return;
 
         getActivity().runOnUiThread(() -> {
             scheduleAdapter.updateData(list);
 
-            if (list.isEmpty()) noScheduleLayout.setVisibility(View.VISIBLE);
-            else noScheduleLayout.setVisibility(View.GONE);
+            if (list.isEmpty()) {
+                noScheduleLayout.setVisibility(View.VISIBLE);
+            } else {
+                noScheduleLayout.setVisibility(View.GONE);
+            }
         });
     }
 
-    // -----------------------------------------------------------
-    // 🔹 2) 초대받은 스케줄 불러오기
-    // -----------------------------------------------------------
     private void loadInvitedSchedules() {
-
         if (auth.getCurrentUser() == null) return;
         String uid = auth.getCurrentUser().getUid();
 
-        if (scheduleListener != null) scheduleListener.remove();
+        if (scheduleListener != null) {
+            scheduleListener.remove();
+        }
 
         scheduleListener = db.collection("user")
                 .document(uid)
                 .collection("sharedSchedule")
                 .addSnapshotListener((snapshot, e) -> {
-
                     if (snapshot == null || e != null) {
+                        Log.e("ScheduleFragment", "Listen failed", e);
                         updateScheduleUI(new ArrayList<>());
                         return;
                     }
@@ -217,7 +246,6 @@ public class ScheduleFragment extends Fragment {
                     final int[] loadedCount = {0};
 
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
-
                         DocumentReference ref = doc.getDocumentReference("scheduleRef");
                         String ownerUid = doc.getString("ownerUid");
 
@@ -230,7 +258,6 @@ public class ScheduleFragment extends Fragment {
                         }
 
                         ref.get().addOnSuccessListener(scheduleDoc -> {
-
                             ScheduleDTO dto = scheduleDoc.toObject(ScheduleDTO.class);
 
                             if (dto != null) {
@@ -242,7 +269,13 @@ public class ScheduleFragment extends Fragment {
 
                             loadedCount[0]++;
 
-                            // ⭐ 모든 문서 로딩이 끝난 후 단 한 번 UI 갱신
+                            if (loadedCount[0] == total) {
+                                Log.d("ScheduleFragment", "✅ 초대된 스케줄 실시간 갱신: " + invitedList.size() + "개");
+                                updateScheduleUI(invitedList);
+                            }
+                        }).addOnFailureListener(err -> {
+                            Log.e("ScheduleFragment", "Error loading invited schedule", err);
+                            loadedCount[0]++;
                             if (loadedCount[0] == total) {
                                 updateScheduleUI(invitedList);
                             }
@@ -250,7 +283,6 @@ public class ScheduleFragment extends Fragment {
                     }
                 });
     }
-
 
     private void setupRecyclerView() {
         GridLayoutManager gridLayoutManager = new GridLayoutManager(getContext(), 2);
@@ -264,7 +296,8 @@ public class ScheduleFragment extends Fragment {
             intent.putExtra("ownerUid", schedule.getOwnerUid());
             intent.putExtra("isShared", schedule.isShared());
             intent.putExtra("startMillis", schedule.getStartDate().toDate().getTime());
-            intent.putExtra("endMillis", schedule.getEndDate().toDate().getTime());            startActivity(intent);
+            intent.putExtra("endMillis", schedule.getEndDate().toDate().getTime());
+            startActivity(intent);
         });
 
         scheduleAdapter.setOnMenuItemClickListener(new ScheduleAdapter.OnMenuItemClickListener() {
@@ -290,7 +323,6 @@ public class ScheduleFragment extends Fragment {
         recyclerView.setAdapter(scheduleAdapter);
     }
 
-    // 이미지를 Storage에 업로드하고 Firestore 정보를 업데이트하는 통합 메서드
     private void uploadImageAndUpdateSchedule(int position, Uri imageUri) {
         if (auth.getCurrentUser() == null) {
             Toast.makeText(getContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
@@ -302,26 +334,21 @@ public class ScheduleFragment extends Fragment {
 
         Toast.makeText(getContext(), "이미지를 업로드 중입니다...", Toast.LENGTH_SHORT).show();
 
-        // Firebase Storage 경로 설정 (유저UID/스케줄ID.jpg)
-        StorageReference imageRef = storage.getReference().child("schedule_backgrounds/" + uid + "/" + scheduleId + ".jpg");
+        StorageReference imageRef = storage.getReference()
+                .child("schedule_backgrounds/" + uid + "/" + scheduleId + ".jpg");
 
-        // 이미지 업로드 실행
         imageRef.putFile(imageUri)
                 .addOnSuccessListener(taskSnapshot -> {
-                    // 업로드 성공 시, 다운로드 URL 가져오기
                     imageRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
                         String imageUrl = downloadUri.toString();
 
-                        // Firestore 문서 업데이트
                         Map<String, Object> updates = new HashMap<>();
                         updates.put("backgroundImageUri", imageUrl);
 
                         db.collection("user").document(uid).collection("schedule").document(scheduleId)
                                 .update(updates)
                                 .addOnSuccessListener(aVoid -> {
-                                    // 로컬 데이터 업데이트 및 UI 갱신
-                                    schedule.setBackgroundImageUri(imageUrl);
-                                    scheduleAdapter.updateScheduleItem(position, schedule);
+                                    // ✨ 리스너가 자동으로 UI 갱신하므로 별도 처리 불필요
                                     Toast.makeText(getContext(), "배경 이미지가 변경되었습니다.", Toast.LENGTH_SHORT).show();
                                 })
                                 .addOnFailureListener(e -> {
@@ -339,7 +366,6 @@ public class ScheduleFragment extends Fragment {
                 });
     }
 
-
     private void showDeleteConfirmDialog(ScheduleDTO schedule, int position) {
         new AlertDialog.Builder(requireContext())
                 .setTitle("스케줄 삭제")
@@ -350,7 +376,7 @@ public class ScheduleFragment extends Fragment {
                 .setNegativeButton("취소", null)
                 .show();
     }
-    // ✅ 수정: ownerUid와 isShared를 고려한 삭제 메서드
+
     private void deleteSchedule(ScheduleDTO schedule, int position) {
         if (auth.getCurrentUser() == null) return;
 
@@ -359,13 +385,11 @@ public class ScheduleFragment extends Fragment {
         String ownerUid = schedule.getOwnerUid();
         boolean isShared = schedule.isShared();
 
-        // 공유받은 스케줄인 경우
         if (isShared) {
             Toast.makeText(getContext(), "공유받은 스케줄은 삭제할 수 없습니다.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // 소유자가 아닌 경우
         if (!currentUid.equals(ownerUid)) {
             Toast.makeText(getContext(), "본인의 스케줄만 삭제할 수 있습니다.", Toast.LENGTH_SHORT).show();
             return;
@@ -381,20 +405,16 @@ public class ScheduleFragment extends Fragment {
             List<Task<?>> tasks = new ArrayList<>();
 
             for (DocumentSnapshot dateDoc : dateSnapshot.getDocuments()) {
-
-                // scheduleItem 삭제
                 Task<?> itemTask = dateDoc.getReference().collection("scheduleItem").get()
                         .addOnSuccessListener(itemSnapshot -> {
                             for (DocumentSnapshot itemDoc : itemSnapshot.getDocuments()) {
                                 batch.delete(itemDoc.getReference());
-                                // 알람도 함께 삭제
                                 db.collection("user").document(currentUid).collection("alarms")
                                         .document(itemDoc.getId()).delete();
                             }
                         });
                 tasks.add(itemTask);
 
-                // album 삭제
                 Task<?> albumTask = dateDoc.getReference().collection("album").get()
                         .addOnSuccessListener(albumSnapshot -> {
                             for (DocumentSnapshot albumDoc : albumSnapshot.getDocuments()) {
@@ -406,20 +426,12 @@ public class ScheduleFragment extends Fragment {
                 batch.delete(dateDoc.getReference());
             }
 
-            // 모든 하위 조회 작업이 완료되면 실행
             Tasks.whenAllComplete(tasks).addOnSuccessListener(t -> {
-
-                // 마지막에 스케줄 문서 삭제
                 batch.delete(scheduleRef);
 
                 batch.commit().addOnSuccessListener(aVoid -> {
-                    // ✅ 추가: UI 업데이트 (리스너가 자동으로 처리하지만, 즉각 반영을 위해 추가)
-                    if (getActivity() != null) {
-                        getActivity().runOnUiThread(() -> {
-                            scheduleAdapter.removeSchedule(position);
-                            Toast.makeText(getContext(), "스케줄이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
-                        });
-                    }
+                    // ✨ 리스너가 자동으로 UI 갱신하므로 별도 처리 불필요
+                    Toast.makeText(getContext(), "스케줄이 삭제되었습니다.", Toast.LENGTH_SHORT).show();
                 }).addOnFailureListener(e -> {
                     Toast.makeText(getContext(), "삭제 실패", Toast.LENGTH_SHORT).show();
                     Log.e("ScheduleFragment", "Error deleting schedule", e);
@@ -461,7 +473,6 @@ public class ScheduleFragment extends Fragment {
 
             addNewSchedule(locationName);
             dialog.dismiss();
-            Toast.makeText(getContext(), "스케줄이 생성되었습니다", Toast.LENGTH_SHORT).show();
         });
 
         btnPrev.setOnClickListener(v -> dialog.dismiss());
@@ -543,23 +554,20 @@ public class ScheduleFragment extends Fragment {
                 .collection("schedule").document(scheduleId)
                 .set(schedule, SetOptions.merge())
                 .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "스케줄이 생성되었습니다", Toast.LENGTH_SHORT).show();
 
-                    // 🔥 생성 직후 즉시 UI 반영
-                    scheduleList.add(0, schedule);
-                    scheduleAdapter.notifyItemInserted(0);
-                    recyclerView.smoothScrollToPosition(0);
-                    String myUid = auth.getCurrentUser().getUid();
-                    // 🔥 이후 화면 이동
+                    // ✨ 리스너가 자동으로 UI를 갱신하므로, 바로 상세 화면으로 이동
                     Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
                     intent.putExtra("scheduleId", scheduleId);
-                    intent.putExtra("ownerUid", myUid);
+                    intent.putExtra("ownerUid", uid);
                     intent.putExtra("isShared", false);
-                    intent.putExtra("startMillis", startDate.toDate().getTime());  // 🔥 이름 통일
+                    intent.putExtra("startMillis", startDate.toDate().getTime());
                     intent.putExtra("endMillis", endDate.toDate().getTime());
                     startActivity(intent);
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(getContext(), "스케줄 생성에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                    Log.e("ScheduleFragment", "Error creating schedule", e);
                 });
     }
 
@@ -567,56 +575,6 @@ public class ScheduleFragment extends Fragment {
         String prefix = "SCDL_" + System.currentTimeMillis();
         String random = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
         return prefix + "_" + random;
-    }
-
-    private void listenSchedulesFromFirestore() {
-        if (auth.getCurrentUser() == null) {
-            Log.w("FirestoreDebug", "❌ 로그인된 유저 없음. 리스너 등록 안 함");
-            return;
-        }
-
-        String uid = auth.getCurrentUser().getUid();
-        Log.d("FirestoreDebug", "📡 Listening path: /user/" + uid + "/schedule");
-
-        if (scheduleListener != null) scheduleListener.remove();
-
-        scheduleListener = db.collection("user")
-                .document(uid)
-                .collection("schedule")
-                .addSnapshotListener((querySnapshot, e) -> {
-                    if (e != null) {
-                        Log.e("FirestoreDebug", "리스너 오류", e);
-                        return;
-                    }
-                    if (querySnapshot == null) return;
-
-                    List<ScheduleDTO> newList = new ArrayList<>();
-
-                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                        ScheduleDTO schedule = doc.toObject(ScheduleDTO.class);
-                        if (schedule != null) {
-                            // ✅ scheduleId 설정 (Firestore 문서 ID 사용)
-                            schedule.setScheduleId(doc.getId());
-                            newList.add(schedule);
-                        }
-                    }
-
-                    Log.d("FirestoreDebug", "📦 수신된 문서 수: " + newList.size());
-
-                    // ✅ Activity null 체크 추가
-                    if (getActivity() == null) return;
-
-                    getActivity().runOnUiThread(() -> {
-                        scheduleAdapter.updateData(newList);
-
-                        // Empty state 업데이트
-                        if (!newList.isEmpty()) {
-                            noScheduleLayout.setVisibility(View.GONE);
-                        } else {
-                            noScheduleLayout.setVisibility(View.VISIBLE);
-                        }
-                    });
-                });
     }
 
     private void showEditTitleDialog(ScheduleDTO schedule, int position) {
@@ -654,8 +612,7 @@ public class ScheduleFragment extends Fragment {
         db.collection("user").document(uid).collection("schedule").document(scheduleId)
                 .update("locationName", newTitle)
                 .addOnSuccessListener(aVoid -> {
-                    schedule.setLocationName(newTitle);
-                    scheduleAdapter.updateScheduleItem(position, schedule);
+                    // ✨ 리스너가 자동으로 UI 갱신하므로 별도 처리 불필요
                     Toast.makeText(getContext(), "제목이 수정되었습니다.", Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {

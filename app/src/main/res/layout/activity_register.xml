@@ -8,21 +8,26 @@
     android:paddingStart="35dp"
     android:paddingEnd="35dp"
     android:orientation="vertical"
-    tools:context=".Authentication.RegisterActivity"
-    >
-    <Button
+    tools:context=".Authentication.RegisterActivity">
+
+    <!-- ✅ 뒤로가기 버튼 (통일) -->
+    <ImageView
         android:id="@+id/btn_back"
-        android:layout_width="38dp"
-        android:layout_height="38dp"
-        android:background="@drawable/ic_back"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
         android:layout_marginTop="?attr/actionBarSize"
-        />
+        android:src="@drawable/ic_back"
+        android:contentDescription="뒤로가기"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?attr/selectableItemBackgroundBorderless" />
+
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="40dp"
         android:layout_marginBottom="40dp"
-        android:textSize="32dp"
+        android:textSize="32sp"
         android:text="회원가입"
         android:textStyle="bold"
         android:textColor="#575DFB"/>
@@ -50,8 +55,7 @@
             android:textAlignment="textStart"
             android:maxLines="1"
             android:hint="Ex: abc@example.com"
-            android:drawablePadding="10dp"
-            />
+            android:drawablePadding="10dp" />
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -71,8 +75,7 @@
             android:maxLines="1"
             android:inputType="textPassword"
             android:hint="비밀번호를 설정하세요(8자 이상)"
-            android:drawablePadding="10dp"
-            />
+            android:drawablePadding="10dp" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -92,9 +95,7 @@
             android:textAlignment="textStart"
             android:maxLines="1"
             android:hint="닉네임을 입력하세요"
-            android:drawablePadding="10dp"
-            />
-
+            android:drawablePadding="10dp" />
 
         <Button
             android:id="@+id/btn_register"
@@ -107,18 +108,15 @@
             android:textStyle="bold"/>
     </LinearLayout>
 
-
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-
-        >
+        android:layout_gravity="center_horizontal">
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="이미 계정이 있나요?"
-            android:textSize="16dp"
+            android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@color/black"/>
         <Button
@@ -127,7 +125,7 @@
             android:layout_height="wrap_content"
             android:background="@android:color/transparent"
             android:text="로그인"
-            android:textSize="16dp"
+            android:textSize="16sp"
             android:textColor="#0000ff"
             android:textStyle="bold"/>
 
