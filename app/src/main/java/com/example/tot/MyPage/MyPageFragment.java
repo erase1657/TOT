@@ -279,8 +279,10 @@ public class MyPageFragment extends Fragment {
                 if (schedule.getStartDate() != null && schedule.getEndDate() != null) {
                     Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
                     intent.putExtra("scheduleId", schedule.getScheduleId());
-                    intent.putExtra("startDate", schedule.getStartDate().toDate().getTime());
-                    intent.putExtra("endDate", schedule.getEndDate().toDate().getTime());
+                    intent.putExtra("ownerUid", targetUserId);
+                    intent.putExtra("isShared", false);
+                    intent.putExtra("startMillis", schedule.getStartDate().toDate().getTime());
+                    intent.putExtra("endMillis", schedule.getEndDate().toDate().getTime());
                     startActivity(intent);
                 } else {
                     Toast.makeText(getContext(), "스케줄 날짜 정보가 없습니다.", Toast.LENGTH_SHORT).show();
