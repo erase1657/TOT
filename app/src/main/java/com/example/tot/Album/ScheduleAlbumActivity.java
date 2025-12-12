@@ -2,14 +2,12 @@ package com.example.tot.Album;
 
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
-
 
 import com.example.tot.Album.Edit.EditViewFragment;
 import com.example.tot.Album.Frame.FrameViewFragment;
@@ -19,9 +17,8 @@ import java.util.ArrayList;
 
 public class ScheduleAlbumActivity extends AppCompatActivity {
 
-
     private ImageButton btnModeChange;
-    private Button btnBack;
+    private ImageView btnBack; // ✅ Button -> ImageView 변경
     private String scheduleId, userUid;
     private ArrayList<String> dateList;
     private boolean isEditMode = false;
@@ -31,7 +28,6 @@ public class ScheduleAlbumActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_schedule_album);
-
 
         btnModeChange = findViewById(R.id.btn_mode_change);
         btnBack = findViewById(R.id.btn_back);
@@ -60,7 +56,6 @@ public class ScheduleAlbumActivity extends AppCompatActivity {
                 loadFragment(createFragmentWithArgs(new FrameViewFragment()));
             }
         });
-
     }
 
     private void loadFragment(Fragment fragment) {

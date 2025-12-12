@@ -8,43 +8,54 @@
     android:paddingTop="?attr/actionBarSize"
     tools:context=".Album.ScheduleAlbumActivity"
     android:orientation="vertical">
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="30dp"
-        android:layout_marginStart="15dp"
-        android:layout_marginEnd="15dp"
-        android:gravity="center">
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-        <Button
+        <!-- ✅ 뒤로가기 버튼 (통일) -->
+        <ImageView
             android:id="@+id/btn_back"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:background="@drawable/ic_prev"/>
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_back"
+            android:contentDescription="뒤로가기"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
         <Space
             android:layout_width="10dp"
             android:layout_height="0dp"/>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="여행기록"
             android:textColor="@color/black"
-            android:textSize="20dp"
+            android:textSize="20sp"
             android:textStyle="bold"/>
+
         <Space
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_weight="1"/>
-
 
         <ImageButton
             android:id="@+id/btn_mode_change"
             android:layout_width="25dp"
             android:layout_height="25dp"
             android:background="@drawable/ic_frame"
-            android:backgroundTint="@color/black"/>
+            android:backgroundTint="@color/black"
+            android:contentDescription="보기 모드 변경" />
 
     </LinearLayout>
+
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/container_fragment"
         android:layout_width="match_parent"

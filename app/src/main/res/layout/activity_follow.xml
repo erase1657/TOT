@@ -19,7 +19,7 @@
         android:paddingHorizontal="16dp"
         android:background="#FFFFFFFF">
 
-        <!-- 뒤로가기 버튼 -->
+        <!-- ✅ 뒤로가기 버튼 (통일) -->
         <ImageView
             android:id="@+id/btn_back"
             android:layout_width="24dp"
@@ -27,7 +27,10 @@
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
             android:src="@drawable/ic_back"
-            android:contentDescription="뒤로가기" />
+            android:contentDescription="뒤로가기"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless" />
 
         <!-- 사용자 이름 -->
         <TextView
@@ -181,7 +184,6 @@
             android:textStyle="bold"
             android:layout_marginEnd="8dp" />
 
-        <!-- ic_setting_dot-->
         <ImageView
             android:id="@+id/btn_sort"
             android:layout_width="20dp"

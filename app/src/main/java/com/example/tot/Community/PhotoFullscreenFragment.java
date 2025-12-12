@@ -273,26 +273,38 @@ public class PhotoFullscreenFragment extends DialogFragment {
     }
 
     /**
-     * ✨ 개선된 확대/축소 ImageView
-     * - ViewPager2와의 터치 충돌 해결
-     * - 확대 시 ViewPager 스크롤 비활성화
+     * ✨✨✨ 완전 개선된 확대/축소 ImageView
+     * - 이미지 크기와 상관없이 항상 확대/축소 가능
+     * - 매번 matrix를 새로 계산하는 방식으로 안정적
      */
     private static class ZoomableImageView extends androidx.appcompat.widget.AppCompatImageView {
 
-        private static final float MIN_SCALE = 1f;
-        private static final float MAX_SCALE = 5f;
-        private static final float DOUBLE_TAP_SCALE = 3f;
+        private static final float MIN_ZOOM = 1f;    // 최소 줌 (기본 크기)
+        private static final float MAX_ZOOM = 5f;    // 최대 줌 (5배 확대)
+        private static final float DOUBLE_TAP_ZOOM = 3f; // 더블탭 줌
 
         private Matrix matrix = new Matrix();
-        private float[] matrixValues = new float[9];
 
-        private float scale = 1f;
-        private PointF last = new PointF();
-        private PointF start = new PointF();
+        // ✅ 줌 레벨 (1.0 = 기본, 2.0 = 2배 확대)
+        private float currentZoom = 1f;
+
+        // ✅ 이미지를 화면에 맞추기 위한 기본 스케일
+        private float fitScale = 1f;
+
+        // ✅ 이미지의 기본 위치 (중앙 정렬)
+        private float baseDx = 0f;
+        private float baseDy = 0f;
+
+        // ✅ 사용자가 드래그한 오프셋
+        private float userDx = 0f;
+        private float userDy = 0f;
+
+        private PointF lastTouch = new PointF();
+        private PointF zoomCenter = new PointF();
 
         private ScaleGestureDetector scaleDetector;
         private GestureDetector gestureDetector;
-        private ViewPager2 viewPager; // ✨ ViewPager 참조 추가
+        private ViewPager2 viewPager;
 
         public ZoomableImageView(Context context, ViewPager2 viewPager) {
             super(context);
@@ -310,45 +322,37 @@ public class PhotoFullscreenFragment extends DialogFragment {
                 scaleDetector.onTouchEvent(event);
                 gestureDetector.onTouchEvent(event);
 
-                matrix.getValues(matrixValues);
-                float currentScale = matrixValues[Matrix.MSCALE_X];
-
-                // ✨ 확대 상태에 따라 ViewPager 스크롤 제어
-                boolean isZoomed = currentScale > MIN_SCALE + 0.01f;
-                viewPager.setUserInputEnabled(!isZoomed);
+                boolean isZoomed = currentZoom > MIN_ZOOM + 0.01f;
 
                 switch (event.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:
-                        last.set(event.getX(), event.getY());
-                        start.set(last);
-                        // ✨ 확대된 상태면 터치 이벤트 소비
+                        lastTouch.set(event.getX(), event.getY());
+
                         if (isZoomed) {
+                            viewPager.setUserInputEnabled(false);
                             getParent().requestDisallowInterceptTouchEvent(true);
                         }
                         break;
 
                     case MotionEvent.ACTION_MOVE:
                         if (event.getPointerCount() == 1 && isZoomed) {
-                            float dx = event.getX() - last.x;
-                            float dy = event.getY() - last.y;
+                            float dx = event.getX() - lastTouch.x;
+                            float dy = event.getY() - lastTouch.y;
 
-                            matrix.postTranslate(dx, dy);
-                            fixTranslation();
-                            setImageMatrix(matrix);
+                            userDx += dx;
+                            userDy += dy;
 
-                            last.set(event.getX(), event.getY());
-                            // ✨ 이동 중에도 부모 터치 차단
-                            getParent().requestDisallowInterceptTouchEvent(true);
+                            updateMatrix();
+                            lastTouch.set(event.getX(), event.getY());
                         }
                         break;
 
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_POINTER_UP:
-                        // ✨ 터치 종료 시 부모 터치 허용
-                        getParent().requestDisallowInterceptTouchEvent(false);
-                        break;
-
                     case MotionEvent.ACTION_CANCEL:
+                        if (!isZoomed) {
+                            viewPager.setUserInputEnabled(true);
+                        }
                         getParent().requestDisallowInterceptTouchEvent(false);
                         break;
                 }
@@ -359,139 +363,225 @@ public class PhotoFullscreenFragment extends DialogFragment {
 
         private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
             @Override
+            public boolean onScaleBegin(ScaleGestureDetector detector) {
+                zoomCenter.set(detector.getFocusX(), detector.getFocusY());
+                viewPager.setUserInputEnabled(false);
+                getParent().requestDisallowInterceptTouchEvent(true);
+                return true;
+            }
+
+            @Override
             public boolean onScale(ScaleGestureDetector detector) {
                 float scaleFactor = detector.getScaleFactor();
-                float newScale = scale * scaleFactor;
+                float newZoom = currentZoom * scaleFactor;
 
-                newScale = Math.max(MIN_SCALE, Math.min(newScale, MAX_SCALE));
+                // ✅ 줌 레벨 제한
+                newZoom = Math.max(MIN_ZOOM, Math.min(newZoom, MAX_ZOOM));
 
-                if (Math.abs(newScale - scale) > 0.01f) {
-                    matrix.postScale(
-                            newScale / scale,
-                            newScale / scale,
-                            detector.getFocusX(),
-                            detector.getFocusY()
-                    );
-                    scale = newScale;
-                    fixTranslation();
-                    setImageMatrix(matrix);
+                if (Math.abs(newZoom - currentZoom) > 0.01f) {
+                    // ✅ 줌 중심점 계산 (현재 matrix 기준)
+                    float focusX = detector.getFocusX();
+                    float focusY = detector.getFocusY();
 
-                    // ✨ 스케일 변경 중 부모 터치 차단
-                    getParent().requestDisallowInterceptTouchEvent(true);
+                    // 줌 전 이미지 상의 좌표
+                    float oldScale = fitScale * currentZoom;
+                    float imageX = (focusX - baseDx - userDx) / oldScale;
+                    float imageY = (focusY - baseDy - userDy) / oldScale;
+
+                    currentZoom = newZoom;
+
+                    // 줌 후 같은 이미지 좌표가 같은 화면 위치에 오도록 조정
+                    float newScale = fitScale * currentZoom;
+                    userDx = focusX - baseDx - (imageX * newScale);
+                    userDy = focusY - baseDy - (imageY * newScale);
+
+                    updateMatrix();
                 }
 
                 return true;
+            }
+
+            @Override
+            public void onScaleEnd(ScaleGestureDetector detector) {
+                boolean isZoomed = currentZoom > MIN_ZOOM + 0.01f;
+                if (!isZoomed) {
+                    viewPager.setUserInputEnabled(true);
+                }
             }
         }
 
         private class GestureListener extends GestureDetector.SimpleOnGestureListener {
             @Override
             public boolean onDoubleTap(MotionEvent e) {
-                float targetScale = (scale > MIN_SCALE + 0.1f) ? MIN_SCALE : DOUBLE_TAP_SCALE;
+                float targetZoom = (currentZoom > MIN_ZOOM + 0.1f) ? MIN_ZOOM : DOUBLE_TAP_ZOOM;
 
-                matrix.postScale(
-                        targetScale / scale,
-                        targetScale / scale,
-                        e.getX(),
-                        e.getY()
-                );
-                scale = targetScale;
-                fixTranslation();
-                setImageMatrix(matrix);
+                if (targetZoom > MIN_ZOOM) {
+                    // ✅ 더블탭 위치를 중심으로 확대
+                    float focusX = e.getX();
+                    float focusY = e.getY();
 
-                // ✨ 더블 탭 후 ViewPager 상태 갱신
-                boolean isZoomed = scale > MIN_SCALE + 0.01f;
+                    float oldScale = fitScale * currentZoom;
+                    float imageX = (focusX - baseDx - userDx) / oldScale;
+                    float imageY = (focusY - baseDy - userDy) / oldScale;
+
+                    currentZoom = targetZoom;
+
+                    float newScale = fitScale * currentZoom;
+                    userDx = focusX - baseDx - (imageX * newScale);
+                    userDy = focusY - baseDy - (imageY * newScale);
+                } else {
+                    // ✅ 축소할 때는 초기화
+                    currentZoom = MIN_ZOOM;
+                    userDx = 0;
+                    userDy = 0;
+                }
+
+                updateMatrix();
+
+                boolean isZoomed = currentZoom > MIN_ZOOM + 0.01f;
                 viewPager.setUserInputEnabled(!isZoomed);
 
                 return true;
             }
         }
 
-        private void fixTranslation() {
+        /**
+         * ✅ Matrix를 매번 새로 계산
+         * fitScale * currentZoom이 실제 스케일
+         */
+        private void updateMatrix() {
             if (getDrawable() == null) return;
 
-            matrix.getValues(matrixValues);
-            float transX = matrixValues[Matrix.MTRANS_X];
-            float transY = matrixValues[Matrix.MTRANS_Y];
+            matrix.reset();
 
-            float fixTransX = getFixTranslation(transX, getWidth(), getDrawable().getIntrinsicWidth() * scale);
-            float fixTransY = getFixTranslation(transY, getHeight(), getDrawable().getIntrinsicHeight() * scale);
+            // ✅ 1단계: 기본 스케일 적용 (이미지를 화면에 맞춤)
+            matrix.postScale(fitScale, fitScale);
 
-            if (Math.abs(fixTransX) > 0.1f || Math.abs(fixTransY) > 0.1f) {
-                matrix.postTranslate(fixTransX, fixTransY);
+            // ✅ 2단계: 중앙 정렬
+            matrix.postTranslate(baseDx, baseDy);
+
+            // ✅ 3단계: 사용자 줌 적용 (현재 중심점 기준)
+            if (currentZoom != 1f) {
+                float pivotX = getWidth() / 2f;
+                float pivotY = getHeight() / 2f;
+                matrix.postScale(currentZoom, currentZoom, pivotX, pivotY);
             }
+
+            // ✅ 4단계: 사용자 드래그 적용
+            matrix.postTranslate(userDx, userDy);
+
+            // ✅ 5단계: 경계 제한
+            limitTranslation();
+
+            setImageMatrix(matrix);
         }
 
-        private float getFixTranslation(float trans, float viewSize, float contentSize) {
-            float minTrans;
-            float maxTrans;
+        /**
+         * ✅ 이미지가 화면 밖으로 나가지 않도록 제한
+         */
+        private void limitTranslation() {
+            if (getDrawable() == null) return;
 
-            if (contentSize <= viewSize) {
-                minTrans = 0;
-                maxTrans = viewSize - contentSize;
+            int imgWidth = getDrawable().getIntrinsicWidth();
+            int imgHeight = getDrawable().getIntrinsicHeight();
+
+            float actualScale = fitScale * currentZoom;
+            float scaledWidth = imgWidth * actualScale;
+            float scaledHeight = imgHeight * actualScale;
+
+            float viewWidth = getWidth();
+            float viewHeight = getHeight();
+
+            // X축 제한
+            if (scaledWidth > viewWidth) {
+                // 이미지가 화면보다 크면 양쪽 경계 체크
+                float maxDx = 0;
+                float minDx = viewWidth - scaledWidth;
+
+                float currentX = baseDx + userDx;
+                if (currentX > maxDx) {
+                    userDx = maxDx - baseDx;
+                } else if (currentX < minDx) {
+                    userDx = minDx - baseDx;
+                }
             } else {
-                minTrans = viewSize - contentSize;
-                maxTrans = 0;
+                // 이미지가 화면보다 작으면 중앙 유지
+                userDx = 0;
             }
 
-            if (trans < minTrans) {
-                return minTrans - trans;
+            // Y축 제한
+            if (scaledHeight > viewHeight) {
+                float maxDy = 0;
+                float minDy = viewHeight - scaledHeight;
+
+                float currentY = baseDy + userDy;
+                if (currentY > maxDy) {
+                    userDy = maxDy - baseDy;
+                } else if (currentY < minDy) {
+                    userDy = minDy - baseDy;
+                }
+            } else {
+                userDy = 0;
             }
-            if (trans > maxTrans) {
-                return maxTrans - trans;
-            }
-            return 0;
         }
 
         @Override
         protected void onSizeChanged(int w, int h, int oldw, int oldh) {
             super.onSizeChanged(w, h, oldw, oldh);
-            if (getDrawable() != null) {
-                fitImageToView();
+            if (getDrawable() != null && w > 0 && h > 0) {
+                calculateFitScale();
+                updateMatrix();
             }
         }
 
         @Override
         public void setImageDrawable(@Nullable Drawable drawable) {
             super.setImageDrawable(drawable);
-            post(() -> {
-                if (drawable != null && getWidth() > 0 && getHeight() > 0) {
-                    fitImageToView();
-                }
-            });
+            if (drawable != null) {
+                post(() -> {
+                    if (getWidth() > 0 && getHeight() > 0) {
+                        calculateFitScale();
+                        updateMatrix();
+                    }
+                });
+            }
         }
 
-        private void fitImageToView() {
-            if (getDrawable() == null || getWidth() == 0 || getHeight() == 0) {
+        /**
+         * ✅ 이미지를 화면에 맞추기 위한 기본 스케일 계산
+         */
+        private void calculateFitScale() {
+            Drawable drawable = getDrawable();
+            if (drawable == null || getWidth() == 0 || getHeight() == 0) {
                 return;
             }
 
-            matrix.reset();
-            scale = MIN_SCALE;
+            int imgWidth = drawable.getIntrinsicWidth();
+            int imgHeight = drawable.getIntrinsicHeight();
 
-            int drawableWidth = getDrawable().getIntrinsicWidth();
-            int drawableHeight = getDrawable().getIntrinsicHeight();
+            if (imgWidth == 0 || imgHeight == 0) {
+                return;
+            }
+
             int viewWidth = getWidth();
             int viewHeight = getHeight();
 
-            if (drawableWidth == 0 || drawableHeight == 0) {
-                return;
-            }
+            // ✅ 이미지를 화면에 맞추는 스케일 계산
+            float scaleX = (float) viewWidth / imgWidth;
+            float scaleY = (float) viewHeight / imgHeight;
+            fitScale = Math.min(scaleX, scaleY);
 
-            float scaleX = (float) viewWidth / drawableWidth;
-            float scaleY = (float) viewHeight / drawableHeight;
-            float fitScale = Math.min(scaleX, scaleY);
+            // ✅ 중앙 정렬을 위한 오프셋 계산
+            float scaledWidth = imgWidth * fitScale;
+            float scaledHeight = imgHeight * fitScale;
+            baseDx = (viewWidth - scaledWidth) / 2f;
+            baseDy = (viewHeight - scaledHeight) / 2f;
 
-            matrix.setScale(fitScale, fitScale);
+            // ✅ 초기화
+            currentZoom = MIN_ZOOM;
+            userDx = 0;
+            userDy = 0;
 
-            float redundantX = viewWidth - (fitScale * drawableWidth);
-            float redundantY = viewHeight - (fitScale * drawableHeight);
-            matrix.postTranslate(redundantX / 2, redundantY / 2);
-
-            scale = fitScale;
-            setImageMatrix(matrix);
-
-            // ✨ 초기화 시 ViewPager 활성화
             viewPager.setUserInputEnabled(true);
         }
     }

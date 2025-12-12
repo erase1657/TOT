@@ -2,9 +2,16 @@ package com.example.tot.Authentication;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+
 import com.example.tot.R;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -14,14 +21,10 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-import android.util.Log;
-import android.view.View;
-import android.widget.*;
-
-
 public class RegisterActivity extends AppCompatActivity {
     private static final String TAG = "RegisterActivity";
-    private Button RegisterBtn, GoLoginBtn, btnBack;
+    private Button RegisterBtn, GoLoginBtn;
+    private ImageView btnBack; // ✅ Button -> ImageView 변경
     private EditText EmailEt, PasswordEt, NicknameEt;
     private FirebaseAuth mAuth;
     private String uid, email, nickname, profileImageUrl, comment, address;
@@ -46,13 +49,13 @@ public class RegisterActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 String password = PasswordEt.getText().toString().trim();
-                email =  EmailEt.getText().toString().trim();
+                email = EmailEt.getText().toString().trim();
                 nickname = NicknameEt.getText().toString().trim();
-                if(email.isEmpty() || password.isEmpty() || nickname.isEmpty()) {
+                if (email.isEmpty() || password.isEmpty() || nickname.isEmpty()) {
                     Toast.makeText(RegisterActivity.this, "모든 항목을 입력해주세요.", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                createAccount(email,password,nickname);
+                createAccount(email, password, nickname);
             }
         });
 
@@ -74,7 +77,6 @@ public class RegisterActivity extends AppCompatActivity {
                             String defaultProfileImageUrl = "https://firebasestorage.googleapis.com/v0/b/trickortrip-71733.firebasestorage.app/o/defaultProfile%2Fic_profile_default.png?alt=media&token=94b6cdbe-53a1-46fb-a453-00860c81cd4f";
                             FirebaseUser user = task.getResult().getUser();
 
-                            // ✅ UserDTO 생성자 수정: backgroundImageUrl 추가 (빈 문자열로 초기화)
                             UserDTO dto = new UserDTO(
                                     nickname,
                                     defaultProfileImageUrl,
@@ -93,7 +95,7 @@ public class RegisterActivity extends AppCompatActivity {
                                         Log.d(TAG, "db저장 성공");
                                         updateUI(user);
                                     })
-                                    .addOnFailureListener(e ->{
+                                    .addOnFailureListener(e -> {
                                         Toast.makeText(RegisterActivity.this, "데이터 저장 중 오류가 발생했습니다.", Toast.LENGTH_SHORT).show();
                                         Log.e(TAG, "db저장 실패", e);
                                     });
@@ -106,7 +108,7 @@ public class RegisterActivity extends AppCompatActivity {
                 });
     }
 
-    private void updateUI(FirebaseUser user){
+    private void updateUI(FirebaseUser user) {
         Intent intent = new Intent(RegisterActivity.this, LoginActivity.class);
         startActivity(intent);
     }
