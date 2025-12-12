@@ -36,6 +36,7 @@ import java.util.concurrent.Executors;
  * 🔐 Google Credential Manager + Firebase Auth 통합 로그인 매니저
  *  - 최초 로그인 시 Firestore에 UserDTO 저장
  *  - 이후 로그인은 Firestore 덮어쓰기 없이 그대로 통과
+ *  - ✅ 계정 필터링 실패 시 자동 재시도 (fallback)
  */
 public class GoogleAuthManager {
 
@@ -71,12 +72,16 @@ public class GoogleAuthManager {
         this.callback = callback;
     }
 
-    /** ✅ 로그인 실행 */
+    /** ✅ 로그인 실행 - 기존 계정 필터링 시도 */
     public void signIn() {
-        Log.d(TAG, "📸 signIn() called");
+        Log.d(TAG, "📸 signIn() called - 기존 계정 우선 시도");
+        signInWithFilter(true);
+    }
 
+    /** ✅ 계정 필터링 옵션을 지정하여 로그인 시도 */
+    private void signInWithFilter(boolean filterByAuthorized) {
         GetGoogleIdOption googleIdOption = new GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(true)
+                .setFilterByAuthorizedAccounts(filterByAuthorized)
                 .setServerClientId(webClientId)
                 .build();
 
@@ -97,8 +102,15 @@ public class GoogleAuthManager {
 
                     @Override
                     public void onError(GetCredentialException e) {
-                        Log.e(TAG, "❌ getCredentialAsync error: " + e.getLocalizedMessage(), e);
-                        if (callback != null) callback.onSignInError(e);
+                        Log.e(TAG, "❌ getCredentialAsync error (filterByAuthorized=" + filterByAuthorized + "): " + e.getLocalizedMessage(), e);
+
+                        // ✅ 기존 계정 필터링 실패 시 모든 계정으로 재시도
+                        if (filterByAuthorized) {
+                            Log.d(TAG, "🔄 재시도: 모든 Google 계정 표시");
+                            signInWithFilter(false);
+                        } else {
+                            if (callback != null) callback.onSignInError(e);
+                        }
                     }
                 }
         );
@@ -165,14 +177,15 @@ public class GoogleAuthManager {
                 });
     }
 
-    /** ✅ 신규 유저 문서 생성 */
+    /** ✅ 신규 유저 문서 생성 - RegisterActivity와 동일한 기본 이미지 URL 사용 */
     private void saveNewUserToFirestore(@NonNull FirebaseUser user) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
+        // ✅ RegisterActivity와 동일한 기본 프로필 이미지 URL 사용
         String defaultProfileImageUrl =
-                "https://firebasestorage.googleapis.com/v0/b/trickortrip-71733.firebasestorage.app/o/defaultProfile%2Fic_profile_default.xml?alt=media&token=b2d8211d-ccf1-49de-b423-a7b659089702";
+                "https://firebasestorage.googleapis.com/v0/b/trickortrip-71733.firebasestorage.app/o/defaultProfile%2Fic_profile_default.png?alt=media&token=94b6cdbe-53a1-46fb-a453-00860c81cd4f";
 
-        // ✅ UserDTO 생성자 수정: backgroundImageUrl 추가 (빈 문자열로 초기화)
+        // ✅ UserDTO 생성: backgroundImageUrl 포함
         UserDTO dto = new UserDTO(
                 user.getDisplayName() != null ? user.getDisplayName() : "사용자",
                 user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : defaultProfileImageUrl,
