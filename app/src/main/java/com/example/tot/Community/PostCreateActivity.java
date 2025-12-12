@@ -402,6 +402,7 @@ public class PostCreateActivity extends AppCompatActivity {
 
     private void copyScheduleToPost(String uid, String scheduleId, String postId) {
         Log.d(TAG, "📋 일정 데이터 복사 시작: " + scheduleId);
+        Log.d(TAG, "🔍 [DEBUG] copyScheduleToPost 진입");
 
         CollectionReference sourceScheduleRef = db.collection("user")
                 .document(uid)
@@ -415,17 +416,24 @@ public class PostCreateActivity extends AppCompatActivity {
 
         sourceScheduleRef.get()
                 .addOnSuccessListener(querySnapshot -> {
+                    Log.d(TAG, "🔍 [DEBUG] scheduleDate 조회 성공");
+
                     if (querySnapshot.isEmpty()) {
                         Log.d(TAG, "⚠️ 복사할 일정 데이터가 없음");
+                        Log.d(TAG, "🔍 [DEBUG] 데이터 없음 - finish() 호출 시작");
                         // ✅ 게시글 생성 완료 후 커뮤니티 새로고침
                         refreshCommunityData();
                         Toast.makeText(this, "게시글이 등록되었습니다", Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, "🚪 [DEBUG] finish() 직전 (데이터 없음)");
                         finish();
+                        Log.d(TAG, "🚪 [DEBUG] finish() 호출 완료 (데이터 없음)");
                         return;
                     }
 
                     WriteBatch batch = db.batch();
                     int[] pendingCopies = {0};
+                    int totalDates = querySnapshot.size();
+                    Log.d(TAG, "🔍 [DEBUG] 처리할 날짜 수: " + totalDates);
 
                     for (DocumentSnapshot dateDoc : querySnapshot.getDocuments()) {
                         String dateKey = dateDoc.getId();
@@ -438,18 +446,33 @@ public class PostCreateActivity extends AppCompatActivity {
                         pendingCopies[0]++;
                         copyScheduleItems(uid, scheduleId, dateKey, postId, () -> {
                             pendingCopies[0]--;
+                            Log.d(TAG, "🔍 [DEBUG] 남은 작업: " + pendingCopies[0]);
                             if (pendingCopies[0] == 0) {
                                 Log.d(TAG, "✅ 모든 일정 복사 완료");
+                                Log.d(TAG, "🔍 [DEBUG] 모든 작업 완료 - finish() 호출 시작");
                                 // ✅ 게시글 생성 완료 후 커뮤니티 새로고침
                                 refreshCommunityData();
                                 Toast.makeText(this, "게시글이 등록되었습니다", Toast.LENGTH_SHORT).show();
-                                finish();
+                                Log.d(TAG, "🚪 [DEBUG] finish() 직전 (정상 완료)");
+
+                                // ✅ 혹시 모를 UI 스레드 문제를 위해 runOnUiThread 사용
+                                runOnUiThread(() -> {
+                                    Log.d(TAG, "🚪 [DEBUG] UI 스레드에서 finish() 호출");
+                                    if (!isFinishing() && !isDestroyed()) {
+                                        finish();
+                                        Log.d(TAG, "🚪 [DEBUG] finish() 호출 완료 (정상 완료)");
+                                    } else {
+                                        Log.w(TAG, "⚠️ Activity 이미 종료 상태: finishing=" +
+                                                isFinishing() + ", destroyed=" + isDestroyed());
+                                    }
+                                });
                             }
                         });
 
                         pendingCopies[0]++;
                         copyAlbumData(uid, scheduleId, dateKey, postId, () -> {
                             pendingCopies[0]--;
+                            Log.d(TAG, "🔍 [DEBUG] 남은 작업 (앨범 후): " + pendingCopies[0]);
                             if (pendingCopies[0] == 0) {
                                 Log.d(TAG, "✅ 모든 앨범 복사 완료");
                             }
@@ -457,15 +480,33 @@ public class PostCreateActivity extends AppCompatActivity {
                     }
 
                     batch.commit()
-                            .addOnSuccessListener(aVoid2 -> Log.d(TAG, "✅ scheduleDate 배치 저장 완료"))
-                            .addOnFailureListener(e -> Log.e(TAG, "❌ scheduleDate 저장 실패", e));
+                            .addOnSuccessListener(aVoid2 -> {
+                                Log.d(TAG, "✅ scheduleDate 배치 저장 완료");
+                                Log.d(TAG, "🔍 [DEBUG] Batch commit 성공");
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ scheduleDate 저장 실패", e);
+                                Log.e(TAG, "🔍 [DEBUG] Batch commit 실패: " + e.getMessage());
+                            });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ 일정 데이터 복사 실패", e);
+                    Log.e(TAG, "🔍 [DEBUG] scheduleDate 조회 실패: " + e.getMessage());
                     // ✅ 실패해도 게시글은 등록되었으므로 새로고침
                     refreshCommunityData();
                     Toast.makeText(this, "게시글이 등록되었습니다 (일정 복사 실패)", Toast.LENGTH_SHORT).show();
-                    finish();
+                    Log.d(TAG, "🚪 [DEBUG] finish() 직전 (실패 시)");
+
+                    runOnUiThread(() -> {
+                        Log.d(TAG, "🚪 [DEBUG] UI 스레드에서 finish() 호출 (실패)");
+                        if (!isFinishing() && !isDestroyed()) {
+                            finish();
+                            Log.d(TAG, "🚪 [DEBUG] finish() 호출 완료 (실패)");
+                        } else {
+                            Log.w(TAG, "⚠️ Activity 이미 종료 상태 (실패): finishing=" +
+                                    isFinishing() + ", destroyed=" + isDestroyed());
+                        }
+                    });
                 });
     }
 
@@ -473,11 +514,14 @@ public class PostCreateActivity extends AppCompatActivity {
      * ✅ 커뮤니티 데이터 새로고침
      */
     private void refreshCommunityData() {
+        Log.d(TAG, "🔍 [DEBUG] refreshCommunityData 호출");
         CommunityDataManager.getInstance().refresh();
         Log.d(TAG, "🔄 커뮤니티 데이터 새로고침 완료");
     }
 
     private void copyScheduleItems(String uid, String scheduleId, String dateKey, String postId, Runnable onComplete) {
+        Log.d(TAG, "🔍 [DEBUG] copyScheduleItems 시작: " + dateKey);
+
         CollectionReference sourceItems = db.collection("user")
                 .document(uid)
                 .collection("schedule")
@@ -494,7 +538,10 @@ public class PostCreateActivity extends AppCompatActivity {
 
         sourceItems.get()
                 .addOnSuccessListener(querySnapshot -> {
+                    Log.d(TAG, "🔍 [DEBUG] scheduleItem 조회 성공: " + dateKey + ", 개수: " + querySnapshot.size());
+
                     if (querySnapshot.isEmpty()) {
+                        Log.d(TAG, "🔍 [DEBUG] scheduleItem 없음: " + dateKey);
                         onComplete.run();
                         return;
                     }
@@ -510,20 +557,25 @@ public class PostCreateActivity extends AppCompatActivity {
                     batch.commit()
                             .addOnSuccessListener(aVoid -> {
                                 Log.d(TAG, "✅ scheduleItem 복사 완료: " + dateKey);
+                                Log.d(TAG, "🔍 [DEBUG] scheduleItem batch commit 성공: " + dateKey);
                                 onComplete.run();
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "❌ scheduleItem 복사 실패: " + dateKey, e);
+                                Log.e(TAG, "🔍 [DEBUG] scheduleItem batch commit 실패: " + dateKey + ", " + e.getMessage());
                                 onComplete.run();
                             });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ scheduleItem 로드 실패", e);
+                    Log.e(TAG, "🔍 [DEBUG] scheduleItem 조회 실패: " + dateKey + ", " + e.getMessage());
                     onComplete.run();
                 });
     }
 
     private void copyAlbumData(String uid, String scheduleId, String dateKey, String postId, Runnable onComplete) {
+        Log.d(TAG, "🔍 [DEBUG] copyAlbumData 시작: " + dateKey);
+
         CollectionReference sourceAlbum = db.collection("user")
                 .document(uid)
                 .collection("schedule")
@@ -540,7 +592,10 @@ public class PostCreateActivity extends AppCompatActivity {
 
         sourceAlbum.get()
                 .addOnSuccessListener(querySnapshot -> {
+                    Log.d(TAG, "🔍 [DEBUG] album 조회 성공: " + dateKey + ", 개수: " + querySnapshot.size());
+
                     if (querySnapshot.isEmpty()) {
+                        Log.d(TAG, "🔍 [DEBUG] album 없음: " + dateKey);
                         onComplete.run();
                         return;
                     }
@@ -556,15 +611,18 @@ public class PostCreateActivity extends AppCompatActivity {
                     batch.commit()
                             .addOnSuccessListener(aVoid -> {
                                 Log.d(TAG, "✅ album 복사 완료: " + dateKey);
+                                Log.d(TAG, "🔍 [DEBUG] album batch commit 성공: " + dateKey);
                                 onComplete.run();
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "❌ album 복사 실패", e);
+                                Log.e(TAG, "🔍 [DEBUG] album batch commit 실패: " + dateKey + ", " + e.getMessage());
                                 onComplete.run();
                             });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ album 로드 실패", e);
+                    Log.e(TAG, "🔍 [DEBUG] album 조회 실패: " + dateKey + ", " + e.getMessage());
                     onComplete.run();
                 });
     }

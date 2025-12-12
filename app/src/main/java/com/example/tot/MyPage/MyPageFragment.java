@@ -99,8 +99,8 @@ public class MyPageFragment extends Fragment {
     private String originalProfileImageUrl;
     private String originalBackgroundImageUrl;
 
-    private int followerCount = -1; // ✅ -1로 초기화 (데이터 로드 전)
-    private int followingCount = -1; // ✅ -1로 초기화 (데이터 로드 전)
+    private int followerCount = -1;
+    private int followingCount = -1;
 
     private ActivityResultLauncher<Intent> followActivityLauncher;
     private ActivityResultLauncher<String> profileImageLauncher;
@@ -151,11 +151,9 @@ public class MyPageFragment extends Fragment {
         setupRecyclerViews();
         updateTabSelection(true);
 
-        // ✅ 초기 UI 표시 ("-" 또는 빈 값)
         tvFollowersCount.setText("-");
         tvFollowingCount.setText("-");
 
-        // ✅ 실시간 리스너 등록 및 프로필 데이터 로드
         loadFollowCountsRealtime();
         loadProfileData();
 
@@ -175,13 +173,9 @@ public class MyPageFragment extends Fragment {
         super.onResume();
         Log.d(TAG, "📱 onResume: 화면 복귀");
 
-        // ✅ 타인 프로필인 경우 팔로우 상태만 재확인
         if (!isMyProfile) {
             loadFollowStatus();
         }
-
-        // ✅ 실시간 리스너가 이미 등록되어 있으므로 자동으로 업데이트됨
-        // refreshFollowCounts() 호출 제거 - 중복 방지
     }
 
     @Override
@@ -208,7 +202,6 @@ public class MyPageFragment extends Fragment {
         followActivityLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    // ✅ 팔로우 화면에서 복귀 시 - 실시간 리스너가 자동으로 처리
                     Log.d(TAG, "✅ 팔로우 화면에서 복귀 - 실시간 리스너가 자동 갱신 중");
                 }
         );
@@ -281,14 +274,20 @@ public class MyPageFragment extends Fragment {
         rvMySchedule.setLayoutManager(new GridLayoutManager(getContext(), 3));
         scheduleList = new ArrayList<>();
         scheduleAdapter = new MyPageScheduleAdapter(scheduleList, (schedule, position) -> {
-            if (schedule.getStartDate() != null && schedule.getEndDate() != null) {
-                Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
-                intent.putExtra("scheduleId", schedule.getScheduleId());
-                intent.putExtra("startDate", schedule.getStartDate().toDate().getTime());
-                intent.putExtra("endDate", schedule.getEndDate().toDate().getTime());
-                startActivity(intent);
+            // ✅ 본인 프로필인 경우에만 스케줄 편집 화면으로 이동
+            if (isMyProfile) {
+                if (schedule.getStartDate() != null && schedule.getEndDate() != null) {
+                    Intent intent = new Intent(getContext(), ScheduleSettingActivity.class);
+                    intent.putExtra("scheduleId", schedule.getScheduleId());
+                    intent.putExtra("startDate", schedule.getStartDate().toDate().getTime());
+                    intent.putExtra("endDate", schedule.getEndDate().toDate().getTime());
+                    startActivity(intent);
+                } else {
+                    Toast.makeText(getContext(), "스케줄 날짜 정보가 없습니다.", Toast.LENGTH_SHORT).show();
+                }
             } else {
-                Toast.makeText(getContext(), "스케줄 날짜 정보가 없습니다.", Toast.LENGTH_SHORT).show();
+                // ✅ 타인의 프로필인 경우 적절한 메시지 표시
+                Toast.makeText(getContext(), "다른 사용자의 스케줄은 볼 수 없습니다.", Toast.LENGTH_SHORT).show();
             }
         });
         rvMySchedule.setAdapter(scheduleAdapter);
@@ -352,9 +351,6 @@ public class MyPageFragment extends Fragment {
         }
     }
 
-    /**
-     * ✅ 실시간 팔로우 수 갱신 (addSnapshotListener 사용)
-     */
     private void loadFollowCountsRealtime() {
         if (targetUserId == null || targetUserId.isEmpty()) {
             Log.w(TAG, "⚠️ targetUserId가 없어 팔로우 카운트를 로드할 수 없습니다");
@@ -365,7 +361,6 @@ public class MyPageFragment extends Fragment {
 
         Log.d(TAG, "🔄 실시간 팔로우 카운트 리스너 등록: " + targetUserId);
 
-        // ✅ 팔로워 수 실시간 감지
         if (followerCountListener != null) {
             followerCountListener.remove();
         }
@@ -384,7 +379,6 @@ public class MyPageFragment extends Fragment {
                     }
                 });
 
-        // ✅ 팔로잉 수 실시간 감지
         if (followingCountListener != null) {
             followingCountListener.remove();
         }
@@ -427,6 +421,7 @@ public class MyPageFragment extends Fragment {
                     if (isMyProfile) setDefaultProfile();
                 });
     }
+
     private void displayUserProfile(@NonNull UserDTO user) {
         tvName.setText(user.getNickname() != null && !user.getNickname().isEmpty() ? user.getNickname() : "사용자");
         tvStatusMessage.setText(user.getComment() != null && !user.getComment().isEmpty() ? user.getComment() : "상태메시지");
@@ -468,7 +463,6 @@ public class MyPageFragment extends Fragment {
     }
 
     private void updateFollowCounts() {
-        // ✅ 데이터가 로드되기 전(-1)에는 UI 업데이트하지 않음
         if (followerCount >= 0) {
             tvFollowersCount.setText(String.valueOf(followerCount));
         }
@@ -607,7 +601,6 @@ public class MyPageFragment extends Fragment {
                         public void onSuccess(boolean nowFollowing) {
                             isFollowing = nowFollowing;
                             FollowButtonHelper.updateFollowButton(btnFollowButton, isFollowing, isFollower);
-                            // ✅ 실시간 리스너가 자동으로 카운트 갱신
                             Log.d(TAG, "✅ 팔로우 상태 변경 완료 - 실시간 리스너가 자동 갱신");
                         }
 
@@ -624,7 +617,6 @@ public class MyPageFragment extends Fragment {
                     Log.d(TAG, "🖼️ 프로필 이미지 선택 시작");
                     profileImageLauncher.launch("image/*");
                 } else {
-                    // ✅ 편집 모드가 아닐 때 프로필 사진 확대
                     String profileUrl = originalProfileImageUrl;
                     if (profileUrl != null && !profileUrl.isEmpty()) {
                         ArrayList<String> urls = new ArrayList<>();
@@ -635,7 +627,6 @@ public class MyPageFragment extends Fragment {
                     }
                 }
             } else {
-                // ✅ 타인의 프로필 사진도 확대 가능
                 String profileUrl = originalProfileImageUrl;
                 if (profileUrl != null && !profileUrl.isEmpty()) {
                     ArrayList<String> urls = new ArrayList<>();
@@ -653,7 +644,6 @@ public class MyPageFragment extends Fragment {
                     Log.d(TAG, "🖼️ 배경 이미지 선택 시작");
                     backgroundImageLauncher.launch("image/*");
                 } else {
-                    // ✅ 편집 모드가 아닐 때 배경 사진 확대
                     String backgroundUrl = originalBackgroundImageUrl;
                     if (backgroundUrl != null && !backgroundUrl.isEmpty()) {
                         ArrayList<String> urls = new ArrayList<>();
@@ -664,7 +654,6 @@ public class MyPageFragment extends Fragment {
                     }
                 }
             } else {
-                // ✅ 타인의 배경 사진도 확대 가능
                 String backgroundUrl = originalBackgroundImageUrl;
                 if (backgroundUrl != null && !backgroundUrl.isEmpty()) {
                     ArrayList<String> urls = new ArrayList<>();
